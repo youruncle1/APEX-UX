@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: apex
+      POSTGRES_PASSWORD: apex_dev_password
+      POSTGRES_DB: apex_ux
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apex"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://apex:apex_dev_password@postgres:5432/apex_ux
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./scripts:/app/scripts
+    command: tail -f /dev/null  # Keep container running
+
+volumes:
+  postgres_data:
