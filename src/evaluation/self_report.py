@@ -15,8 +15,8 @@ class SelfReportCollector:
     """Collect SEQ and SUS scores via agent self-assessment"""
     
     # Standard SUS items (10 questions)
-    # Items 1,3,5,7,9 are positive 
-    # Items 2,4,6,8,10 are negative 
+    # Items 1,3,5,7,9 are positive (higher = better)
+    # Items 2,4,6,8,10 are negative (higher = worse, need reverse scoring)
     SUS_ITEMS = [
         "I think that I would like to use this website frequently.",
         "I found the website unnecessarily complex.",
@@ -336,30 +336,52 @@ Be honest and consider your complete experience across all tasks. Rate based on:
             return None
     
     def _build_sus_user_prompt(self, task_summaries: list[dict]) -> str:
-        """Build user prompt for SUS collection"""
+        """Build user prompt for SUS collection with complete action history"""
         
         prompt_parts = []
         
-        # Task summaries
+        # Task summaries with COMPLETE action history
         prompt_parts.append("# YOUR EXPERIENCE")
-        prompt_parts.append(f"You completed {len(task_summaries)} tasks on this website:\n")
+        prompt_parts.append(f"You completed {len(task_summaries)} tasks on this website. Here's what happened:\n")
         
         for i, task in enumerate(task_summaries, 1):
             status_emoji = "✓" if task["status"] == "VERIFIED" else "✗"
+            
+            # Task header
             prompt_parts.append(
-                f"{i}. {status_emoji} {task['description']} "
-                f"({task['steps_taken']} steps, status: {task['status']})"
+                f"\n## Task {i}: {task['description']}"
             )
+            prompt_parts.append(
+                f"Status: {status_emoji} {task['status']} | "
+                f"Steps: {task['steps_taken']} | "
+                f"Ease: {task['seq_score']:.1f}/7" if task.get('seq_score') else 
+                f"Status: {status_emoji} {task['status']} | Steps: {task['steps_taken']}"
+            )
+            
+            # Complete action history for this task
+            if task.get('action_history'):
+                prompt_parts.append("\nActions you took:")
+                for j, action in enumerate(task['action_history'], 1):
+                    prompt_parts.append(
+                        f"  {j}. {action['action_type']}: {action['reasoning']}"
+                    )
+            
+            # Issues encountered
+            if task.get('outcome_mismatches'):
+                prompt_parts.append("\nIssues encountered:")
+                for mismatch in task['outcome_mismatches']:
+                    prompt_parts.append(f"  - {mismatch}")
         
         # SUS questionnaire
         prompt_parts.append("\n# SYSTEM USABILITY SCALE")
-        prompt_parts.append("Rate your agreement with each statement from 1 (strongly disagree) to 5 (strongly agree):\n")
+        prompt_parts.append("Now, reflecting on your COMPLETE experience across ALL tasks above, "
+                          "rate your agreement with each statement from 1 (strongly disagree) to 5 (strongly agree):\n")
         
         for i, item in enumerate(self.SUS_ITEMS, 1):
             prompt_parts.append(f"{i}. {item}")
         
         prompt_parts.append("\n# YOUR RATINGS")
-        prompt_parts.append("Provide your rating (1-5) for each statement and a brief overall impression of your experience.")
+        prompt_parts.append("Based on the detailed experience you just reviewed, provide your rating (1-5) for each statement and a brief overall impression.")
         
         return "\n".join(prompt_parts)
     

@@ -173,28 +173,39 @@ class EvaluationRunner:
                         raise
                     # Continue with next task if policy allows
             
-            # SUS COLLECTION
+            # PHASE 3: SUS COLLECTION  
             print(f"\n[Runner] Collecting SUS for clone {clone.clone_id}...")
             
-            # Gather task summaries for SUS prompt
+            # Collect task data for SUS prompt
             await session.refresh(clone, ["task_runs"])
             task_summaries = []
             
             for task_run in clone.task_runs:
-                await session.refresh(task_run, ["task_definition", "metrics"])
+                await session.refresh(task_run, ["task_definition", "metrics", "actions"])
+                
+                # Collect action history for this task from databasse
+                full_action_history = [
+                    {
+                        "action_type": action.action_type,
+                        "reasoning": action.reasoning or ""
+                    }
+                    for action in sorted(task_run.actions, key=lambda a: a.step_number)
+                ]
                 
                 task_summaries.append({
                     "description": task_run.task_definition.description,
                     "status": task_run.status.value,
                     "steps_taken": task_run.metrics.steps_taken if task_run.metrics else 0,
-                    "seq_score": task_run.metrics.seq_score if task_run.metrics else None
+                    "seq_score": task_run.metrics.seq_score if task_run.metrics else None,
+                    "action_history": full_action_history,  # COMPLETE history
+                    "outcome_mismatches": task_run.final_outcome_mismatches or []
                 })
             
             # Collect SUS score
             try:
                 sus_result = await self.self_report_collector.collect_sus(
                     persona_context=persona_context,
-                    task_summaries=task_summaries
+                    task_summaries=task_summaries  
                 )
                 
                 if sus_result:
@@ -304,15 +315,32 @@ class EvaluationRunner:
             # Collect SEQ score
             seq_result = None
             try:
+                # Collect full action history from action_records
+                full_action_history = [
+                    {
+                        "action_type": action["action_type"],
+                        "reasoning": action.get("reasoning", "")
+                    }
+                    for action in action_records
+                ]
+                
+                # Build complete memory state for SEQ
+                complete_memory_state = {
+                    "action_history": full_action_history,  # ALL actions, not compressed
+                    "action_summary": None,  # No summary needed with full history
+                    "outcome_mismatches": memory_state.get("outcome_mismatches", [])
+                }
+                
                 seq_result = await self.self_report_collector.collect_seq(
                     task_description=task_def.description,
-                    memory_state=memory_state,
+                    memory_state=complete_memory_state,  # Use complete history
                     persona_context=persona_context
                 )
             except Exception as e:
                 print(f"[Runner] SEQ collection failed (non-fatal): {e}")
+                # Continue - task is still complete even without SEQ
             
-            # Create and save TaskRunMetrics
+            # Create TaskRunMetrics
             metrics = TaskRunMetrics(
                 task_run_id=task_run.id,
                 steps_taken=basic_metrics["steps_taken"],
