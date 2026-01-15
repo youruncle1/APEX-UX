@@ -17,7 +17,7 @@ class TwoAgentController:
     
     def __init__(
         self,
-        persona_context: str,  # Persona passed at initialization
+        persona_context: str,
         grounder: GroundingAgent,
         browser: BrowserConnector,
         compression_threshold: int = 5

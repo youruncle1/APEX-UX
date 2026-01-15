@@ -1,16 +1,37 @@
 import asyncio
 import sys
 import os
+import argparse
 
-# Add parent directory to path so we can import src
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from database.connection import init_db
+from database.connection import init_db, drop_db
 
-async def main():
-    print("Creating database tables...")
+
+async def main(auto_yes: bool):
+    if not auto_yes:
+        print("⚠️  WARNING: This will DELETE ALL DATA in the database.")
+        confirm = input("Are you sure you want to continue? (y/n): ").strip().lower()
+
+        if confirm not in ("y", "yes"):
+            print("Aborted. Database was not modified.")
+            return
+
+    print("Dropping all database tables...")
+    await drop_db()
+
+    print("Initializing database tables...")
     await init_db()
-    print("Database initialized successfully!")
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description="Reset and initialize the database")
+    parser.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="Automatically confirm database reset (no prompt)",
+    )
+    args = parser.parse_args()
+
+    asyncio.run(main(auto_yes=args.yes))
