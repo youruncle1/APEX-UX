@@ -136,7 +136,7 @@ class EvaluationRunner:
         clone: EvaluationClone
     ):
         """
-        Run all tasks for a single clone.
+        Run all tasks for a single clone, then collect SUS score.
         """
 
         print(f"\n[Runner] Running clone: {clone.clone_id}")
@@ -165,16 +165,50 @@ class EvaluationRunner:
                         task_def=task_def,
                         clone=clone,
                         controller=controller,
-                        persona_context=persona_context 
+                        persona_context=persona_context  # Pass for SEQ collection
                     )
                 except Exception as e:
                     print(f"[Runner] Task '{task_def.description[:50]}...' failed: {e}")
                     if self.error_policy == "fail_fast":
                         raise
                     # Continue with next task if policy allows
+            
+            # SUS COLLECTION
+            print(f"\n[Runner] Collecting SUS for clone {clone.clone_id}...")
+            
+            # Gather task summaries for SUS prompt
+            await session.refresh(clone, ["task_runs"])
+            task_summaries = []
+            
+            for task_run in clone.task_runs:
+                await session.refresh(task_run, ["task_definition", "metrics"])
+                
+                task_summaries.append({
+                    "description": task_run.task_definition.description,
+                    "status": task_run.status.value,
+                    "steps_taken": task_run.metrics.steps_taken if task_run.metrics else 0,
+                    "seq_score": task_run.metrics.seq_score if task_run.metrics else None
+                })
+            
+            # Collect SUS score
+            try:
+                sus_result = await self.self_report_collector.collect_sus(
+                    persona_context=persona_context,
+                    task_summaries=task_summaries
+                )
+                
+                if sus_result:
+                    clone.sus_score = sus_result["sus_score"]
+                    await session.commit()
+                    print(f"[Runner] SUS score saved: {sus_result['sus_score']:.1f}/100")
+                else:
+                    print("[Runner] SUS collection returned None (non-fatal)")
+                    
+            except Exception as e:
+                print(f"[Runner] SUS collection failed (non-fatal): {e}")
 
         finally:
-            # Always clean up browser resources
+            # clean up browser resources
             await browser.close()
     
     async def _run_task(

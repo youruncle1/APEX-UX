@@ -14,6 +14,22 @@ from openai import AsyncOpenAI
 class SelfReportCollector:
     """Collect SEQ and SUS scores via agent self-assessment"""
     
+    # Standard SUS items (10 questions)
+    # Items 1,3,5,7,9 are positive 
+    # Items 2,4,6,8,10 are negative 
+    SUS_ITEMS = [
+        "I think that I would like to use this website frequently.",
+        "I found the website unnecessarily complex.",
+        "I thought the website was easy to use.",
+        "I think that I would need the support of a technical person to be able to use this website.",
+        "I found the various functions in this website were well integrated.",
+        "I thought there was too much inconsistency in this website.",
+        "I would imagine that most people would learn to use this website very quickly.",
+        "I found the website very cumbersome to use.",
+        "I felt very confident using the website.",
+        "I needed to learn a lot of things before I could get going with this website."
+    ]
+    
     # JSON Schema for SEQ response
     SEQ_SCHEMA = {
         "type": "object",
@@ -30,6 +46,44 @@ class SelfReportCollector:
             }
         },
         "required": ["rating", "reasoning"],
+        "additionalProperties": False
+    }
+    
+    # JSON Schema for SUS response
+    SUS_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "responses": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "item_number": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 10,
+                            "description": "SUS item number (1-10)"
+                        },
+                        "rating": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5,
+                            "description": "Agreement rating from 1 (strongly disagree) to 5 (strongly agree)"
+                        }
+                    },
+                    "required": ["item_number", "rating"],
+                    "additionalProperties": False
+                },
+                "minItems": 10,
+                "maxItems": 10,
+                "description": "Ratings for all 10 SUS items"
+            },
+            "overall_impression": {
+                "type": "string",
+                "description": "Brief summary of your overall experience with the website"
+            }
+        },
+        "required": ["responses", "overall_impression"],
         "additionalProperties": False
     }
     
@@ -190,3 +244,145 @@ Be honest and specific in your assessment."""
         prompt_parts.append("\n# YOUR ASSESSMENT\nBased on your experience completing this task, how easy or difficult was it? Rate from 1 (very difficult) to 7 (very easy) and explain your reasoning.")
         
         return "\n".join(prompt_parts)
+    
+    async def collect_sus(
+        self,
+        persona_context: str,
+        task_summaries: list[dict]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Collect System Usability Scale (SUS) score.
+        
+        Administers the standard 10-item SUS questionnaire after completing
+        all tasks for a website evaluation.
+        
+        Args:
+            persona_context: The persona the agent embodied
+            task_summaries: List of dicts with:
+                - description: str (task description)
+                - status: str (VERIFIED/FAILED/TIMEOUT)
+                - steps_taken: int
+                - seq_score: float (if available)
+        
+        Returns:
+            Dict with:
+                - sus_score: float (0-100, standard SUS score)
+                - responses: list[dict] (individual item ratings)
+                - overall_impression: str (agent's summary)
+            Or None if collection fails
+        """
+        
+        # Build system prompt with persona
+        system_prompt = f"""You are reflecting on your overall experience using a website.
+
+# YOUR PERSONA
+{persona_context}
+
+You embodied this persona while completing multiple tasks on the website. Now you will evaluate the overall system usability.
+
+# SYSTEM USABILITY SCALE (SUS)
+You will rate 10 statements about the website on a scale from 1 to 5:
+- 1 = Strongly Disagree
+- 2 = Disagree
+- 3 = Neutral
+- 4 = Agree
+- 5 = Strongly Agree
+
+Be honest and consider your complete experience across all tasks. Rate based on:
+- How easy or difficult the website was to use
+- Whether the interface was consistent and well-designed
+- Your confidence level while using the website
+- How much learning would be required for this persona
+- The overall quality of the user experience"""
+
+        # Build user prompt with task summaries and SUS items
+        user_prompt = self._build_sus_user_prompt(task_summaries)
+        
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "sus_response",
+                        "strict": True,
+                        "schema": self.SUS_SCHEMA
+                    }
+                },
+                temperature=self.temperature
+            )
+            
+            content = response.choices[0].message.content
+            result = json.loads(content)
+            
+            # Calculate SUS score using standard formula
+            sus_score = self._calculate_sus_score(result["responses"])
+            
+            print(f"[SUS] Score: {sus_score:.1f}/100")
+            print(f"[SUS] Impression: {result['overall_impression'][:100]}...")
+            
+            return {
+                "sus_score": sus_score,
+                "responses": result["responses"],
+                "overall_impression": result["overall_impression"]
+            }
+        
+        except Exception as e:
+            print(f"[SUS] Collection failed: {e}")
+            return None
+    
+    def _build_sus_user_prompt(self, task_summaries: list[dict]) -> str:
+        """Build user prompt for SUS collection"""
+        
+        prompt_parts = []
+        
+        # Task summaries
+        prompt_parts.append("# YOUR EXPERIENCE")
+        prompt_parts.append(f"You completed {len(task_summaries)} tasks on this website:\n")
+        
+        for i, task in enumerate(task_summaries, 1):
+            status_emoji = "✓" if task["status"] == "VERIFIED" else "✗"
+            prompt_parts.append(
+                f"{i}. {status_emoji} {task['description']} "
+                f"({task['steps_taken']} steps, status: {task['status']})"
+            )
+        
+        # SUS questionnaire
+        prompt_parts.append("\n# SYSTEM USABILITY SCALE")
+        prompt_parts.append("Rate your agreement with each statement from 1 (strongly disagree) to 5 (strongly agree):\n")
+        
+        for i, item in enumerate(self.SUS_ITEMS, 1):
+            prompt_parts.append(f"{i}. {item}")
+        
+        prompt_parts.append("\n# YOUR RATINGS")
+        prompt_parts.append("Provide your rating (1-5) for each statement and a brief overall impression of your experience.")
+        
+        return "\n".join(prompt_parts)
+    
+    def _calculate_sus_score(self, responses: list[dict]) -> float:
+        """
+        Calculate SUS score using standard formula.
+        
+        For odd-numbered items (1,3,5,7,9): contribution = (rating - 1)
+        For even-numbered items (2,4,6,8,10): contribution = (5 - rating)
+        SUS score = sum of contributions * 2.5
+        
+        Result is a score from 0-100.
+        """
+        
+        total = 0
+        for response in responses:
+            item_num = response["item_number"]
+            rating = response["rating"]
+            
+            if item_num % 2 == 1:  # Odd items (positive statements)
+                total += (rating - 1)
+            else:  # Even items (negative statements, reverse scored)
+                total += (5 - rating)
+        
+        sus_score = total * 2.5
+        return round(sus_score, 1)
