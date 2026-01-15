@@ -13,9 +13,6 @@ from .memory import MemoryManager
 class TwoAgentController:
     """
     Orchestrates the planner-grounder-browser loop for task execution.
-    
-    Now includes screenshot storage management - screenshots are saved
-    immediately after capture and only the URL is kept in memory.
     """
     
     def __init__(
@@ -36,8 +33,8 @@ class TwoAgentController:
         task_description: str,
         persona_context: str,
         start_url: str,
-        evaluation_id: UUID,  # NEW: needed for storage path
-        task_run_id: UUID,    # NEW: needed for storage path
+        evaluation_id: UUID, 
+        task_run_id: UUID,   
         max_steps: int = 50,
         verification_rules: Optional[dict] = None
     ) -> dict:
@@ -69,7 +66,7 @@ class TwoAgentController:
             # Capture screenshot (base64 PNG)
             screenshot_base64 = await self.browser.screenshot()
             
-            # Save screenshot to storage immediately and get URL
+            # Save screenshot to storage and get URL
             screenshot_url = await self.screenshot_storage.save(
                 evaluation_id=str(evaluation_id),
                 task_run_id=str(task_run_id),
@@ -78,14 +75,13 @@ class TwoAgentController:
             )
             print(f"[Controller] Screenshot saved: {screenshot_url}")
             
-            # Plan next action (with retry on parse failure)
-            # NOTE: screenshot_base64 is only used here, then discarded
+            # Plan next action
             planner_action = None
             for retry in range(3):  # Max 3 retries for invalid output
                 planner_action = await self.planner.plan(
                     task_description=task_description,
                     persona_context=persona_context,
-                    screenshot_base64=screenshot_base64,  # Used only for planning
+                    screenshot_base64=screenshot_base64,  
                     action_history=memory.action_history,
                     action_summary=memory.action_summary,
                     outcome_mismatches=memory.outcome_mismatches

@@ -1,10 +1,3 @@
-"""
-Local filesystem storage implementation.
-
-Stores screenshots in ./storage/screenshots relative to project directory.
-Screenshots are converted to WebP format for space efficiency.
-"""
-
 import base64
 import os
 from pathlib import Path
@@ -19,13 +12,10 @@ class LocalStorage(ScreenshotStorage):
     def __init__(self, base_path: str = "storage/screenshots"):
         """
         Initialize local storage.
-        
-        Args:
-            base_path: Base directory for screenshots (default: storage/screenshots, relative to project)
         """
         # If path is relative, make it relative to project root
         if not os.path.isabs(base_path):
-            # Get project root (assuming this file is in src/storage/)
+            # Get project root 
             project_root = Path(__file__).parent.parent.parent
             self.base_path = project_root / base_path
         else:
@@ -79,12 +69,6 @@ class LocalStorage(ScreenshotStorage):
     async def get(self, url_or_path: str) -> str:
         """
         Retrieve screenshot as base64 PNG.
-        
-        Args:
-            url_or_path: Path like "local://evaluation_id/task_run_id/step_001.webp"
-            
-        Returns:
-            Base64-encoded PNG screenshot
         """
         
         # Parse path
@@ -111,8 +95,6 @@ class LocalStorage(ScreenshotStorage):
     async def delete_evaluation(self, evaluation_id: str) -> None:
         """
         Delete all screenshots for an evaluation.
-        
-        Removes the entire evaluation directory.
         """
         
         eval_dir = self.base_path / evaluation_id
@@ -122,7 +104,9 @@ class LocalStorage(ScreenshotStorage):
             shutil.rmtree(eval_dir)
     
     async def get_storage_info(self) -> dict:
-        """Get storage backend information"""
+        """
+        Get storage backend information
+        """
         
         # Calculate total size
         total_size = sum(
