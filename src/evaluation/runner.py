@@ -7,12 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database.connection import AsyncSessionLocal
 from src.database.models import (
     Evaluation, EvaluationStatus, EvaluationClone,
-    TaskDefinition, TaskRun, TaskRunStatus,
+    TaskDefinition, TaskRun, TaskRunStatus, TaskRunMetrics,
     ActionRecord
 )
 from src.agents.grounder import GroundingAgent
 from src.browser_connector.connector import BrowserConnector
 from src.controller.controller import TwoAgentController
+from src.evaluation.metrics import MetricsCalculator
+from src.evaluation.self_report import SelfReportCollector
 
 
 # Placeholder persona
@@ -30,12 +32,12 @@ class EvaluationRunner:
     - Load evaluation configuration from database
     - Initialize and manage evaluation session lifecycle
     - Coordinate execution across clones and tasks
+    - Calculate metrics and collect SEQ scores
     - Manage database transactions for storing results
     - Handle error policies during execution
 
     Does NOT handle:
-    - Metric calculations (future EvaluationModule)
-    - Verification logic (Controller responsibility)
+    - SUS collection (future - after all tasks per clone)
     - Report generation (future EvaluationModule)
     - Screenshot storage (Controller responsibility)
     """
@@ -53,6 +55,8 @@ class EvaluationRunner:
                 - "continue_on_error": Continue with remaining tasks if one fails
         """
         self.error_policy = error_policy
+        self.metrics_calculator = MetricsCalculator()
+        self.self_report_collector = SelfReportCollector()
     
     async def run(self, evaluation_id: UUID):
         """
@@ -66,7 +70,9 @@ class EvaluationRunner:
             - For each task:
                 - Create TaskRun in DB
                 - Execute task via Controller
-                - Save action records to DB
+                - Calculate basic metrics
+                - Collect SEQ score
+                - Save action records + metrics to DB
             - Clean up browser resources
         3. Mark evaluation as completed or aborted
 
@@ -158,7 +164,8 @@ class EvaluationRunner:
                         evaluation_id=evaluation.id,
                         task_def=task_def,
                         clone=clone,
-                        controller=controller
+                        controller=controller,
+                        persona_context=persona_context 
                     )
                 except Exception as e:
                     print(f"[Runner] Task '{task_def.description[:50]}...' failed: {e}")
@@ -176,13 +183,14 @@ class EvaluationRunner:
         evaluation_id: UUID,
         task_def: TaskDefinition,
         clone: EvaluationClone,
-        controller: TwoAgentController
+        controller: TwoAgentController,
+        persona_context: str
     ):
         """
         Run a single task for a clone.
 
         Creates TaskRun record, executes via controller,
-        and saves all action records to database.
+        calculates metrics, collects SEQ score, and saves everything to database.
 
         Args:
             session: Database session
@@ -190,6 +198,7 @@ class EvaluationRunner:
             task_def: Task definition to execute
             clone: Clone executing the task
             controller: Controller instance (already has persona context)
+            persona_context: Persona description (for SEQ collection)
 
         Raises:
             Exception: Any error during task execution
@@ -205,7 +214,7 @@ class EvaluationRunner:
             started_at=datetime.utcnow()
         )
         session.add(task_run)
-        await session.commit()
+        await session.flush()  # Get task_run.id but don't commit yet
         await session.refresh(task_run)
 
         try:
@@ -231,14 +240,60 @@ class EvaluationRunner:
             if "failure_reason" in result:
                 task_run.failure_reason = result["failure_reason"]
 
+            # Save verification results if present
+            if "verification_result" in result:
+                from src.database.models import VerificationResult
+                task_run.verification_result = VerificationResult(
+                    result["verification_result"]["status"]
+                )
+                task_run.verification_evidence = result["verification_result"].get("evidence")
+
             # Save memory state
             memory_state = result.get("memory_state", {})
             task_run.final_action_history = memory_state.get("action_history")
             task_run.final_action_summary = memory_state.get("action_summary")
             task_run.final_outcome_mismatches = memory_state.get("outcome_mismatches")
 
+            # METRICS CALCULATION
+            # Calculate basic metrics
+            action_records = result.get("action_records", [])
+            basic_metrics = self.metrics_calculator.calculate_basic_metrics(
+                result=result,
+                action_records=action_records
+            )
+            
+            print(f"[Runner] Basic metrics: steps={basic_metrics['steps_taken']}, "
+                  f"failed={basic_metrics['failed_action_count']}, "
+                  f"mismatches={basic_metrics['outcome_mismatch_count']}, "
+                  f"backtrack={basic_metrics['backtracking_count']}")
+            
+            # Collect SEQ score
+            seq_result = None
+            try:
+                seq_result = await self.self_report_collector.collect_seq(
+                    task_description=task_def.description,
+                    memory_state=memory_state,
+                    persona_context=persona_context
+                )
+            except Exception as e:
+                print(f"[Runner] SEQ collection failed (non-fatal): {e}")
+            
+            # Create and save TaskRunMetrics
+            metrics = TaskRunMetrics(
+                task_run_id=task_run.id,
+                steps_taken=basic_metrics["steps_taken"],
+                failed_action_count=basic_metrics["failed_action_count"],
+                outcome_mismatch_count=basic_metrics["outcome_mismatch_count"],
+                backtracking_count=basic_metrics["backtracking_count"],
+                seq_score=seq_result["rating"] if seq_result else None
+            )
+            session.add(metrics)
+            
+            if seq_result:
+                print(f"[Runner] SEQ: {seq_result['rating']}/7 - {seq_result['reasoning'][:60]}...")
+
             # Save action records
-            for action_data in result.get("action_records", []):
+            for action_data in action_records:
                 action_record = ActionRecord(
                     task_run_id=task_run.id,
                     step_number=action_data["step_number"],
@@ -255,6 +310,7 @@ class EvaluationRunner:
                 )
                 session.add(action_record)
 
+            # Commit everything
             await session.commit()
 
             print(f"[Runner] Task completed: {task_run.status.value}")
@@ -263,7 +319,7 @@ class EvaluationRunner:
             print(f"[Runner] Task execution failed: {e}")
             task_run.status = TaskRunStatus.ABORTED
             task_run.failure_reason = str(e)
-            task_run.finished_at = datetime.now()
+            task_run.finished_at = datetime.utcnow()
             await session.commit()
             raise
     
@@ -274,13 +330,6 @@ class EvaluationRunner:
     ) -> Optional[Evaluation]:
         """
         Load evaluation with all relationships from database.
-
-        Args:
-            session: Database session
-            evaluation_id: UUID of evaluation to load
-
-        Returns:
-            Evaluation object with clones and tasks loaded, or None if not found
         """
 
         result = await session.execute(
@@ -290,7 +339,6 @@ class EvaluationRunner:
         evaluation = result.scalar_one_or_none()
 
         if evaluation:
-            # Explicitly load relationships
             await session.refresh(evaluation, ["clones", "tasks"])
 
         return evaluation
