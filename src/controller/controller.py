@@ -7,11 +7,15 @@ from src.agents.planner import PlannerAgent
 from src.agents.grounder import GroundingAgent
 from src.browser_connector.connector import BrowserConnector
 from src.browser_connector.actions import Action, ActionType
+from src.storage import create_screenshot_storage
 from .memory import MemoryManager
 
 class TwoAgentController:
     """
     Orchestrates the planner-grounder-browser loop for task execution.
+    
+    Now includes screenshot storage management - screenshots are saved
+    immediately after capture and only the URL is kept in memory.
     """
     
     def __init__(
@@ -25,12 +29,15 @@ class TwoAgentController:
         self.grounder = grounder
         self.browser = browser
         self.max_recent_actions = max_recent_actions
+        self.screenshot_storage = create_screenshot_storage()
     
     async def execute_task(
         self,
         task_description: str,
         persona_context: str,
         start_url: str,
+        evaluation_id: UUID,  # NEW: needed for storage path
+        task_run_id: UUID,    # NEW: needed for storage path
         max_steps: int = 50,
         verification_rules: Optional[dict] = None
     ) -> dict:
@@ -59,16 +66,26 @@ class TwoAgentController:
         for step in range(1, max_steps + 1):
             print(f"\n[Controller] Step {step}/{max_steps}")
             
-            # Get screenshot
-            screenshot = await self.browser.screenshot()
+            # Capture screenshot (base64 PNG)
+            screenshot_base64 = await self.browser.screenshot()
+            
+            # Save screenshot to storage immediately and get URL
+            screenshot_url = await self.screenshot_storage.save(
+                evaluation_id=str(evaluation_id),
+                task_run_id=str(task_run_id),
+                step=step,
+                screenshot_base64=screenshot_base64
+            )
+            print(f"[Controller] Screenshot saved: {screenshot_url}")
             
             # Plan next action (with retry on parse failure)
+            # NOTE: screenshot_base64 is only used here, then discarded
             planner_action = None
             for retry in range(3):  # Max 3 retries for invalid output
                 planner_action = await self.planner.plan(
                     task_description=task_description,
                     persona_context=persona_context,
-                    screenshot_base64=screenshot,
+                    screenshot_base64=screenshot_base64,  # Used only for planning
                     action_history=memory.action_history,
                     action_summary=memory.action_summary,
                     outcome_mismatches=memory.outcome_mismatches
@@ -119,7 +136,7 @@ class TwoAgentController:
                         "memory_state": memory.get_state()
                     }
             
-            # Ground if needed
+            # Ground if needed (also uses screenshot_base64 for this step)
             coordinates = None
             bounding_box = None
             
@@ -129,7 +146,7 @@ class TwoAgentController:
                     # Continue anyway, will likely fail in execution
                 
                 bbox = await self.grounder.ground(
-                    screenshot_base64=screenshot,
+                    screenshot_base64=screenshot_base64,  # Used only for grounding
                     target_description=planner_action.target_description or ""
                 )
                 
@@ -150,10 +167,13 @@ class TwoAgentController:
                         "execution_success": False,
                         "execution_feedback": "Grounding failed",
                         "timestamp": datetime.utcnow().isoformat(),
-                        "screenshot": screenshot
+                        "screenshot": screenshot_url  # Store URL, not base64!
                     })
                     
                     continue  # Skip to next step
+            
+            # After this point, screenshot_base64 goes out of scope and is garbage collected
+            # We only keep screenshot_url in the action record
             
             # Build browser action
             browser_action = self._build_browser_action(planner_action, coordinates)
@@ -162,7 +182,7 @@ class TwoAgentController:
             result = await self.browser.execute_action(browser_action)
             print(f"[Controller] Execution: {result.feedback}")
             
-            # Record action
+            # Record action (only store URL, not base64!)
             action_record = {
                 "step_number": step,
                 "action_type": planner_action.action_type,
@@ -174,7 +194,7 @@ class TwoAgentController:
                 "execution_success": result.success,
                 "execution_feedback": result.feedback,
                 "timestamp": datetime.utcnow().isoformat(),
-                "screenshot": screenshot
+                "screenshot": screenshot_url  # URL only!
             }
             action_records.append(action_record)
             

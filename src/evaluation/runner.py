@@ -39,6 +39,7 @@ class EvaluationRunner:
     - Metric calculations (future EvaluationModule)
     - Verification logic (Controller responsibility)
     - Report generation (future EvaluationModule)
+    - Screenshot storage (Controller responsibility)
     """
 
     def __init__(
@@ -66,8 +67,8 @@ class EvaluationRunner:
             - Initialize controller with agents and browser
             - For each task:
                 - Create TaskRun in DB
-                - Execute task via Controller
-                - Save action records to DB
+                - Execute task via Controller (which handles screenshot storage)
+                - Save action records to DB (with screenshot URLs)
             - Clean up browser resources
         3. Mark evaluation as completed or aborted
 
@@ -165,7 +166,7 @@ class EvaluationRunner:
             # Run each task
             for task_def in evaluation.tasks:
                 try:
-                    await self._run_task(session, task_def, clone, controller, persona_context)
+                    await self._run_task(session, evaluation.id, task_def, clone, controller, persona_context)
                 except Exception as e:
                     print(f"[Runner] Task '{task_def.description[:50]}...' failed: {e}")
                     if self.error_policy == "fail_fast":
@@ -179,6 +180,7 @@ class EvaluationRunner:
     async def _run_task(
         self,
         session: AsyncSession,
+        evaluation_id: UUID,
         task_def: TaskDefinition,
         clone: EvaluationClone,
         controller: TwoAgentController,
@@ -188,10 +190,11 @@ class EvaluationRunner:
         Run a single task for a clone.
 
         Creates a TaskRun record, executes the task via controller,
-        and saves all action records and memory state to the database.
+        and saves all action records (with screenshot URLs) to the database.
 
         Args:
             session: Database session
+            evaluation_id: Evaluation UUID (for screenshot storage path)
             task_def: Task definition to execute
             clone: Clone executing the task
             controller: Controller to use for execution
@@ -219,10 +222,13 @@ class EvaluationRunner:
             start_url = task_def.base_url_override or task_def.evaluation.base_url
 
             # Execute task via controller
+            # Pass evaluation_id and task_run_id for screenshot storage
             result = await controller.execute_task(
                 task_description=task_def.description,
                 persona_context=persona_context,
                 start_url=start_url,
+                evaluation_id=evaluation_id,  
+                task_run_id=task_run.id,      
                 max_steps=task_def.max_steps,
                 verification_rules=task_def.verification_rules
             )
@@ -242,7 +248,7 @@ class EvaluationRunner:
             task_run.final_action_summary = memory_state.get("action_summary")
             task_run.final_outcome_mismatches = memory_state.get("outcome_mismatches")
 
-            # Save action records
+            # Save action records (screenshot field now contains URL, not base64!)
             for action_data in result.get("action_records", []):
                 action_record = ActionRecord(
                     task_run_id=task_run.id,
@@ -256,7 +262,7 @@ class EvaluationRunner:
                     execution_success=action_data["execution_success"],
                     execution_feedback=action_data.get("execution_feedback"),
                     timestamp=datetime.fromisoformat(action_data["timestamp"]),
-                    screenshot=action_data.get("screenshot")
+                    screenshot=action_data.get("screenshot")  # URL from storage!
                 )
                 session.add(action_record)
 

@@ -10,24 +10,24 @@ class Base(DeclarativeBase):
     pass
 
 class EvaluationStatus(str, enum.Enum):
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    ABORTED = "aborted"
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    ABORTED = "ABORTED"
 
 class TaskRunStatus(str, enum.Enum):
-    PENDING = "pending"
-    RUNNING = "running"
-    VERIFIED = "verified"
-    FAILED = "failed"
-    TIMEOUT = "timeout"
-    ABORTED = "aborted"
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    VERIFIED = "VERIFIED"
+    FAILED = "FAILED"
+    TIMEOUT = "TIMEOUT"
+    ABORTED = "ABORTED"
 
 class VerificationResult(str, enum.Enum):
-    PASS = "pass"
-    FAIL = "fail"
-    SKIPPED = "skipped"
-    UNKNOWN = "unknown"
+    PASS = "PASS"
+    FAIL = "FAIL"
+    SKIPPED = "SKIPPED"
+    UNKNOWN = "UNKNOWN"
 
 class Evaluation(Base):
     __tablename__ = "evaluations"
@@ -88,7 +88,7 @@ class TaskRun(Base):
     
     # Memory snapshots (JSON)
     final_action_history = Column(JSON, nullable=True)
-    final_action_summary = Column(JSON, nullable=True)
+    final_action_summary = Column(Text, nullable=True)
     final_outcome_mismatches = Column(JSON, nullable=True)
     
     # Relationships
@@ -129,7 +129,7 @@ class ActionRecord(Base):
     execution_success = Column(Boolean, default=False)
     execution_feedback = Column(Text, nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
-    screenshot = Column(Text, nullable=True)  # PATH!!! Dont forget
+    screenshot = Column(String(500), nullable=True)  # URL/path to screenshot (NOT base64!)
     
     # Relationships
     task_run = relationship("TaskRun", back_populates="actions")

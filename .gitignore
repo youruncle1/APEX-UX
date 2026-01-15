@@ -5,3 +5,5 @@ grounding-service-SERVER/test_service.py
 TODO.md
 setup.py
 tests
+storage/screenshots/*
+!storage/screenshots/.gitkeep
