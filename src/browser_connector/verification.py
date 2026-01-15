@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 from enum import Enum
 import re
 
@@ -21,17 +21,7 @@ class Verifier:
         self.rules = rules
     
     async def verify(self, current_url: str, page_text: str) -> VerificationResult:
-        """
-        Verify task completion based on rules.
-        Rules format from TaskDefinition:
-        {
-            "type": "any_of",
-            "conditions": [
-                {"type": "url_contains", "value": "/cart"},
-                {"type": "text_any", "texts": ["Added to cart", "Cart (1)"]}
-            ]
-        }
-        """
+        """Verify task completion based on rules"""
         if not self.rules:
             return VerificationResult(status=VerificationStatus.SKIPPED)
         
@@ -49,18 +39,6 @@ class Verifier:
                 evidence=f"URL does not contain '{value}': {current_url}"
             )
         
-        elif rule_type == "url_matches":
-            pattern = self.rules.get("pattern")
-            if re.search(pattern, current_url):
-                return VerificationResult(
-                    status=VerificationStatus.PASS,
-                    evidence=f"URL matches pattern '{pattern}': {current_url}"
-                )
-            return VerificationResult(
-                status=VerificationStatus.FAIL,
-                evidence=f"URL does not match pattern '{pattern}': {current_url}"
-            )
-        
         elif rule_type == "text_any":
             texts = self.rules.get("texts", [])
             for text in texts:
@@ -74,30 +52,6 @@ class Verifier:
                 evidence=f"None of the expected texts found: {texts}"
             )
         
-        elif rule_type == "text_contains":
-            value = self.rules.get("value")
-            if value.lower() in page_text.lower():
-                return VerificationResult(
-                    status=VerificationStatus.PASS,
-                    evidence=f"Page contains text: '{value}'"
-                )
-            return VerificationResult(
-                status=VerificationStatus.FAIL,
-                evidence=f"Page does not contain text: '{value}'"
-            )
-        
-        elif rule_type == "text_matches":
-            pattern = self.rules.get("pattern")
-            if re.search(pattern, page_text, re.IGNORECASE):
-                return VerificationResult(
-                    status=VerificationStatus.PASS,
-                    evidence=f"Page text matches pattern: '{pattern}'"
-                )
-            return VerificationResult(
-                status=VerificationStatus.FAIL,
-                evidence=f"Page text does not match pattern: '{pattern}'"
-            )
-        
         elif rule_type == "any_of":
             conditions = self.rules.get("conditions", [])
             for condition in conditions:
@@ -108,20 +62,6 @@ class Verifier:
             return VerificationResult(
                 status=VerificationStatus.FAIL,
                 evidence="None of the conditions passed"
-            )
-        
-        elif rule_type == "all_of":
-            conditions = self.rules.get("conditions", [])
-            evidences = []
-            for condition in conditions:
-                verifier = Verifier(condition)
-                result = await verifier.verify(current_url, page_text)
-                if result.status != VerificationStatus.PASS:
-                    return result
-                evidences.append(result.evidence)
-            return VerificationResult(
-                status=VerificationStatus.PASS,
-                evidence=" AND ".join(evidences)
             )
         
         return VerificationResult(

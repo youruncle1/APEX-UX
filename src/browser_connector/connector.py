@@ -30,10 +30,8 @@ class BrowserConnector:
             viewport={"width": self.viewport_width, "height": self.viewport_height}
         )
         
-        # Set timeout
         self.page.set_default_timeout(self.timeout)
         
-        # Navigate to initial URL
         await self.page.goto(url, wait_until="domcontentloaded")
     
     async def screenshot(self) -> str:
@@ -72,7 +70,7 @@ class BrowserConnector:
             elif action.action_type == ActionType.SCROLL_DOWN:
                 scroll_amount = self.viewport_height
                 await self.page.mouse.wheel(0, scroll_amount)
-                await self.page.wait_for_timeout(200)  # Wait for scroll to complete
+                await self.page.wait_for_timeout(200)
                 return ExecutionResult(
                     success=True,
                     feedback=f"Scrolled down {scroll_amount}px"

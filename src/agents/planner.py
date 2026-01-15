@@ -32,23 +32,23 @@ class PlannerAgent:
                 ]
             },
             "target_description": {
-                "type": ["string", "null"],
-                "description": "Natural language description of the target element (required for CLICK, HOVER, DRAG_AND_DROP)"
+                "type": "string",
+                "description": "Natural language description of the target element (required for CLICK, HOVER, DRAG_AND_DROP). Use empty string if not needed."
             },
             "input_value": {
-                "type": ["string", "null"],
-                "description": "Text to type (required for TYPE action)"
+                "type": "string",
+                "description": "Text to type (required for TYPE action) or key to press (for PRESS_KEY). Use empty string if not needed."
             },
             "reasoning": {
                 "type": "string",
                 "description": "Short explanation of why you chose this action"
             },
             "outcome_mismatch": {
-                "type": ["string", "null"],
-                "description": "If the previous action didn't produce the expected result, describe what went wrong"
+                "type": "string",
+                "description": "If the previous action didn't produce the expected result, describe what went wrong. Use empty string if none."
             }
         },
-        "required": ["action_type", "reasoning"],
+        "required": ["action_type", "reasoning", "target_description", "input_value", "outcome_mismatch"],
         "additionalProperties": False
     }
     
@@ -116,10 +116,10 @@ class PlannerAgent:
             
             return PlannerAction(
                 action_type=action_data["action_type"],
-                target_description=action_data.get("target_description"),
-                input_value=action_data.get("input_value"),
+                target_description=action_data["target_description"] if action_data["target_description"] else None,
+                input_value=action_data["input_value"] if action_data["input_value"] else None,
                 reasoning=action_data["reasoning"],
-                outcome_mismatch=action_data.get("outcome_mismatch")
+                outcome_mismatch=action_data["outcome_mismatch"] if action_data["outcome_mismatch"] else None
             )
         
         except Exception as e:

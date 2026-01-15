@@ -44,10 +44,10 @@ class MemoryManager:
         else:
             compress_input = f"Actions:\n{actions_text}"
         
-        # Compress using GPT-4o
+        # Compress using GPT-4o-mini
         try:
             response = await self.client.chat.completions.create(
-                model="gpt-4o-mini",  # Use mini for compression to save costs
+                model="gpt-4o-mini",
                 messages=[
                     {
                         "role": "system",

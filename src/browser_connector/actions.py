@@ -16,13 +16,13 @@ class ActionType(str, Enum):
 
 @dataclass
 class Action:
-    action_type: ActionType     # Action type
-    x: Optional[int] = None     # x coordinate
-    y: Optional[int] = None     # y coordinate
-    text: Optional[str] = None  # Text to type
-    key: Optional[str] = None   # Key to press 
-    x2: Optional[int] = None    # Drag target x2
-    y2: Optional[int] = None    # Drag target y2
+    action_type: ActionType
+    x: Optional[int] = None
+    y: Optional[int] = None
+    text: Optional[str] = None
+    key: Optional[str] = None
+    x2: Optional[int] = None
+    y2: Optional[int] = None
 
 @dataclass
 class ExecutionResult:

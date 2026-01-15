@@ -18,21 +18,20 @@ class TwoAgentController:
         self,
         planner: PlannerAgent,
         grounder: GroundingAgent,
-        browser: BrowserConnector
+        browser: BrowserConnector,
+        max_recent_actions: int = 5
     ):
         self.planner = planner
         self.grounder = grounder
         self.browser = browser
-        
-        # Get config from env
-        self.max_steps = int(os.getenv("MAX_STEPS_PER_TASK", "50"))
-        self.max_recent_actions = int(os.getenv("MAX_RECENT_ACTIONS", "5"))
+        self.max_recent_actions = max_recent_actions
     
     async def execute_task(
         self,
         task_description: str,
         persona_context: str,
         start_url: str,
+        max_steps: int = 50,
         verification_rules: Optional[dict] = None
     ) -> dict:
         """
@@ -43,6 +42,7 @@ class TwoAgentController:
         - steps_taken: int
         - action_records: list[dict]
         - memory_state: dict
+        - agent_done: bool
         - verification_result: dict (if rules provided)
         """
         
@@ -56,8 +56,8 @@ class TwoAgentController:
         action_records = []
         
         # Main interaction loop
-        for step in range(1, self.max_steps + 1):
-            print(f"\n[Controller] Step {step}/{self.max_steps}")
+        for step in range(1, max_steps + 1):
+            print(f"\n[Controller] Step {step}/{max_steps}")
             
             # Get screenshot
             screenshot = await self.browser.screenshot()
@@ -86,7 +86,8 @@ class TwoAgentController:
                     "steps_taken": step,
                     "action_records": action_records,
                     "memory_state": memory.get_state(),
-                    "failure_reason": "Planner failed to produce valid action"
+                    "failure_reason": "Planner failed to produce valid action",
+                    "agent_done": False
                 }
             
             print(f"[Controller] Planner: {planner_action.action_type} - {planner_action.reasoning}")
@@ -99,6 +100,7 @@ class TwoAgentController:
                     
                     return {
                         "status": "VERIFIED" if verification.status == "PASS" else "FAILED",
+                        "agent_done": True,
                         "steps_taken": step,
                         "action_records": action_records,
                         "memory_state": memory.get_state(),
@@ -112,6 +114,7 @@ class TwoAgentController:
                     return {
                         "status": "VERIFIED",
                         "steps_taken": step,
+                        "agent_done": True,
                         "action_records": action_records,
                         "memory_state": memory.get_state()
                     }
@@ -121,15 +124,36 @@ class TwoAgentController:
             bounding_box = None
             
             if self._needs_grounding(planner_action.action_type):
+                if not planner_action.target_description:
+                    print(f"[Controller] Warning: {planner_action.action_type} needs target_description but none provided")
+                    # Continue anyway, will likely fail in execution
+                
                 bbox = await self.grounder.ground(
                     screenshot_base64=screenshot,
-                    target_description=planner_action.target_description
+                    target_description=planner_action.target_description or ""
                 )
                 
                 if bbox:
                     coordinates = bbox.center()
                     bounding_box = {"x1": bbox.x1, "y1": bbox.y1, "x2": bbox.x2, "y2": bbox.y2}
                     print(f"[Controller] Grounder: {coordinates}")
+                else:
+                    print("[Controller] Grounding failed, skipping action")
+                    # Record failed grounding
+                    action_records.append({
+                        "step_number": step,
+                        "action_type": planner_action.action_type,
+                        "target_description": planner_action.target_description,
+                        "reasoning": planner_action.reasoning,
+                        "bounding_box": None,
+                        "click_coordinates": None,
+                        "execution_success": False,
+                        "execution_feedback": "Grounding failed",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "screenshot": screenshot
+                    })
+                    
+                    continue  # Skip to next step
             
             # Build browser action
             browser_action = self._build_browser_action(planner_action, coordinates)
@@ -169,10 +193,11 @@ class TwoAgentController:
         # Max steps reached
         return {
             "status": "TIMEOUT",
-            "steps_taken": self.max_steps,
+            "steps_taken": max_steps,
             "action_records": action_records,
             "memory_state": memory.get_state(),
-            "failure_reason": "Maximum steps reached"
+            "failure_reason": "Maximum steps reached",
+            "agent_done": False
         }
     
     def _needs_grounding(self, action_type: str) -> bool:
