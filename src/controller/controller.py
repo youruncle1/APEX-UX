@@ -75,6 +75,8 @@ class TwoAgentController:
             )
             print(f"[Controller] Screenshot saved: {screenshot_url}")
             
+            await memory.maybe_compress()
+            
             # Plan next action
             planner_action = None
             for retry in range(3):  # Max 3 retries for invalid output
@@ -82,8 +84,8 @@ class TwoAgentController:
                     task_description=task_description,
                     persona_context=persona_context,
                     screenshot_base64=screenshot_base64,  
-                    action_history=memory.action_history,
-                    action_summary=memory.action_summary,
+                    action_history=memory.action_history,  
+                    action_summary=memory.action_summary,  
                     outcome_mismatches=memory.outcome_mismatches
                 )
                 
@@ -194,7 +196,7 @@ class TwoAgentController:
             }
             action_records.append(action_record)
             
-            # Update memory
+            # Update memory (add new action to history)
             memory.add_action({
                 "action_type": planner_action.action_type,
                 "reasoning": planner_action.reasoning
@@ -203,8 +205,6 @@ class TwoAgentController:
             if planner_action.outcome_mismatch:
                 memory.add_outcome_mismatch(planner_action.outcome_mismatch)
             
-            # Compress memory if needed
-            await memory.maybe_compress()
         
         # Max steps reached
         return {

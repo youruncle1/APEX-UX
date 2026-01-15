@@ -5,8 +5,11 @@ from openai import AsyncOpenAI
 class MemoryManager:
     """Manages action history, summaries, and outcome mismatches"""
     
-    def __init__(self, max_recent_actions: int = 5):
-        self.max_recent_actions = max_recent_actions
+    def __init__(self, compression_threshold: int = 5):
+        """
+        Initialize memory manager.
+        """
+        self.compression_threshold = compression_threshold
         self.action_history: list[dict] = []
         self.action_summary: Optional[str] = None
         self.outcome_mismatches: list[str] = []
@@ -24,13 +27,14 @@ class MemoryManager:
             self.outcome_mismatches.append(mismatch)
     
     async def maybe_compress(self):
-        """Compress history if it exceeds threshold"""
-        if len(self.action_history) <= self.max_recent_actions:
-            return
+        """
+        Compress history if it exceeds threshold.
+        """
+        if len(self.action_history) <= self.compression_threshold:
+            return  # No compression needed
         
-        # Take actions that need compression
-        to_compress = self.action_history[:-self.max_recent_actions]
-        self.action_history = self.action_history[-self.max_recent_actions:]
+        to_compress = self.action_history[:-1] 
+        self.action_history = self.action_history[-1:] 
         
         # Build text to compress
         actions_text = "\n".join([
