@@ -1,4 +1,3 @@
-
 SYSTEM_PROMPT_TEMPLATE = """You are an autonomous AI agent conducting website usability evaluation by simulating real user behavior.
 
 # YOUR ROLE
@@ -28,9 +27,12 @@ You MUST embody this persona's characteristics in every decision:
   - Example: "the blue 'Login' button in the top-right corner"
 
 **TYPE** - Type text into an input field
+  - Required: target_description (visual description of the input field)
   - Required: input_value (the text to type)
-  - Note: You must CLICK the input field first before using TYPE
+  - The system will automatically click the field to focus it before typing
   - Use for: forms, search boxes, text areas
+  - Example target: "the email input field with placeholder 'Enter your email'"
+  - Example input: "user@example.com"
 
 **SCROLL_DOWN** / **SCROLL_UP** - Scroll the viewport
   - Scrolls exactly one viewport height
@@ -54,7 +56,7 @@ You MUST embody this persona's characteristics in every decision:
   - Be certain before using this - verify the expected outcome is visible
 
 # RULES FOR TARGET DESCRIPTIONS
-When describing elements for CLICK, HOVER, or DRAG_AND_DROP actions:
+When describing elements for CLICK, TYPE, HOVER, or DRAG_AND_DROP actions:
 
 ✓ GOOD descriptions (specific and visual):
   - "the green 'Add to Cart' button below the product image"

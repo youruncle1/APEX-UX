@@ -2,7 +2,8 @@
 """
 End-to-end test with database integration.
 
-Creates an evaluation in database, runs it, and verifies data is saved correctly.
+Creates an evaluation in database, runs it using EvaluationRunner,
+and verifies all data (including metrics) is saved correctly.
 """
 
 import asyncio
@@ -17,11 +18,7 @@ load_dotenv()
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-try:
-    from src.database.connection import AsyncSessionLocal
-except Exception:
-    from src.database.models import AsyncSessionLocal
-
+from src.database.connection import AsyncSessionLocal
 from src.database.models import (
     Evaluation,
     EvaluationStatus,
@@ -29,17 +26,19 @@ from src.database.models import (
     TaskDefinition,
     TaskRun,
     TaskRunStatus,
+    TaskRunMetrics,
     ActionRecord,
 )
-from src.agents.grounder import GroundingAgent
-from src.browser_connector.connector import BrowserConnector
-from src.controller.controller import TwoAgentController
+from src.evaluation.runner import EvaluationRunner
 from sqlalchemy import select
 
 
 # Test configuration
 TEST_URL = "https://www.google.com"
-TEST_TASK = "Search for 'machine learning' on Google"
+TEST_TASKS = [
+    "Search for 'machine learning' on Google",
+    "Click on the first search result"
+]
 TEST_PERSONA = {"name": "Test User", "skills": "moderate", "style": "careful"}
 
 
@@ -53,7 +52,7 @@ async def create_test_evaluation():
     async with AsyncSessionLocal() as session:
         # Create evaluation
         evaluation = Evaluation(
-            name="E2E Test Evaluation",
+            name="E2E Test Evaluation (With Metrics)",
             base_url=TEST_URL,
             status=EvaluationStatus.PENDING
         )
@@ -73,140 +72,48 @@ async def create_test_evaluation():
         
         print(f"✓ Clone created: {clone.id}")
         
-        # Create task definition
-        task_def = TaskDefinition(
-            evaluation_id=evaluation.id,
-            description=TEST_TASK,
-            max_steps=5,  # Short test
-            verification_rules=None
-        )
-        session.add(task_def)
-        await session.flush()
-        
-        print(f"✓ Task created: {task_def.id}")
-        
-        # Create task run
-        task_run = TaskRun(
-            task_definition_id=task_def.id,
-            evaluation_clone_id=clone.id,
-            status=TaskRunStatus.PENDING
-        )
-        session.add(task_run)
+        # Create multiple task definitions
+        for i, task_desc in enumerate(TEST_TASKS, 1):
+            task_def = TaskDefinition(
+                evaluation_id=evaluation.id,
+                description=task_desc,
+                max_steps=10,  # Allow more steps
+                verification_rules=None
+            )
+            session.add(task_def)
+            print(f"✓ Task {i} created: {task_desc}")
         
         await session.commit()
-        
-        # Refresh to get all IDs
         await session.refresh(evaluation)
-        await session.refresh(clone)
-        await session.refresh(task_def)
-        await session.refresh(task_run)
         
-        print(f"✓ Task run created: {task_run.id}")
+        print(f"✓ Created {len(TEST_TASKS)} tasks")
         
-        return evaluation.id, clone.id, task_def.id, task_run.id
+        return evaluation.id
 
 
-async def run_task_with_controller(evaluation_id, task_run_id):
-    """Run task using controller and return result"""
+async def run_evaluation_with_runner(evaluation_id):
+    """Run evaluation using EvaluationRunner (includes metrics calculation)"""
     
     print("\n" + "=" * 60)
-    print("Executing Task with Controller")
+    print("Running Evaluation with EvaluationRunner")
     print("=" * 60)
     
-    # Initialize components
-    grounder = GroundingAgent()
-    browser = BrowserConnector(headless=True)
-    
-    # BREAKING CHANGE: Controller now takes persona_context at initialization
-    # Planner is created internally with persona baked into system prompt
-    controller = TwoAgentController(
-        persona_context=str(TEST_PERSONA),  # Moved here from execute_task
-        grounder=grounder,
-        browser=browser
-    )
+    runner = EvaluationRunner(error_policy="continue_on_error")
     
     try:
-        # BREAKING CHANGE: execute_task no longer accepts persona_context
-        result = await controller.execute_task(
-            task_description=TEST_TASK,
-            start_url=TEST_URL,
-            evaluation_id=evaluation_id,
-            task_run_id=task_run_id,
-            max_steps=10,
-            verification_rules=None
-        )
+        await runner.run(evaluation_id)
+        print(f"\n✓ Evaluation completed!")
         
-        print(f"\n✓ Execution completed: {result['status']}")
-        print(f"✓ Steps taken: {result['steps_taken']}")
-        print(f"✓ Action records: {len(result['action_records'])}")
-        
-        return result
-        
-    finally:
-        await browser.close()
-
-
-async def save_results_to_database(task_run_id, result):
-    """Save execution results to database"""
-    
-    print("\n" + "=" * 60)
-    print("Saving Results to Database")
-    print("=" * 60)
-    
-    async with AsyncSessionLocal() as session:
-        # Get task run
-        db_result = await session.execute(
-            select(TaskRun).where(TaskRun.id == task_run_id)
-        )
-        task_run = db_result.scalar_one()
-        
-        # Update task run
-        task_run.status = TaskRunStatus(result['status'])
-        task_run.started_at = datetime.now()
-        task_run.finished_at = datetime.now()
-        task_run.agent_done = result.get('agent_done', False)
-        
-        if 'failure_reason' in result:
-            task_run.failure_reason = result['failure_reason']
-        
-        # Save memory state
-        memory_state = result.get('memory_state', {})
-        task_run.final_action_history = memory_state.get('action_history')
-        task_run.final_action_summary = memory_state.get('action_summary')
-        task_run.final_outcome_mismatches = memory_state.get('outcome_mismatches')
-        
-        print(f"\n✓ Task run updated: {task_run.status.value}")
-        
-        # Save action records
-        action_count = 0
-        for action_data in result.get('action_records', []):
-            action = ActionRecord(
-                task_run_id=task_run.id,
-                step_number=action_data['step_number'],
-                action_type=action_data['action_type'],
-                target_description=action_data.get('target_description'),
-                input_value=action_data.get('input_value'),
-                reasoning=action_data.get('reasoning'),
-                bounding_box=action_data.get('bounding_box'),
-                click_coordinates=action_data.get('click_coordinates'),
-                execution_success=action_data['execution_success'],
-                execution_feedback=action_data.get('execution_feedback'),
-                timestamp=datetime.fromisoformat(action_data['timestamp']),
-                screenshot=action_data.get('screenshot')
-            )
-            session.add(action)
-            action_count += 1
-        
-        await session.commit()
-        
-        print(f"✓ Saved {action_count} action records")
+    except Exception as e:
+        print(f"\n✗ Evaluation failed: {e}")
+        raise
 
 
 async def verify_database_content(evaluation_id):
-    """Query and display saved data"""
+    """Query and display saved data including metrics"""
     
     print("\n" + "=" * 60)
-    print("Verifying Database Content")
+    print("Verifying Database Content (Including Metrics)")
     print("=" * 60)
     
     async with AsyncSessionLocal() as session:
@@ -220,6 +127,7 @@ async def verify_database_content(evaluation_id):
         
         print(f"\nEvaluation: {evaluation.name}")
         print(f"  Status: {evaluation.status.value}")
+        print(f"  Base URL: {evaluation.base_url}")
         print(f"  Clones: {len(evaluation.clones)}")
         print(f"  Tasks: {len(evaluation.tasks)}")
         
@@ -227,33 +135,117 @@ async def verify_database_content(evaluation_id):
             await session.refresh(clone, ["task_runs"])
             print(f"\n  Clone: {clone.clone_id}")
             print(f"    Task runs: {len(clone.task_runs)}")
+            
+            # ✅ NEW: Check SUS score
+            if clone.sus_score is not None:
+                print(f"    SUS Score: {clone.sus_score:.1f}/100 ✓")
+            else:
+                print(f"    SUS Score: Not collected")
         
         for task_def in evaluation.tasks:
             await session.refresh(task_def, ["runs"])
-            print(f"\n  Task: {task_def.description[:50]}...")
+            print(f"\n  Task: {task_def.description}")
+            print(f"    Max steps: {task_def.max_steps}")
             print(f"    Runs: {len(task_def.runs)}")
             
             for run in task_def.runs:
-                await session.refresh(run, ["actions"])
-                print(f"\n    Run: {run.id}")
+                await session.refresh(run, ["actions", "metrics"])
+                print(f"\n    Run ID: {run.id}")
                 print(f"      Status: {run.status.value}")
                 print(f"      Agent done: {run.agent_done}")
                 print(f"      Actions: {len(run.actions)}")
                 
+                # ✅ NEW: Display metrics
+                if run.metrics:
+                    print(f"\n      📊 Metrics:")
+                    print(f"        Steps taken: {run.metrics.steps_taken}")
+                    print(f"        Failed actions: {run.metrics.failed_action_count}")
+                    print(f"        Outcome mismatches: {run.metrics.outcome_mismatch_count}")
+                    print(f"        Backtracking: {run.metrics.backtracking_count}")
+                    if run.metrics.seq_score is not None:
+                        print(f"        SEQ Score: {run.metrics.seq_score:.1f}/7 ✓")
+                    else:
+                        print(f"        SEQ Score: Not collected")
+                else:
+                    print(f"\n      ⚠ No metrics found!")
+                
+                # Show sample actions
                 if run.actions:
                     print(f"\n      Sample actions:")
                     for action in run.actions[:3]:
                         print(f"        Step {action.step_number}: {action.action_type}")
                         print(f"          Success: {action.execution_success}")
+                        print(f"          Reasoning: {action.reasoning[:50] if action.reasoning else 'N/A'}...")
                         if action.screenshot:
-                            print(f"          Screenshot: {action.screenshot}")
+                            print(f"          Screenshot: {action.screenshot[:60]}...")
                 
+                # Show outcome mismatches
                 if run.final_outcome_mismatches:
-                    print(f"\n      Outcome mismatches: {len(run.final_outcome_mismatches)}")
+                    print(f"\n      Issues encountered:")
+                    for i, mismatch in enumerate(run.final_outcome_mismatches[:3], 1):
+                        print(f"        {i}. {mismatch[:80]}...")
         
         print("\n" + "=" * 60)
         print("✓ Database content verified!")
         print("=" * 60)
+
+
+async def verify_metrics_integrity(evaluation_id):
+    """Verify metrics data integrity"""
+    
+    print("\n" + "=" * 60)
+    print("Verifying Metrics Integrity")
+    print("=" * 60)
+    
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(Evaluation).where(Evaluation.id == evaluation_id)
+        )
+        evaluation = result.scalar_one()
+        await session.refresh(evaluation, ["clones"])
+        
+        total_tasks = 0
+        tasks_with_metrics = 0
+        tasks_with_seq = 0
+        clones_with_sus = 0
+        
+        for clone in evaluation.clones:
+            await session.refresh(clone, ["task_runs"])
+            
+            # Check SUS
+            if clone.sus_score is not None:
+                clones_with_sus += 1
+            
+            for task_run in clone.task_runs:
+                await session.refresh(task_run, ["metrics"])
+                total_tasks += 1
+                
+                if task_run.metrics:
+                    tasks_with_metrics += 1
+                    
+                    if task_run.metrics.seq_score is not None:
+                        tasks_with_seq += 1
+        
+        print(f"\n✓ Integrity Check:")
+        print(f"  Total task runs: {total_tasks}")
+        print(f"  Task runs with metrics: {tasks_with_metrics}/{total_tasks}")
+        print(f"  Task runs with SEQ: {tasks_with_seq}/{total_tasks}")
+        print(f"  Clones with SUS: {clones_with_sus}/{len(evaluation.clones)}")
+        
+        if tasks_with_metrics == total_tasks:
+            print(f"\n✓ All task runs have metrics!")
+        else:
+            print(f"\n⚠ {total_tasks - tasks_with_metrics} task runs missing metrics")
+        
+        if tasks_with_seq == total_tasks:
+            print(f"✓ All task runs have SEQ scores!")
+        else:
+            print(f"⚠ {total_tasks - tasks_with_seq} task runs missing SEQ scores")
+        
+        if clones_with_sus == len(evaluation.clones):
+            print(f"✓ All clones have SUS scores!")
+        else:
+            print(f"⚠ {len(evaluation.clones) - clones_with_sus} clones missing SUS scores")
 
 
 async def cleanup_test_data(evaluation_id):
@@ -279,7 +271,7 @@ async def main():
     """Run end-to-end test"""
     
     print("\n" + "=" * 60)
-    print("APEX-UX End-to-End Database Test")
+    print("APEX-UX End-to-End Test (With Metrics)")
     print("=" * 60)
     
     # Check environment
@@ -294,16 +286,16 @@ async def main():
     
     try:
         # Step 1: Create test evaluation in database
-        evaluation_id, clone_id, task_def_id, task_run_id = await create_test_evaluation()
+        evaluation_id = await create_test_evaluation()
         
-        # Step 2: Run task with controller
-        result = await run_task_with_controller(evaluation_id, task_run_id)
+        # Step 2: Run evaluation with runner (calculates metrics automatically)
+        await run_evaluation_with_runner(evaluation_id)
         
-        # Step 3: Save results to database
-        await save_results_to_database(task_run_id, result)
-        
-        # Step 4: Verify database content
+        # Step 3: Verify database content
         await verify_database_content(evaluation_id)
+        
+        # Step 4: Verify metrics integrity
+        await verify_metrics_integrity(evaluation_id)
         
         # Step 5: Ask user if they want to keep data
         print("\n" + "=" * 60)
