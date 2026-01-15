@@ -17,21 +17,23 @@ class TwoAgentController:
     
     def __init__(
         self,
-        planner: PlannerAgent,
+        persona_context: str,  # Persona passed at initialization
         grounder: GroundingAgent,
         browser: BrowserConnector,
-        max_recent_actions: int = 5
+        compression_threshold: int = 5
     ):
-        self.planner = planner
+        """
+        Initialize controller with persona context.
+        """
+        self.planner = PlannerAgent(persona_context=persona_context)
         self.grounder = grounder
         self.browser = browser
-        self.max_recent_actions = max_recent_actions
+        self.compression_threshold = compression_threshold
         self.screenshot_storage = create_screenshot_storage()
     
     async def execute_task(
         self,
         task_description: str,
-        persona_context: str,
         start_url: str,
         evaluation_id: UUID, 
         task_run_id: UUID,   
@@ -54,7 +56,7 @@ class TwoAgentController:
         await self.browser.start(start_url)
         
         # Initialize memory
-        memory = MemoryManager(max_recent_actions=self.max_recent_actions)
+        memory = MemoryManager(compression_threshold=self.compression_threshold)
         
         # Action records for database
         action_records = []
@@ -75,17 +77,17 @@ class TwoAgentController:
             )
             print(f"[Controller] Screenshot saved: {screenshot_url}")
             
+            # Maybe compress memory if threshold reached
             await memory.maybe_compress()
             
             # Plan next action
             planner_action = None
             for retry in range(3):  # Max 3 retries for invalid output
                 planner_action = await self.planner.plan(
-                    task_description=task_description,
-                    persona_context=persona_context,
-                    screenshot_base64=screenshot_base64,  
-                    action_history=memory.action_history,  
-                    action_summary=memory.action_summary,  
+                    task_description=task_description,  
+                    screenshot_base64=screenshot_base64,
+                    action_history=memory.action_history,
+                    action_summary=memory.action_summary,
                     outcome_mismatches=memory.outcome_mismatches
                 )
                 
@@ -134,17 +136,16 @@ class TwoAgentController:
                         "memory_state": memory.get_state()
                     }
             
-            # Ground if needed (also uses screenshot_base64 for this step)
+            # Ground if needed
             coordinates = None
             bounding_box = None
             
             if self._needs_grounding(planner_action.action_type):
                 if not planner_action.target_description:
                     print(f"[Controller] Warning: {planner_action.action_type} needs target_description but none provided")
-                    # Continue anyway, will likely fail in execution
                 
                 bbox = await self.grounder.ground(
-                    screenshot_base64=screenshot_base64,  # Used only for grounding
+                    screenshot_base64=screenshot_base64,
                     target_description=planner_action.target_description or ""
                 )
                 
@@ -165,13 +166,19 @@ class TwoAgentController:
                         "execution_success": False,
                         "execution_feedback": "Grounding failed",
                         "timestamp": datetime.utcnow().isoformat(),
-                        "screenshot": screenshot_url  # Store URL, not base64!
+                        "screenshot": screenshot_url
                     })
                     
+                    # Add to memory as failed action
+                    memory.add_action({
+                        "action_type": planner_action.action_type,
+                        "reasoning": planner_action.reasoning
+                    })
+                    memory.add_outcome_mismatch(
+                        f"Failed to locate element: {planner_action.target_description}"
+                    )
+                    
                     continue  # Skip to next step
-            
-            # After this point, screenshot_base64 goes out of scope and is garbage collected
-            # We only keep screenshot_url in the action record
             
             # Build browser action
             browser_action = self._build_browser_action(planner_action, coordinates)
@@ -191,20 +198,20 @@ class TwoAgentController:
                 "click_coordinates": {"x": coordinates[0], "y": coordinates[1]} if coordinates else None,
                 "execution_success": result.success,
                 "execution_feedback": result.feedback,
-                "timestamp": datetime.utcnow().isoformat(),
-                "screenshot": screenshot_url  # URL only!
+                "timestamp": datetime.now().isoformat(),
+                "screenshot": screenshot_url
             }
             action_records.append(action_record)
             
-            # Update memory (add new action to history)
+            # Update memory
             memory.add_action({
                 "action_type": planner_action.action_type,
                 "reasoning": planner_action.reasoning
             })
             
+            # Add outcome mismatch if reported by planner
             if planner_action.outcome_mismatch:
                 memory.add_outcome_mismatch(planner_action.outcome_mismatch)
-            
         
         # Max steps reached
         return {

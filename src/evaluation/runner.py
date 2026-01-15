@@ -10,18 +10,16 @@ from src.database.models import (
     TaskDefinition, TaskRun, TaskRunStatus,
     ActionRecord
 )
-from src.agents.planner import PlannerAgent
 from src.agents.grounder import GroundingAgent
 from src.browser_connector.connector import BrowserConnector
 from src.controller.controller import TwoAgentController
 
 
-# Placeholder persona for foundation development
-PLACEHOLDER_PERSONA = """
-You are a typical web user with moderate technical skills.
+# Placeholder persona
+PLACEHOLDER_PERSONA = """You are a typical web user with moderate technical skills.
 You navigate websites carefully and read interface elements before interacting.
 You prefer clear labels and visible feedback from your actions.
-"""
+When encountering issues, you try alternative approaches rather than giving up immediately."""
 
 
 class EvaluationRunner:
@@ -63,12 +61,12 @@ class EvaluationRunner:
         Orchestration flow:
         1. Load evaluation from database
         2. For each clone:
-            - Use placeholder persona context
-            - Initialize controller with agents and browser
+            - Get persona context (currently placeholder)
+            - Initialize controller with persona and agents
             - For each task:
                 - Create TaskRun in DB
-                - Execute task via Controller (which handles screenshot storage)
-                - Save action records to DB (with screenshot URLs)
+                - Execute task via Controller
+                - Save action records to DB
             - Clean up browser resources
         3. Mark evaluation as completed or aborted
 
@@ -107,7 +105,7 @@ class EvaluationRunner:
                         # Continue with next clone if policy allows
                         evaluation_failed = True
 
-                # Mark evaluation as completed (even if some tasks failed)
+                # Mark evaluation as completed
                 if evaluation_failed:
                     evaluation.status = EvaluationStatus.COMPLETED  # Partial completion
                     print(f"[Runner] Evaluation completed with failures")
@@ -133,31 +131,20 @@ class EvaluationRunner:
     ):
         """
         Run all tasks for a single clone.
-
-        Initializes a fresh controller with agents and browser for this clone,
-        executes all tasks, and ensures proper cleanup.
-
-        Args:
-            session: Database session
-            evaluation: Parent evaluation
-            clone: Clone (persona) to execute tasks for
-
-        Raises:
-            Exception: Any error during task execution (based on error_policy)
         """
 
         print(f"\n[Runner] Running clone: {clone.clone_id}")
 
-        # Use placeholder persona for now (future: fetch from PersonaClient)
+        # Get persona context (currently placeholder)
         persona_context = PLACEHOLDER_PERSONA
 
-        # Initialize agents (one set per clone for isolation)
-        planner = PlannerAgent()
+        # Initialize agents
         grounder = GroundingAgent()
         browser = BrowserConnector(headless=True)
 
+        # Initialize controller
         controller = TwoAgentController(
-            planner=planner,
+            persona_context=persona_context, 
             grounder=grounder,
             browser=browser
         )
@@ -166,7 +153,13 @@ class EvaluationRunner:
             # Run each task
             for task_def in evaluation.tasks:
                 try:
-                    await self._run_task(session, evaluation.id, task_def, clone, controller, persona_context)
+                    await self._run_task(
+                        session=session,
+                        evaluation_id=evaluation.id,
+                        task_def=task_def,
+                        clone=clone,
+                        controller=controller
+                    )
                 except Exception as e:
                     print(f"[Runner] Task '{task_def.description[:50]}...' failed: {e}")
                     if self.error_policy == "fail_fast":
@@ -183,22 +176,20 @@ class EvaluationRunner:
         evaluation_id: UUID,
         task_def: TaskDefinition,
         clone: EvaluationClone,
-        controller: TwoAgentController,
-        persona_context: str
+        controller: TwoAgentController
     ):
         """
         Run a single task for a clone.
 
-        Creates a TaskRun record, executes the task via controller,
-        and saves all action records (with screenshot URLs) to the database.
+        Creates TaskRun record, executes via controller,
+        and saves all action records to database.
 
         Args:
             session: Database session
-            evaluation_id: Evaluation UUID (for screenshot storage path)
+            evaluation_id: Evaluation UUID (for screenshot storage)
             task_def: Task definition to execute
             clone: Clone executing the task
-            controller: Controller to use for execution
-            persona_context: Persona description for the planner agent
+            controller: Controller instance (already has persona context)
 
         Raises:
             Exception: Any error during task execution
@@ -211,7 +202,7 @@ class EvaluationRunner:
             task_definition_id=task_def.id,
             evaluation_clone_id=clone.id,
             status=TaskRunStatus.RUNNING,
-            started_at=datetime.now(datetime.timezone.utc)
+            started_at=datetime.utcnow()
         )
         session.add(task_run)
         await session.commit()
@@ -222,33 +213,31 @@ class EvaluationRunner:
             start_url = task_def.base_url_override or task_def.evaluation.base_url
 
             # Execute task via controller
-            # Pass evaluation_id and task_run_id for screenshot storage
             result = await controller.execute_task(
                 task_description=task_def.description,
-                persona_context=persona_context,
                 start_url=start_url,
-                evaluation_id=evaluation_id,  
-                task_run_id=task_run.id,      
+                evaluation_id=evaluation_id,
+                task_run_id=task_run.id,
                 max_steps=task_def.max_steps,
                 verification_rules=task_def.verification_rules
             )
 
-            # Update TaskRun with basic results
+            # Update TaskRun with results
             task_run.status = TaskRunStatus(result["status"])
-            task_run.finished_at = datetime.now(datetime.timezone.utc)
+            task_run.finished_at = datetime.utcnow()
             task_run.agent_done = result.get("agent_done", False)
 
             # Save failure reason if exists
             if "failure_reason" in result:
                 task_run.failure_reason = result["failure_reason"]
 
-            # Save memory state for qualitative analysis
+            # Save memory state
             memory_state = result.get("memory_state", {})
             task_run.final_action_history = memory_state.get("action_history")
             task_run.final_action_summary = memory_state.get("action_summary")
             task_run.final_outcome_mismatches = memory_state.get("outcome_mismatches")
 
-            # Save action records (screenshot field now contains URL, not base64!)
+            # Save action records
             for action_data in result.get("action_records", []):
                 action_record = ActionRecord(
                     task_run_id=task_run.id,
@@ -262,7 +251,7 @@ class EvaluationRunner:
                     execution_success=action_data["execution_success"],
                     execution_feedback=action_data.get("execution_feedback"),
                     timestamp=datetime.fromisoformat(action_data["timestamp"]),
-                    screenshot=action_data.get("screenshot")  # URL from storage!
+                    screenshot=action_data.get("screenshot")
                 )
                 session.add(action_record)
 
@@ -274,7 +263,7 @@ class EvaluationRunner:
             print(f"[Runner] Task execution failed: {e}")
             task_run.status = TaskRunStatus.ABORTED
             task_run.failure_reason = str(e)
-            task_run.finished_at = datetime.now(datetime.timezone.utc)
+            task_run.finished_at = datetime.now()
             await session.commit()
             raise
     
@@ -301,7 +290,7 @@ class EvaluationRunner:
         evaluation = result.scalar_one_or_none()
 
         if evaluation:
-            # Explicitly load relationships (clones and tasks)
+            # Explicitly load relationships
             await session.refresh(evaluation, ["clones", "tasks"])
 
         return evaluation

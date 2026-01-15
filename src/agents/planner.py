@@ -3,7 +3,14 @@ import json
 from typing import Optional
 from openai import AsyncOpenAI
 from dataclasses import dataclass
-from .prompts import PLANNER_PROMPT
+from .prompts import (
+    SYSTEM_PROMPT_TEMPLATE,
+    USER_PROMPT_TEMPLATE,
+    HISTORY_WITH_SUMMARY_TEMPLATE,
+    HISTORY_RECENT_ONLY_TEMPLATE,
+    FIRST_STEP_TEMPLATE,
+    OUTCOME_MISMATCHES_TEMPLATE
+)
 
 @dataclass
 class PlannerAction:
@@ -53,15 +60,27 @@ class PlannerAgent:
     }
     
 
-    def __init__(self, model: str = "gpt-4o", temperature: float = 0.7):
+    def __init__(
+        self, 
+        model: str = "gpt-4o", 
+        temperature: float = 0.7,
+        persona_context: str = ""
+    ):
+        """
+        Initialize planner agent.
+        """
         self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = model
         self.temperature = temperature
+        
+        # Build system prompt once with persona context
+        self.system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
+            persona_context=persona_context
+        )
     
     async def plan(
         self,
         task_description: str,
-        persona_context: str,
         screenshot_base64: str,
         action_history: list[dict],
         action_summary: Optional[str],
@@ -69,13 +88,11 @@ class PlannerAgent:
     ) -> Optional[PlannerAction]:
         """
         Decide the next action based on current context.
-        Returns None if parsing fails (controller will retry).
         """
         
-        # Build user message with all context
+        # Build user message 
         user_message = self._build_user_message(
             task_description=task_description,
-            persona_context=persona_context,
             action_history=action_history,
             action_summary=action_summary,
             outcome_mismatches=outcome_mismatches
@@ -85,7 +102,10 @@ class PlannerAgent:
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": PLANNER_PROMPT},
+                    {
+                        "role": "system", 
+                        "content": self.system_prompt 
+                    },
                     {
                         "role": "user",
                         "content": [
@@ -129,36 +149,82 @@ class PlannerAgent:
     def _build_user_message(
         self,
         task_description: str,
-        persona_context: str,
         action_history: list[dict],
         action_summary: Optional[str],
         outcome_mismatches: list[str]
     ) -> str:
-        """Build the user message with all context"""
+        """
+        Build the user message with dynamic context.
         
-        parts = [
-            f"# TASK\n{task_description}\n",
-            f"# YOUR PERSONA\n{persona_context}\n"
-        ]
+        Structure:
+        1. Task description
+        2. Action history (summary + recent)
+        3. Outcome mismatches
+        4. Current observation prompt
+        5. Question
+        """
         
-        # Add action summary if exists
-        if action_summary:
-            parts.append(f"# PREVIOUS ACTIONS (SUMMARY)\n{action_summary}\n")
+        # Build history section
+        history_section = self._build_history_section(
+            action_history=action_history,
+            action_summary=action_summary
+        )
         
-        # Add recent action history if exists
-        if action_history:
-            history_text = "\n".join([
-                f"Step {i+1}: {action['action_type']} - {action['reasoning']}"
-                for i, action in enumerate(action_history)
-            ])
-            parts.append(f"# RECENT ACTIONS\n{history_text}\n")
-        
-        # Add outcome mismatches if exists
+        # Add outcome mismatches if present
         if outcome_mismatches:
             mismatches_text = "\n".join([f"- {m}" for m in outcome_mismatches])
-            parts.append(f"# ISSUES ENCOUNTERED\n{mismatches_text}\n")
+            history_section += OUTCOME_MISMATCHES_TEMPLATE.format(
+                outcome_mismatches=mismatches_text
+            )
         
-        parts.append("# CURRENT SCREEN\nSee the screenshot above.\n")
-        parts.append("What is your next action?")
+        # Determine prompt question based on context
+        if not action_history and not action_summary:
+            prompt_question = "Examine the screen carefully. What is your first action?"
+        else:
+            prompt_question = "Based on the current state and your history, what is your next action?"
         
-        return "\n".join(parts)
+        # Assemble final user message
+        return USER_PROMPT_TEMPLATE.format(
+            task_description=task_description,
+            history_section=history_section,
+            prompt_question=prompt_question
+        )
+    
+    def _build_history_section(
+        self,
+        action_history: list[dict],
+        action_summary: Optional[str]
+    ) -> str:
+        """Build the history section of the user prompt"""
+        
+        # Case 1: First step
+        if not action_history and not action_summary:
+            return FIRST_STEP_TEMPLATE
+        
+        # Case 2: Have both summary and recent actions
+        if action_summary and action_history:
+            recent_actions_text = self._format_action_history(action_history)
+            return HISTORY_WITH_SUMMARY_TEMPLATE.format(
+                action_summary=action_summary,
+                recent_actions=recent_actions_text
+            )
+        
+        # Case 3: Have only recent actions
+        if action_history:
+            recent_actions_text = self._format_action_history(action_history)
+            return HISTORY_RECENT_ONLY_TEMPLATE.format(
+                recent_actions=recent_actions_text
+            )
+        
+        # Case 4: Have only summary (shouldn't happen but handle it)
+        if action_summary:
+            return f"# PREVIOUS ACTIONS\n{action_summary}"
+        
+        return ""
+    
+    def _format_action_history(self, action_history: list[dict]) -> str:
+        """Format action history list into readable text"""
+        return "\n".join([
+            f"Step {i+1}: {action['action_type']} - {action['reasoning']}"
+            for i, action in enumerate(action_history)
+        ])
