@@ -1,7 +1,9 @@
+# src/agents/planner.py
+
 import os
 import json
+import aiohttp
 from typing import Optional
-from openai import AsyncOpenAI
 from dataclasses import dataclass
 from .prompts import (
     SYSTEM_PROMPT_TEMPLATE,
@@ -22,12 +24,15 @@ class PlannerAction:
 
 class PlannerAgent:
     """
-    Planner Agent using GPT-4o with structured outputs.
-    Decides what action to take next based on screenshot and context.
+    Planner Agent that supports multiple backends:
+    - OpenAI GPT-4o with structured JSON schema outputs
+    - Self-hosted Qwen-3-VL with prompt-based JSON generation
+    
+    Backend selection via PLANNER_BACKEND environment variable.
     """
     
-    # OPENAI JSON Schema for action response
-    ACTION_SCHEMA = {
+    # OpenAI JSON Schema for structured outputs
+    OPENAI_ACTION_SCHEMA = {
         "type": "object",
         "properties": {
             "action_type": {
@@ -59,24 +64,70 @@ class PlannerAgent:
         "additionalProperties": False
     }
     
-
     def __init__(
         self, 
-        model: str = "gpt-4o", 
-        temperature: float = 0.7,
-        persona_context: str = ""
+        persona_context: str = "",
+        backend: Optional[str] = None,
+        model: Optional[str] = None,
+        temperature: float = 0.7
     ):
         """
         Initialize planner agent.
-        """
-        self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.model = model
-        self.temperature = temperature
         
-        # Build system prompt once with persona context
+        Args:
+            persona_context: Persona description for system prompt
+            backend: "openai" or "qwen" (default: from PLANNER_BACKEND env or "openai")
+            model: Model name override (default: "gpt-4o" for OpenAI)
+            temperature: Sampling temperature for generation
+        """
+        # Determine backend
+        self.backend = backend or os.getenv("PLANNER_BACKEND", "openai").lower()
+        
+        if self.backend not in ["openai", "qwen"]:
+            raise ValueError(f"Unknown planner backend: {self.backend}. Use 'openai' or 'qwen'")
+        
+        # Build system prompt with persona context
         self.system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             persona_context=persona_context
         )
+        
+        self.temperature = temperature
+        
+        # Initialize backend-specific components
+        if self.backend == "openai":
+            self._init_openai_backend(model)
+        elif self.backend == "qwen":
+            self._init_qwen_backend()
+        
+        print(f"[Planner] Initialized with backend: {self.backend}")
+    
+    def _init_openai_backend(self, model: Optional[str]):
+        """Initialize OpenAI backend"""
+        try:
+            from openai import AsyncOpenAI
+        except ImportError:
+            raise ImportError(
+                "OpenAI backend requires 'openai' package. "
+                "Install with: pip install openai"
+            )
+        
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "OPENAI_API_KEY environment variable is required for OpenAI backend"
+            )
+        
+        self.openai_client = AsyncOpenAI(api_key=api_key)
+        self.model = model or "gpt-4o"
+        
+        print(f"[Planner] Using OpenAI model: {self.model}")
+    
+    def _init_qwen_backend(self):
+        """Initialize Qwen backend"""
+        self.qwen_service_url = os.getenv("PLANNER_SERVICE_URL", "http://localhost:8001")
+        self.qwen_timeout = aiohttp.ClientTimeout(total=30)  # 30s for inference
+        
+        print(f"[Planner] Using Qwen service: {self.qwen_service_url}")
     
     async def plan(
         self,
@@ -88,9 +139,42 @@ class PlannerAgent:
     ) -> Optional[PlannerAction]:
         """
         Decide the next action based on current context.
+        
+        Args:
+            task_description: The task to complete
+            screenshot_base64: Base64-encoded PNG screenshot
+            action_history: List of recent actions (for short-term memory)
+            action_summary: Compressed summary of older actions (for long-term memory)
+            outcome_mismatches: List of issues encountered
+        
+        Returns:
+            PlannerAction if successful, None if planning failed
         """
         
-        # Build user message 
+        if self.backend == "openai":
+            return await self._plan_openai(
+                task_description, screenshot_base64,
+                action_history, action_summary, outcome_mismatches
+            )
+        else:  # qwen
+            return await self._plan_qwen(
+                task_description, screenshot_base64,
+                action_history, action_summary, outcome_mismatches
+            )
+    
+    async def _plan_openai(
+        self,
+        task_description: str,
+        screenshot_base64: str,
+        action_history: list[dict],
+        action_summary: Optional[str],
+        outcome_mismatches: list[str]
+    ) -> Optional[PlannerAction]:
+        """
+        Plan using OpenAI GPT-4o with structured JSON schema outputs.
+        """
+        
+        # Build user message
         user_message = self._build_user_message(
             task_description=task_description,
             action_history=action_history,
@@ -99,7 +183,7 @@ class PlannerAgent:
         )
         
         try:
-            response = await self.client.chat.completions.create(
+            response = await self.openai_client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
@@ -124,7 +208,7 @@ class PlannerAgent:
                     "json_schema": {
                         "name": "action_response",
                         "strict": True,
-                        "schema": self.ACTION_SCHEMA
+                        "schema": self.OPENAI_ACTION_SCHEMA
                     }
                 },
                 temperature=self.temperature
@@ -142,8 +226,84 @@ class PlannerAgent:
                 outcome_mismatch=action_data["outcome_mismatch"] if action_data["outcome_mismatch"] else None
             )
         
+        except json.JSONDecodeError as e:
+            print(f"[Planner] OpenAI JSON decode error: {e}")
+            return None
+        except KeyError as e:
+            print(f"[Planner] OpenAI missing required field: {e}")
+            return None
         except Exception as e:
-            print(f"[Planner] Failed to parse action: {e}")
+            print(f"[Planner] OpenAI failed: {e}")
+            return None
+    
+    async def _plan_qwen(
+        self,
+        task_description: str,
+        screenshot_base64: str,
+        action_history: list[dict],
+        action_summary: Optional[str],
+        outcome_mismatches: list[str]
+    ) -> Optional[PlannerAction]:
+        """
+        Plan using self-hosted Qwen-3-VL service.
+        """
+        
+        # Build user message
+        user_message = self._build_user_message(
+            task_description=task_description,
+            action_history=action_history,
+            action_summary=action_summary,
+            outcome_mismatches=outcome_mismatches
+        )
+        
+        try:
+            async with aiohttp.ClientSession(timeout=self.qwen_timeout) as session:
+                payload = {
+                    "system_prompt": self.system_prompt,
+                    "user_prompt": user_message,
+                    "image_base64": screenshot_base64
+                }
+                
+                async with session.post(
+                    f"{self.qwen_service_url}/plan",
+                    json=payload
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        print(f"[Planner] Qwen service error {response.status}: {error_text}")
+                        return None
+                    
+                    result = await response.json()
+                    
+                    if not result.get("success", False):
+                        error_msg = result.get("error", "Unknown error")
+                        print(f"[Planner] Qwen planning failed: {error_msg}")
+                        
+                        # Log raw output for debugging if available
+                        if result.get("raw_output"):
+                            print(f"[Planner] Raw output: {result['raw_output'][:200]}...")
+                        
+                        return None
+                    
+                    # Extract action from successful response
+                    action_data = result["action"]
+                    
+                    return PlannerAction(
+                        action_type=action_data["action_type"],
+                        target_description=action_data["target_description"] if action_data["target_description"] else None,
+                        input_value=action_data["input_value"] if action_data["input_value"] else None,
+                        reasoning=action_data["reasoning"],
+                        outcome_mismatch=action_data["outcome_mismatch"] if action_data["outcome_mismatch"] else None
+                    )
+        
+        except aiohttp.ClientError as e:
+            print(f"[Planner] Qwen network error: {e}")
+            return None
+        except KeyError as e:
+            print(f"[Planner] Qwen response missing field: {e}")
+            return None
+        except Exception as e:
+            print(f"[Planner] Qwen unexpected error: {e}")
             return None
     
     def _build_user_message(

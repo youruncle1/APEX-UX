@@ -1,3 +1,5 @@
+# src/controller/controller.py
+
 import os
 from typing import Optional
 from datetime import datetime
@@ -20,17 +22,30 @@ class TwoAgentController:
         persona_context: str,
         grounder: GroundingAgent,
         browser: BrowserConnector,
-        compression_threshold: int = 5
+        compression_threshold: int = 5,
+        planner_backend: Optional[str] = None  # NEW: Allow backend override
     ):
         """
         Initialize controller with persona context.
+        
+        Args:
+            persona_context: Persona description for planner
+            grounder: Grounding agent instance
+            browser: Browser connector instance
+            compression_threshold: History compression threshold
+            planner_backend: Override for planner backend ("openai" or "qwen")
         """
-        self.planner = PlannerAgent(persona_context=persona_context)
+        # Initialize planner with backend selection
+        self.planner = PlannerAgent(
+            persona_context=persona_context,
+            backend=planner_backend  # Uses env var if None
+        )
         self.grounder = grounder
         self.browser = browser
         self.compression_threshold = compression_threshold
         self.screenshot_storage = create_screenshot_storage()
     
+    # ... rest of the controller remains the same
     async def execute_task(
         self,
         task_description: str,
@@ -80,7 +95,7 @@ class TwoAgentController:
             # Maybe compress memory if threshold reached
             await memory.maybe_compress()
             
-            # Plan next action
+            # Plan next action (with retry logic for robustness)
             planner_action = None
             for retry in range(3):  # Max 3 retries for invalid output
                 planner_action = await self.planner.plan(

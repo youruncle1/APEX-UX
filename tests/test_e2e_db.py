@@ -34,10 +34,9 @@ from sqlalchemy import select
 
 
 # Test configuration
-TEST_URL = "https://www.google.com"
+TEST_URL = "https://www.wikipedia.com"
 TEST_TASKS = [
-    "Search for 'machine learning' on Google",
-    "Click on the first search result"
+    "Find the article about Albert Einstein and identify his field of study.",
 ]
 TEST_PERSONA = {"name": "Test User", "skills": "moderate", "style": "careful"}
 
