@@ -6,13 +6,11 @@ pydantic-settings==2.12.0
 
 # Model & ML
 torch==2.6.0
-transformers==4.49.0
+transformers==4.57.5
 qwen-vl-utils==0.0.14
 accelerate==1.12.0
-flash-attn==2.7.4.post1
+flash-attn==2.7.4.post1  # GLIBC 2.31 VERSION
+#flash-attn==2.8.3       # GLIBC 2.32 VERSION
 
 # Image Processing
 Pillow==12.1.0
-
-# Utilities
-python-multipart==0.0.20  # For potential future file upload support
