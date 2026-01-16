@@ -126,6 +126,26 @@ class TwoAgentController:
             
             # Check if task is done
             if planner_action.action_type == "DONE":
+                # Record DONE action in action_records
+                action_records.append({
+                    "step_number": step,
+                    "action_type": "DONE",
+                    "target_description": None,
+                    "input_value": None,
+                    "reasoning": planner_action.reasoning,
+                    "bounding_box": None,
+                    "click_coordinates": None,
+                    "execution_success": True,
+                    "execution_feedback": "Task marked as complete by agent",
+                    "timestamp": datetime.now().isoformat(),
+                    "screenshot": screenshot_url
+                })
+                
+                # Add to memory
+                memory.add_action({
+                    "action_type": "DONE",
+                    "reasoning": planner_action.reasoning
+                })
                 # Verify if rules provided
                 if verification_rules:
                     verification = await self.browser.verify(verification_rules)

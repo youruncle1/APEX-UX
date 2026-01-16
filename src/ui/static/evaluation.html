@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluation Report - APEX-UX</title>
+    <link rel="icon" href="/static/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+            <div class="flex items-center space-x-4">
+                <a href="/" class="text-gray-600 hover:text-gray-900">
+                    ← Dashboard
+                </a>
+                <h1 class="text-2xl font-bold text-gray-900" id="eval-title">Evaluation Report</h1>
+                <span id="status-badge"></span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <!-- Loading State -->
+        <div id="loading" class="text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <p class="mt-4 text-gray-600">Loading report...</p>
+        </div>
+
+        <!-- Report Content -->
+        <div id="report-content" class="hidden space-y-8">
+            <!-- Summary Metrics -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">📊 Summary Metrics</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-blue-600" id="metric-success-rate">-</div>
+                        <div class="text-sm text-gray-600">Success Rate</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-blue-600" id="metric-avg-steps">-</div>
+                        <div class="text-sm text-gray-600">Avg Steps/Task</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-blue-600" id="metric-seq">-</div>
+                        <div class="text-sm text-gray-600">Avg SEQ Score</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-blue-600" id="metric-sus">-</div>
+                        <div class="text-sm text-gray-600">Avg SUS Score</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Persona Results -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">🤖 Persona Results</h2>
+                <div id="personas-container" class="space-y-4">
+                    <!-- Persona cards will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Running Progress (if status is RUNNING) -->
+            <div id="progress-section" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-blue-900 mb-4">⏳ Evaluation in Progress</h2>
+                <div id="progress-messages" class="space-y-2 text-sm text-blue-800">
+                    <!-- Progress messages will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE = '';
+        let websocket = null;
+
+        // Get evaluation ID from URL
+        const evaluationId = window.location.pathname.split('/')[2];
+
+        // Load report on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadReport();
+            connectWebSocket();
+        });
+
+        async function loadReport() {
+            try {
+                const response = await fetch(`${API_BASE}/api/evaluation/${evaluationId}`);
+                const report = await response.json();
+
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('report-content').classList.remove('hidden');
+
+                renderReport(report);
+
+                // If running, show progress section
+                if (report.evaluation.status === 'RUNNING') {
+                    document.getElementById('progress-section').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Failed to load report:', error);
+                document.getElementById('loading').innerHTML = `
+                    <p class="text-red-600">Failed to load report. Please refresh the page.</p>
+                `;
+            }
+        }
+
+        function renderReport(report) {
+            const { evaluation, clones, task_runs, metrics_summary } = report;
+
+            // Header
+            document.getElementById('eval-title').textContent = evaluation.name || 'Evaluation Report';
+            document.getElementById('status-badge').innerHTML = getStatusBadge(evaluation.status);
+
+            // Metrics
+            document.getElementById('metric-success-rate').textContent = 
+                `${(metrics_summary.success_rate * 100).toFixed(0)}%`;
+            document.getElementById('metric-avg-steps').textContent = 
+                metrics_summary.avg_steps_per_task.toFixed(1);
+            document.getElementById('metric-seq').textContent = 
+                `${metrics_summary.avg_seq_score.toFixed(1)}/7`;
+            document.getElementById('metric-sus').textContent = 
+                `${metrics_summary.avg_sus_score.toFixed(0)}/100`;
+
+            // Group task runs by clone
+            const tasksByClone = {};
+            clones.forEach(clone => {
+                tasksByClone[clone.clone_id] = {
+                    clone: clone,
+                    tasks: []
+                };
+            });
+
+            task_runs.forEach(task_run => {
+                if (tasksByClone[task_run.clone_id]) {
+                    tasksByClone[task_run.clone_id].tasks.push(task_run);
+                }
+            });
+
+            // Render personas
+            const personasContainer = document.getElementById('personas-container');
+            personasContainer.innerHTML = '';
+
+            Object.values(tasksByClone).forEach(({ clone, tasks }) => {
+                const personaCard = createPersonaCard(clone, tasks);
+                personasContainer.appendChild(personaCard);
+            });
+        }
+
+        function createPersonaCard(clone, tasks) {
+            const card = document.createElement('div');
+            card.className = 'border border-gray-200 rounded-lg p-4';
+
+            const susDisplay = clone.sus_score 
+                ? `SUS: ${clone.sus_score.toFixed(0)}/100`
+                : 'SUS: Pending';
+
+            const tasksHtml = tasks.map(task => {
+                const statusIcon = getTaskStatusIcon(task.status);
+                const seqDisplay = task.seq_score ? `SEQ: ${task.seq_score.toFixed(1)}/7` : '';
+                
+                return `
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+                        <div class="flex-1">
+                            <span class="text-sm">${statusIcon} ${task.task_description}</span>
+                            <div class="text-xs text-gray-500 mt-1">
+                                ${task.steps_taken} steps ${seqDisplay ? `• ${seqDisplay}` : ''}
+                            </div>
+                        </div>
+                        <a href="/task-run/${task.id}" 
+                           class="ml-4 px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
+                            Replay
+                        </a>
+                    </div>
+                `;
+            }).join('');
+
+            card.innerHTML = `
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-md font-semibold text-gray-900">${clone.persona_name}</h3>
+                    <span class="text-sm font-medium text-gray-700">${susDisplay}</span>
+                </div>
+                <div class="space-y-1">
+                    ${tasksHtml}
+                </div>
+            `;
+
+            return card;
+        }
+
+        function getTaskStatusIcon(status) {
+            const icons = {
+                'VERIFIED': '✓',
+                'FAILED': '✗',
+                'TIMEOUT': '⏱',
+                'RUNNING': '⏳',
+                'PENDING': '○'
+            };
+            return icons[status] || '○';
+        }
+
+        function getStatusBadge(status) {
+            const badges = {
+                'PENDING': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">Pending</span>',
+                'RUNNING': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 animate-pulse">Running</span>',
+                'COMPLETED': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">✓ Completed</span>',
+                'ABORTED': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">✗ Aborted</span>'
+            };
+            return badges[status] || '';
+        }
+
+        function connectWebSocket() {
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}/ws/evaluation/${evaluationId}`;
+
+            websocket = new WebSocket(wsUrl);
+
+            websocket.onopen = () => {
+                console.log('WebSocket connected');
+            };
+
+            websocket.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                handleProgressMessage(message);
+            };
+
+            websocket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+
+            websocket.onclose = () => {
+                console.log('WebSocket closed');
+                // Reload report when connection closes (evaluation finished)
+                setTimeout(loadReport, 1000);
+            };
+        }
+
+        function handleProgressMessage(message) {
+            const progressContainer = document.getElementById('progress-messages');
+            const timestamp = new Date().toLocaleTimeString();
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'flex items-start space-x-2';
+            
+            let icon = '•';
+            if (message.type === 'status') icon = '📊';
+            if (message.type === 'error') icon = '❌';
+
+            messageDiv.innerHTML = `
+                <span class="text-xs text-gray-500">[${timestamp}]</span>
+                <span>${icon}</span>
+                <span>${message.message || JSON.stringify(message)}</span>
+            `;
+
+            progressContainer.appendChild(messageDiv);
+            progressContainer.scrollTop = progressContainer.scrollHeight;
+
+            // If completed or error, reload report
+            if (message.type === 'status' && message.status === 'COMPLETED') {
+                setTimeout(loadReport, 2000);
+            }
+        }
+    </script>
+</body>
+</html>

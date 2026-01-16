@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Evaluation - APEX-UX</title>
+    <link rel="icon" href="/static/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+            <div class="flex items-center space-x-4">
+                <a href="/" class="text-gray-600 hover:text-gray-900">
+                    ← Back
+                </a>
+                <h1 class="text-2xl font-bold text-gray-900">Create New Evaluation</h1>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <form id="evaluation-form" class="space-y-8">
+            <!-- Evaluation Details -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">Evaluation Details</h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Evaluation Name (optional)</label>
+                        <input type="text" id="eval-name" 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                               placeholder="E.g., E-commerce Usability Test">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Website Base URL *</label>
+                        <input type="url" id="eval-url" required
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                               placeholder="https://example.com">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Number of Clones</label>
+                        <input type="number" id="clone-count" value="3" min="1" max="10"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <p class="mt-1 text-sm text-gray-500">Number of persona clones to simulate (placeholder personas will be used)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tasks Section -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold text-gray-900">Tasks</h2>
+                    <button type="button" onclick="addTask()" 
+                            class="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
+                        + Add Task
+                    </button>
+                </div>
+
+                <div id="tasks-container" class="space-y-4">
+                    <!-- Task cards will be added here -->
+                </div>
+
+                <p id="no-tasks-message" class="text-sm text-gray-500 text-center py-8">
+                    No tasks added yet. Click "Add Task" to create a task.
+                </p>
+            </div>
+
+            <!-- Submit -->
+            <div class="flex justify-end space-x-4">
+                <a href="/" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    Cancel
+                </a>
+                <button type="submit" id="submit-btn"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                    Create Evaluation
+                </button>
+            </div>
+        </form>
+    </main>
+
+    <script>
+        const API_BASE = '';
+        let taskIdCounter = 0;
+
+        // Add first task on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            addTask();
+        });
+
+        function addTask() {
+            const taskId = taskIdCounter++;
+            const container = document.getElementById('tasks-container');
+            const noTasksMsg = document.getElementById('no-tasks-message');
+
+            // Hide "no tasks" message
+            noTasksMsg.classList.add('hidden');
+
+            const taskCard = document.createElement('div');
+            taskCard.id = `task-${taskId}`;
+            taskCard.className = 'border border-gray-200 rounded-lg p-4';
+
+            taskCard.innerHTML = `
+                <div class="flex justify-between items-start mb-3">
+                    <h3 class="text-sm font-medium text-gray-900">Task ${taskIdCounter}</h3>
+                    <button type="button" onclick="removeTask(${taskId})" 
+                            class="text-red-600 hover:text-red-800 text-sm">
+                        Remove
+                    </button>
+                </div>
+
+                <!-- Simple View (Default) -->
+                <div id="simple-${taskId}" class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Task Description *</label>
+                        <textarea id="desc-${taskId}" required rows="2"
+                                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                  placeholder="E.g., Add a blue wireless mouse to the shopping cart"></textarea>
+                    </div>
+
+                    <button type="button" onclick="toggleAdvanced(${taskId})" 
+                            class="text-sm text-blue-600 hover:text-blue-800">
+                        ⚙️ Advanced Options
+                    </button>
+                </div>
+
+                <!-- Advanced View (Hidden by default) -->
+                <div id="advanced-${taskId}" class="hidden space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Task Description *</label>
+                        <textarea id="desc-adv-${taskId}" required rows="2"
+                                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                  placeholder="E.g., Add a blue wireless mouse to the shopping cart"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Max Steps</label>
+                            <input type="number" id="max-steps-${taskId}" value="25" min="5" max="100"
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Base URL Override</label>
+                            <input type="url" id="url-override-${taskId}" 
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                   placeholder="https://...">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Verification Rules (JSON)</label>
+                        <textarea id="verify-rules-${taskId}" rows="3"
+                                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 font-mono text-xs"
+                                  placeholder='{"type": "url_contains", "value": "/cart"}'></textarea>
+                        <p class="mt-1 text-xs text-gray-500">Optional. Leave empty for agent-only verification.</p>
+                    </div>
+
+                    <button type="button" onclick="toggleAdvanced(${taskId})" 
+                            class="text-sm text-blue-600 hover:text-blue-800">
+                        ← Simple View
+                    </button>
+                </div>
+            `;
+
+            container.appendChild(taskCard);
+        }
+
+        function removeTask(taskId) {
+            const taskCard = document.getElementById(`task-${taskId}`);
+            taskCard.remove();
+
+            // Show "no tasks" message if no tasks left
+            const container = document.getElementById('tasks-container');
+            if (container.children.length === 0) {
+                document.getElementById('no-tasks-message').classList.remove('hidden');
+            }
+        }
+
+        function toggleAdvanced(taskId) {
+            const simple = document.getElementById(`simple-${taskId}`);
+            const advanced = document.getElementById(`advanced-${taskId}`);
+
+            // Copy description value when switching
+            const descSimple = document.getElementById(`desc-${taskId}`);
+            const descAdv = document.getElementById(`desc-adv-${taskId}`);
+
+            if (simple.classList.contains('hidden')) {
+                // Switching to simple
+                descSimple.value = descAdv.value;
+                simple.classList.remove('hidden');
+                advanced.classList.add('hidden');
+            } else {
+                // Switching to advanced
+                descAdv.value = descSimple.value;
+                simple.classList.add('hidden');
+                advanced.classList.remove('hidden');
+            }
+        }
+
+        // Form submission
+        document.getElementById('evaluation-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            console.log('Form submitted - starting validation...');
+
+            // Gather form data
+            const name = document.getElementById('eval-name').value.trim() || null;
+            const base_url = document.getElementById('eval-url').value.trim();
+            const clone_count = parseInt(document.getElementById('clone-count').value);
+
+            console.log('Basic data:', { name, base_url, clone_count });
+
+            // Validate base URL
+            if (!base_url) {
+                alert('Please enter a base URL');
+                return;
+            }
+
+            // Gather tasks
+            const tasks = [];
+            const container = document.getElementById('tasks-container');
+            
+            console.log('Processing tasks, taskIdCounter:', taskIdCounter);
+
+            for (let i = 0; i < taskIdCounter; i++) {
+                const taskCard = document.getElementById(`task-${i}`);
+                if (!taskCard) {
+                    console.log(`Task ${i} card not found, skipping`);
+                    continue;
+                }
+
+                const simple = document.getElementById(`simple-${i}`);
+                const isSimpleView = !simple.classList.contains('hidden');
+
+                console.log(`Task ${i}: isSimpleView=${isSimpleView}`);
+
+                let description, max_steps, url_override, verify_rules;
+
+                if (isSimpleView) {
+                    description = document.getElementById(`desc-${i}`).value.trim();
+                    max_steps = 25;
+                    url_override = null;
+                    verify_rules = null;
+                } else {
+                    description = document.getElementById(`desc-adv-${i}`).value.trim();
+                    max_steps = parseInt(document.getElementById(`max-steps-${i}`).value);
+                    url_override = document.getElementById(`url-override-${i}`).value.trim() || null;
+                    
+                    const rulesText = document.getElementById(`verify-rules-${i}`).value.trim();
+                    if (rulesText) {
+                        try {
+                            verify_rules = JSON.parse(rulesText);
+                        } catch (e) {
+                            alert(`Invalid JSON in Task ${i + 1} verification rules: ${e.message}`);
+                            return;
+                        }
+                    } else {
+                        verify_rules = null;
+                    }
+                }
+
+                if (!description) {
+                    alert(`Task ${i + 1} is missing a description`);
+                    return;
+                }
+
+                console.log(`Task ${i}:`, { description, max_steps, url_override, verify_rules });
+
+                tasks.push({
+                    description,
+                    max_steps,
+                    base_url_override: url_override,
+                    verification_rules: verify_rules
+                });
+            }
+
+            if (tasks.length === 0) {
+                alert('Please add at least one task');
+                return;
+            }
+
+            console.log('Final payload:', { name, base_url, clone_count, tasks });
+
+            // Create evaluation
+            try {
+                console.log('Sending POST request to /api/evaluations...');
+                
+                const response = await fetch(`${API_BASE}/api/evaluations`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name,
+                        base_url,
+                        clone_count,
+                        tasks
+                    })
+                });
+
+                console.log('Response status:', response.status);
+
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Success:', result);
+                    alert('Evaluation created successfully!');
+                    window.location.href = '/';
+                } else {
+                    const error = await response.json();
+                    console.error('Server error:', error);
+                    alert(`Failed to create evaluation: ${error.detail}`);
+                }
+            } catch (error) {
+                console.error('Network or parsing error:', error);
+                alert(`Failed to create evaluation: ${error.message}`);
+            }
+        });
+    </script>
+</body>
+</html>

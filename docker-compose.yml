@@ -24,19 +24,28 @@ services:
     environment:
       ADMINER_DEFAULT_SERVER: postgres
 
-  app:
+  apex-app:
     build: .
+    ports:
+      - "8002:8002"
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+asyncpg://apex:apex_dev_password@postgres:5432/apex_ux
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      PLANNER_BACKEND: ${PLANNER_BACKEND:-openai}
+      PLANNER_SERVICE_URL: ${PLANNER_SERVICE_URL:-http://host.docker.internal:8001}
+      GROUNDING_SERVICE_URL: ${GROUNDING_SERVICE_URL:-http://host.docker.internal:8000}
+      SCREENSHOT_STORAGE_TYPE: ${SCREENSHOT_STORAGE_TYPE:-local}
+      LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-storage/screenshots}
     volumes:
       - ./src:/app/src
-      - ./tests:/app/tests
-      - ./scripts:/app/scripts
-    command: tail -f /dev/null  # Keep container running
+      - ./storage:/app/storage
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8002 --reload
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
 
 volumes:
   postgres_data:
