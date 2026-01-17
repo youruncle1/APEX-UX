@@ -209,9 +209,14 @@ class EvaluationRunner:
                 )
                 
                 if sus_result:
+                    # FIX: Save all three fields
                     clone.sus_score = sus_result["sus_score"]
+                    clone.sus_ratings = sus_result["ratings"]
+                    clone.sus_reasoning = sus_result["reasoning"]
                     await session.commit()
                     print(f"[Runner] SUS score saved: {sus_result['sus_score']:.1f}/100")
+                    print(f"[Runner] SUS ratings: {sus_result['ratings']}")
+                    print(f"[Runner] SUS reasoning: {sus_result['reasoning'][:100]}...")
                 else:
                     print("[Runner] SUS collection returned None (non-fatal)")
                     
@@ -341,13 +346,15 @@ class EvaluationRunner:
                 # Continue - task is still complete even without SEQ
             
             # Create TaskRunMetrics
+            # FIX: Save seq_reasoning as well
             metrics = TaskRunMetrics(
                 task_run_id=task_run.id,
                 steps_taken=basic_metrics["steps_taken"],
                 failed_action_count=basic_metrics["failed_action_count"],
                 outcome_mismatch_count=basic_metrics["outcome_mismatch_count"],
                 backtracking_count=basic_metrics["backtracking_count"],
-                seq_score=seq_result["rating"] if seq_result else None
+                seq_score=seq_result["rating"] if seq_result else None,
+                seq_reasoning=seq_result["reasoning"] if seq_result else None
             )
             session.add(metrics)
             
