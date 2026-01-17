@@ -61,10 +61,16 @@ class BrowserConnector:
                 )
             
             elif action.action_type == ActionType.TYPE:
+                # Click the target and wait to focus it
+                await self.page.mouse.click(action.x, action.y)
+                await self.page.wait_for_timeout(100)
+                
+                # Type the text
                 await self.page.keyboard.type(action.text)
+                
                 return ExecutionResult(
                     success=True,
-                    feedback=f"Typed text: {action.text[:50]}..."
+                    feedback=f"Clicked at ({action.x}, {action.y}) and typed: {action.text[:50]}..."
                 )
             
             elif action.action_type == ActionType.SCROLL_DOWN:

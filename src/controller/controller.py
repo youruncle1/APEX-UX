@@ -23,7 +23,7 @@ class TwoAgentController:
         grounder: GroundingAgent,
         browser: BrowserConnector,
         compression_threshold: int = 5,
-        planner_backend: Optional[str] = None  # NEW: Allow backend override
+        planner_backend: Optional[str] = None
     ):
         """
         Initialize controller with persona context.
@@ -45,7 +45,6 @@ class TwoAgentController:
         self.compression_threshold = compression_threshold
         self.screenshot_storage = create_screenshot_storage()
     
-    # ... rest of the controller remains the same
     async def execute_task(
         self,
         task_description: str,
@@ -171,7 +170,7 @@ class TwoAgentController:
                         "memory_state": memory.get_state()
                     }
             
-            # Ground if needed
+            # Ground if needed (CLICK, HOVER, DRAG_AND_DROP, TYPE)
             coordinates = None
             bounding_box = None
             
@@ -195,6 +194,7 @@ class TwoAgentController:
                         "step_number": step,
                         "action_type": planner_action.action_type,
                         "target_description": planner_action.target_description,
+                        "input_value": planner_action.input_value,
                         "reasoning": planner_action.reasoning,
                         "bounding_box": None,
                         "click_coordinates": None,
@@ -259,8 +259,8 @@ class TwoAgentController:
         }
     
     def _needs_grounding(self, action_type: str) -> bool:
-        """Check if action needs grounding"""
-        return action_type in ["CLICK", "HOVER", "DRAG_AND_DROP"]
+        """Check if action needs grounding - now includes TYPE"""
+        return action_type in ["CLICK", "HOVER", "DRAG_AND_DROP", "TYPE"]
     
     def _build_browser_action(self, planner_action, coordinates: Optional[tuple[int, int]]) -> Action:
         """Convert planner action to browser action"""
