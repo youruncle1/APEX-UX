@@ -12,19 +12,27 @@ class MemoryManager:
         self.compression_threshold = compression_threshold
         self.action_history: list[dict] = []
         self.action_summary: Optional[str] = None
-        self.outcome_mismatches: list[str] = []
-        
-        # For compression
+        self.outcome_mismatches: list[dict] = []  # [{"step": int, "mismatch": str}]
+        self.current_step = 0
         self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     
     def add_action(self, action: dict):
-        """Add action to history"""
+        """Add action to history and increment step counter"""
+        self.current_step += 1
         self.action_history.append(action)
     
     def add_outcome_mismatch(self, mismatch: str):
-        """Add outcome mismatch"""
+        """
+        Add outcome mismatch tied to current step.
+        
+        Args:
+            mismatch: Description of what went wrong
+        """
         if mismatch:
-            self.outcome_mismatches.append(mismatch)
+            self.outcome_mismatches.append({
+                "step": self.current_step,
+                "mismatch": mismatch
+            })
     
     async def maybe_compress(self):
         """
@@ -77,5 +85,12 @@ class MemoryManager:
         return {
             "action_history": self.action_history,
             "action_summary": self.action_summary,
-            "outcome_mismatches": self.outcome_mismatches
+            "outcome_mismatches": self.outcome_mismatches  # Now includes step info
         }
+    
+    def get_outcome_mismatches_for_planner(self) -> list[str]:
+        """
+        Get outcome mismatches as simple strings for planner prompt.
+        Planner doesn't need step numbers, just the mismatch descriptions.
+        """
+        return [item["mismatch"] for item in self.outcome_mismatches]

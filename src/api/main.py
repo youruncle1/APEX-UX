@@ -159,6 +159,7 @@ class TaskRunDetail(BaseModel):
     finished_at: Optional[datetime]
     metrics: Optional[dict]
     actions: List[ActionRecordDetail]
+    outcome_mismatches: Optional[List[dict]] = None
 
 
 # ============================================================================
@@ -806,8 +807,9 @@ async def get_task_run_detail(
         started_at=task_run.started_at,
         finished_at=task_run.finished_at,
         metrics=metrics_dict,
-        actions=actions_data
-    )
+        actions=actions_data,
+        outcome_mismatches=task_run.final_outcome_mismatches
+    ) 
 
 
 # ============================================================================

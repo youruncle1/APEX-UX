@@ -95,6 +95,7 @@ class TwoAgentController:
             await memory.maybe_compress()
             
             # Plan next action (with retry logic for robustness)
+            # FIX: Pass simple list of mismatch strings to planner
             planner_action = None
             for retry in range(3):  # Max 3 retries for invalid output
                 planner_action = await self.planner.plan(
@@ -102,7 +103,7 @@ class TwoAgentController:
                     screenshot_base64=screenshot_base64,
                     action_history=memory.action_history,
                     action_summary=memory.action_summary,
-                    outcome_mismatches=memory.outcome_mismatches
+                    outcome_mismatches=memory.get_outcome_mismatches_for_planner()  # FIX: Use method
                 )
                 
                 if planner_action:
@@ -140,11 +141,12 @@ class TwoAgentController:
                     "screenshot": screenshot_url
                 })
                 
-                # Add to memory
+                # Add to memory (this increments step counter)
                 memory.add_action({
                     "action_type": "DONE",
                     "reasoning": planner_action.reasoning
                 })
+                
                 # Verify if rules provided
                 if verification_rules:
                     verification = await self.browser.verify(verification_rules)
@@ -189,6 +191,13 @@ class TwoAgentController:
                     print(f"[Controller] Grounder: {coordinates}")
                 else:
                     print("[Controller] Grounding failed, skipping action")
+                    
+                    # FIX: Add to memory BEFORE recording mismatch (so step counter is correct)
+                    memory.add_action({
+                        "action_type": planner_action.action_type,
+                        "reasoning": planner_action.reasoning
+                    })
+                    
                     # Record failed grounding
                     action_records.append({
                         "step_number": step,
@@ -204,11 +213,7 @@ class TwoAgentController:
                         "screenshot": screenshot_url
                     })
                     
-                    # Add to memory as failed action
-                    memory.add_action({
-                        "action_type": planner_action.action_type,
-                        "reasoning": planner_action.reasoning
-                    })
+                    # Add outcome mismatch (now tied to current step)
                     memory.add_outcome_mismatch(
                         f"Failed to locate element: {planner_action.target_description}"
                     )
@@ -221,6 +226,12 @@ class TwoAgentController:
             # Execute action
             result = await self.browser.execute_action(browser_action)
             print(f"[Controller] Execution: {result.feedback}")
+            
+            # FIX: Add to memory BEFORE recording mismatch (so step counter is correct)
+            memory.add_action({
+                "action_type": planner_action.action_type,
+                "reasoning": planner_action.reasoning
+            })
             
             # Record action (only store URL, not base64!)
             action_record = {
@@ -238,13 +249,7 @@ class TwoAgentController:
             }
             action_records.append(action_record)
             
-            # Update memory
-            memory.add_action({
-                "action_type": planner_action.action_type,
-                "reasoning": planner_action.reasoning
-            })
-            
-            # Add outcome mismatch if reported by planner
+            # Add outcome mismatch if reported by planner (now tied to current step)
             if planner_action.outcome_mismatch:
                 memory.add_outcome_mismatch(planner_action.outcome_mismatch)
         
