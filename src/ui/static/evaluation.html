@@ -21,6 +21,26 @@
         </div>
     </header>
 
+    <!-- Action Buttons Bar (for PENDING evaluations) -->
+    <div id="action-bar" class="hidden bg-white border-b border-gray-200 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8">
+            <div class="flex items-center space-x-3">
+                <button onclick="startEvaluationFromReport()" 
+                        class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 font-medium">
+                    ▶ Start Evaluation
+                </button>
+                <a id="edit-link" href="#"
+                   class="px-4 py-2 text-sm bg-amber-600 text-white rounded hover:bg-amber-700 font-medium inline-block">
+                    ✎ Edit
+                </a>
+                <button onclick="deleteEvaluationFromReport()" 
+                        class="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 font-medium">
+                    🗑 Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <!-- Loading State -->
@@ -72,12 +92,146 @@
         </div>
     </main>
 
+    <!-- SUS Modal -->
+    <div id="sus-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto" onclick="if(event.target.id==='sus-modal') closeSUSModal()">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl" onclick="event.stopPropagation()">
+                <!-- Modal Header -->
+                <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-4 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-2xl font-bold">System Usability Scale (SUS)</h2>
+                        <p class="text-sm opacity-90 mt-1" id="sus-persona-name">-</p>
+                    </div>
+                    <button onclick="closeSUSModal()" class="text-white hover:text-gray-200 text-3xl leading-none">
+                        &times;
+                    </button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="overflow-y-auto max-h-[calc(90vh-140px)]">
+                    <!-- Score Header -->
+                    <div class="bg-gradient-to-r from-indigo-50 to-purple-50 px-6 py-6 border-b">
+                        <div class="flex items-center gap-6">
+                            <div class="w-24 h-24 rounded-full bg-white shadow-lg flex flex-col items-center justify-center">
+                                <div class="text-3xl font-bold text-indigo-600" id="sus-score">-</div>
+                                <div class="text-xs text-gray-600">/100</div>
+                            </div>
+                            <div class="flex-1">
+                                <div class="text-sm font-medium text-gray-600 mb-2">Interpretation</div>
+                                <div id="sus-badge" class="inline-block px-4 py-2 rounded-full text-sm font-semibold"></div>
+                                <div class="mt-3 text-sm text-gray-600">
+                                    Based on 10 standardized usability questions
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Questions List -->
+                    <div class="px-6 py-4" id="sus-questions">
+                        <!-- Questions will be inserted here -->
+                    </div>
+
+                    <!-- Overall Reasoning -->
+                    <div class="bg-gray-50 px-6 py-4 border-t">
+                        <h3 class="font-semibold text-gray-900 mb-2">Agent's Overall Impression</h3>
+                        <div class="bg-white rounded-lg p-4 text-sm text-gray-700 border-l-4 border-indigo-500" id="sus-reason">
+                            <!-- Reasoning will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="bg-gray-100 px-6 py-3 flex justify-end border-t">
+                    <button onclick="closeSUSModal()" 
+                            class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm font-medium">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEQ Modal -->
+    <div id="seq-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50" onclick="if(event.target.id==='seq-modal') closeSEQModal()">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-2xl w-full shadow-2xl" onclick="event.stopPropagation()">
+                <!-- Modal Header -->
+                <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 flex justify-between items-center rounded-t-lg">
+                    <div>
+                        <h2 class="text-xl font-bold">Task Ease Rating (SEQ)</h2>
+                        <p class="text-sm opacity-90 mt-1" id="seq-task">-</p>
+                    </div>
+                    <button onclick="closeSEQModal()" class="text-white hover:text-gray-200 text-3xl leading-none">
+                        &times;
+                    </button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="px-6 py-6">
+                    <!-- Score Display -->
+                    <div class="flex items-center gap-6 mb-6">
+                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex flex-col items-center justify-center shadow-md">
+                            <div class="text-3xl font-bold text-blue-600" id="seq-score">-</div>
+                            <div class="text-xs text-gray-600">/7</div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-gray-600 mb-1">Overall, this task was:</div>
+                            <div class="text-2xl font-semibold text-gray-900" id="seq-label">-</div>
+                        </div>
+                    </div>
+
+                    <!-- Visual Scale -->
+                    <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                        <div class="text-xs text-center text-gray-600 mb-3 font-medium">
+                            1 (Very Difficult) to 7 (Very Easy)
+                        </div>
+                        <div class="flex gap-2" id="seq-scale">
+                            <!-- Scale boxes will be inserted here -->
+                        </div>
+                    </div>
+
+                    <!-- Reasoning -->
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-2">Agent's Reasoning</h3>
+                        <div class="bg-blue-50 rounded-lg p-4 text-sm text-gray-700 border-l-4 border-blue-500" id="seq-reason">
+                            <!-- Reasoning will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="bg-gray-100 px-6 py-3 flex justify-end border-t rounded-b-lg">
+                    <button onclick="closeSEQModal()" 
+                            class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm font-medium">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API_BASE = '';
         let websocket = null;
+        let evaluationId = window.location.pathname.split('/')[2];
 
-        // Get evaluation ID from URL
-        const evaluationId = window.location.pathname.split('/')[2];
+        // SUS Questions (constants)
+        const SUS_ITEMS = [
+            "I think that I would like to use this website frequently.",
+            "I found the website unnecessarily complex.",
+            "I thought the website was easy to use.",
+            "I think that I would need the support of a technical person to be able to use this website.",
+            "I found the various functions in this website were well integrated.",
+            "I thought there was too much inconsistency in this website.",
+            "I would imagine that most people would learn to use this website very quickly.",
+            "I found the website very cumbersome to use.",
+            "I felt very confident using the website.",
+            "I needed to learn a lot of things before I could get going with this website."
+        ];
+
+        // SEQ Labels (constants)
+        const SEQ_LABELS = ['Very Difficult', 'Difficult', 'Somewhat Difficult', 'Neutral', 
+                           'Somewhat Easy', 'Easy', 'Very Easy'];
 
         // Load report on page load
         document.addEventListener('DOMContentLoaded', () => {
@@ -94,6 +248,12 @@
                 document.getElementById('report-content').classList.remove('hidden');
 
                 renderReport(report);
+
+                // If PENDING, show action buttons
+                if (report.evaluation.status === 'PENDING') {
+                    document.getElementById('action-bar').classList.remove('hidden');
+                    document.getElementById('edit-link').href = `/edit/${evaluationId}`;
+                }
 
                 // If running, show progress section
                 if (report.evaluation.status === 'RUNNING') {
@@ -153,13 +313,23 @@
             const card = document.createElement('div');
             card.className = 'border border-gray-200 rounded-lg p-4';
 
-            const susDisplay = clone.sus_score 
-                ? `SUS: ${clone.sus_score.toFixed(0)}/100`
-                : 'SUS: Pending';
+            const susDisplay = clone.sus_score ? `${clone.sus_score.toFixed(0)}/100` : 'Pending';
+            const susButton = clone.sus_score && clone.sus_ratings
+                ? `<button onclick='showSUSModal(${JSON.stringify(clone).replace(/'/g, "&apos;")})' 
+                           class="text-sm text-indigo-600 hover:text-indigo-800 font-medium hover:underline">
+                        📊 View SUS Details
+                   </button>`
+                : '<span class="text-sm text-gray-400">SUS pending</span>';
 
             const tasksHtml = tasks.map(task => {
                 const statusIcon = getTaskStatusIcon(task.status);
                 const seqDisplay = task.seq_score ? `SEQ: ${task.seq_score.toFixed(1)}/7` : '';
+                const seqButton = task.seq_score && task.seq_reasoning
+                    ? `<button onclick='showSEQModal(${JSON.stringify(task).replace(/'/g, "&apos;")})' 
+                               class="text-xs text-blue-600 hover:underline ml-2 font-medium">
+                            📈 View SEQ
+                       </button>`
+                    : '';
                 
                 return `
                     <div class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
@@ -167,6 +337,7 @@
                             <span class="text-sm">${statusIcon} ${task.task_description}</span>
                             <div class="text-xs text-gray-500 mt-1">
                                 ${task.steps_taken} steps ${seqDisplay ? `• ${seqDisplay}` : ''}
+                                ${seqButton}
                             </div>
                         </div>
                         <a href="/task-run/${task.id}" 
@@ -178,9 +349,12 @@
             }).join('');
 
             card.innerHTML = `
-                <div class="flex justify-between items-center mb-3">
+                <div class="flex justify-between items-start mb-3">
                     <h3 class="text-md font-semibold text-gray-900">${clone.persona_name}</h3>
-                    <span class="text-sm font-medium text-gray-700">${susDisplay}</span>
+                    <div class="text-right">
+                        <div class="text-lg font-bold text-indigo-600 mb-1">SUS: ${susDisplay}</div>
+                        ${susButton}
+                    </div>
                 </div>
                 <div class="space-y-1">
                     ${tasksHtml}
@@ -190,6 +364,145 @@
             return card;
         }
 
+        // SUS Modal Functions
+        function showSUSModal(clone) {
+            if (!clone.sus_score || !clone.sus_ratings) {
+                alert('SUS data not available for this persona');
+                return;
+            }
+
+            // Set persona name and score
+            document.getElementById('sus-persona-name').textContent = clone.persona_name;
+            document.getElementById('sus-score').textContent = Math.round(clone.sus_score);
+
+            // Set interpretation
+            const interp = getSUSInterpretation(clone.sus_score);
+            const badge = document.getElementById('sus-badge');
+            badge.textContent = interp.label;
+            badge.style.backgroundColor = interp.color;
+            badge.style.color = 'white';
+
+            // Render questions
+            const qContainer = document.getElementById('sus-questions');
+            qContainer.innerHTML = clone.sus_ratings.map((rating, i) => `
+                <div class="py-4 border-b last:border-0 hover:bg-gray-50 transition-colors">
+                    <div class="mb-3 text-sm">
+                        <span class="font-semibold text-gray-900">Q${i+1}:</span>
+                        <span class="text-gray-700">${SUS_ITEMS[i]}</span>
+                    </div>
+                    <div class="flex gap-1 mb-2">
+                        ${[1,2,3,4,5].map(n => `
+                            <div class="w-10 h-10 border-2 rounded flex items-center justify-center font-semibold text-sm transition-all ${
+                                n === rating 
+                                    ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white border-indigo-600 transform scale-110 shadow-md' 
+                                    : 'border-gray-300 text-gray-600'
+                            }">${n}</div>
+                        `).join('')}
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-500 px-1">
+                        <span>Strongly Disagree</span>
+                        <span>Strongly Agree</span>
+                    </div>
+                </div>
+            `).join('');
+
+            // Set reasoning
+            document.getElementById('sus-reason').textContent = clone.sus_reasoning || 'No reasoning provided.';
+
+            // Show modal
+            document.getElementById('sus-modal').classList.remove('hidden');
+        }
+
+        function closeSUSModal() {
+            document.getElementById('sus-modal').classList.add('hidden');
+        }
+
+        function getSUSInterpretation(score) {
+            if (score >= 80) return { label: 'Excellent', color: '#10b981' };
+            if (score >= 68) return { label: 'Good', color: '#3b82f6' };
+            if (score >= 50) return { label: 'OK', color: '#f59e0b' };
+            if (score >= 25) return { label: 'Poor', color: '#ef4444' };
+            return { label: 'Awful', color: '#dc2626' };
+        }
+
+        // SEQ Modal Functions
+        function showSEQModal(task) {
+            if (!task.seq_score) {
+                alert('SEQ data not available for this task');
+                return;
+            }
+
+            // Set task description and score
+            document.getElementById('seq-task').textContent = task.task_description;
+            document.getElementById('seq-score').textContent = task.seq_score.toFixed(1);
+            document.getElementById('seq-label').textContent = SEQ_LABELS[Math.round(task.seq_score) - 1];
+
+            // Render scale
+            const scale = document.getElementById('seq-scale');
+            scale.innerHTML = [1,2,3,4,5,6,7].map(i => `
+                <div class="flex-1 text-center p-3 rounded border-2 transition-all ${
+                    Math.round(task.seq_score) === i 
+                        ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white border-blue-600 font-bold transform scale-105 shadow-md' 
+                        : 'bg-white border-gray-300 text-gray-700'
+                }">
+                    <div class="text-lg font-bold">${i}</div>
+                    <div class="text-xs mt-1">${SEQ_LABELS[i-1]}</div>
+                </div>
+            `).join('');
+
+            // Set reasoning
+            document.getElementById('seq-reason').textContent = task.seq_reasoning || 'No reasoning provided.';
+
+            // Show modal
+            document.getElementById('seq-modal').classList.remove('hidden');
+        }
+
+        function closeSEQModal() {
+            document.getElementById('seq-modal').classList.add('hidden');
+        }
+
+        // Action Button Functions
+        async function startEvaluationFromReport() {
+            if (!confirm('Start this evaluation? This may take several minutes.')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/evaluations/${evaluationId}/start`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    const error = await response.json();
+                    alert(`Failed to start: ${error.detail}`);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to start evaluation. Please try again.');
+            }
+        }
+
+        async function deleteEvaluationFromReport() {
+            if (!confirm('Delete this evaluation? This cannot be undone.')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/evaluation/${evaluationId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    window.location.href = '/';
+                } else {
+                    const error = await response.json();
+                    alert(`Failed to delete: ${error.detail}`);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to delete evaluation. Please try again.');
+            }
+        }
+
+        // Helper Functions
         function getTaskStatusIcon(status) {
             const icons = {
                 'VERIFIED': '✓',
@@ -211,6 +524,7 @@
             return badges[status] || '';
         }
 
+        // WebSocket for Progress Updates
         function connectWebSocket() {
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${wsProtocol}//${window.location.host}/ws/evaluation/${evaluationId}`;
@@ -232,7 +546,6 @@
 
             websocket.onclose = () => {
                 console.log('WebSocket closed');
-                // Reload report when connection closes (evaluation finished)
                 setTimeout(loadReport, 1000);
             };
         }
@@ -257,7 +570,6 @@
             progressContainer.appendChild(messageDiv);
             progressContainer.scrollTop = progressContainer.scrollHeight;
 
-            // If completed or error, reload report
             if (message.type === 'status' && message.status === 'COMPLETED') {
                 setTimeout(loadReport, 2000);
             }

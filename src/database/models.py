@@ -36,7 +36,7 @@ class Evaluation(Base):
     name = Column(String, nullable=True)
     base_url = Column(String, nullable=False)
     status = Column(SQLEnum(EvaluationStatus), default=EvaluationStatus.PENDING)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
     finished_at = Column(DateTime, nullable=True)
     
     # Relationships
@@ -48,9 +48,11 @@ class EvaluationClone(Base):
     
     id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     evaluation_id = Column(PGUUID(as_uuid=True), ForeignKey("evaluations.id"), nullable=False)
-    clone_id = Column(String, nullable=False)  # External clone ID
-    persona_cache = Column(JSON, nullable=False)  # Cached persona description
-    sus_score = Column(Float, nullable=True)
+    clone_id = Column(String, nullable=False)  
+    persona_cache = Column(JSON, nullable=False) 
+    sus_score = Column(Float, nullable=True) 
+    sus_ratings = Column(JSON, nullable=True)  
+    sus_reasoning = Column(Text, nullable=True)  
     
     # Relationships
     evaluation = relationship("Evaluation", back_populates="clones")
@@ -107,6 +109,7 @@ class TaskRunMetrics(Base):
     outcome_mismatch_count = Column(Integer, default=0)
     backtracking_count = Column(Integer, default=0)
     seq_score = Column(Float, nullable=True)
+    seq_reasoning = Column(Text, nullable=True)
     
     # Relationships
     task_run = relationship("TaskRun", back_populates="metrics")
@@ -128,8 +131,8 @@ class ActionRecord(Base):
     
     execution_success = Column(Boolean, default=False)
     execution_feedback = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    screenshot = Column(String(500), nullable=True)  # URL/path to screenshot (NOT base64!)
+    timestamp = Column(DateTime, default=datetime.now)
+    screenshot = Column(String(500), nullable=True)  # URL/path to screenshot
     
     # Relationships
     task_run = relationship("TaskRun", back_populates="actions")

@@ -1,7 +1,7 @@
 import asyncio
 import json
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from uuid import UUID
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends
@@ -67,6 +67,26 @@ async def get_db() -> AsyncSession:
 # PYDANTIC MODELS (Request/Response Schemas)
 # ============================================================================
 
+class SEQResponse(BaseModel):
+    score: float
+    question: str
+    scale: str
+    reasoning: str
+
+
+class SUSItemResponse(BaseModel):
+    item_number: int
+    question: str
+    rating: int
+    scale: str
+
+
+class SUSResponse(BaseModel):
+    score: float
+    responses: List[SUSItemResponse]
+    reasoning: str
+
+
 class TaskDefinitionCreate(BaseModel):
     description: str
     base_url_override: Optional[str] = None
@@ -99,17 +119,18 @@ class TaskRunSummary(BaseModel):
     clone_id: str
     status: str
     steps_taken: int
-    seq_score: Optional[float]
-    verification_result: Optional[str]
+    seq_score: Optional[float] = None
+    seq_reasoning: Optional[str] = None  
+    seq_response: Optional[SEQResponse] = None  
+    verification_result: Optional[str] = None
     agent_done: bool
 
 
 class EvaluationReport(BaseModel):
     evaluation: EvaluationSummary
-    clones: List[dict]  # Clone data with SUS scores
+    clones: List[dict] 
     task_runs: List[TaskRunSummary]
     metrics_summary: dict
-
 
 class ActionRecordDetail(BaseModel):
     id: UUID
@@ -258,7 +279,6 @@ async def create_evaluation(
         "status": "created",
         "message": f"Evaluation created with {data.clone_count} clones and {len(data.tasks)} tasks"
     }
-
 
 @app.post("/api/evaluations/{evaluation_id}/start")
 async def start_evaluation(
@@ -412,7 +432,6 @@ async def mark_evaluation_aborted(evaluation_id: UUID):
     if evaluation_id in evaluation_cancellation:
         del evaluation_cancellation[evaluation_id]
 
-
 @app.get("/api/evaluation/{evaluation_id}", response_model=EvaluationReport)
 async def get_evaluation_report(
     evaluation_id: UUID,
@@ -420,7 +439,7 @@ async def get_evaluation_report(
 ):
     """
     Get complete evaluation report with all clones and task runs.
-    Used by evaluation report page.
+    Includes enriched SUS/SEQ data with questions and scales.
     """
     
     # Load evaluation with all relationships
@@ -454,17 +473,53 @@ async def get_evaluation_report(
         duration_seconds=duration
     )
     
-    # Build clone summaries with SUS scores
+    # SUS Questions (constants)
+    SUS_ITEMS = [
+        "I think that I would like to use this website frequently.",
+        "I found the website unnecessarily complex.",
+        "I thought the website was easy to use.",
+        "I think that I would need the support of a technical person to be able to use this website.",
+        "I found the various functions in this website were well integrated.",
+        "I thought there was too much inconsistency in this website.",
+        "I would imagine that most people would learn to use this website very quickly.",
+        "I found the website very cumbersome to use.",
+        "I felt very confident using the website.",
+        "I needed to learn a lot of things before I could get going with this website."
+    ]
+    
+    # Build clone summaries with ENRICHED SUS data
     clones_data = []
     for clone in evaluation.clones:
-        clones_data.append({
+        clone_dict = {
             "id": str(clone.id),
             "clone_id": clone.clone_id,
             "persona_name": clone.persona_cache.get("name", "Unknown"),
-            "sus_score": clone.sus_score
-        })
+            "sus_score": clone.sus_score,
+            "sus_ratings": clone.sus_ratings,  # Raw ratings array
+            "sus_reasoning": clone.sus_reasoning,
+            "sus_response": None
+        }
+        
+        # Enrich SUS data with questions if available
+        if clone.sus_score is not None and clone.sus_ratings:
+            enriched_responses = []
+            for i, rating in enumerate(clone.sus_ratings):
+                enriched_responses.append({
+                    "item_number": i + 1,
+                    "question": SUS_ITEMS[i],
+                    "rating": rating,
+                    "scale": "1 (Strongly Disagree) to 5 (Strongly Agree)"
+                })
+            
+            clone_dict["sus_response"] = {
+                "score": clone.sus_score,
+                "responses": enriched_responses,
+                "reasoning": clone.sus_reasoning
+            }
+        
+        clones_data.append(clone_dict)
     
-    # Build task run summaries
+    # Build task run summaries with ENRICHED SEQ data
     task_runs_data = []
     all_metrics = []
     
@@ -486,24 +541,26 @@ async def get_evaluation_report(
             
             steps_taken = metrics.steps_taken if metrics else 0
             seq_score = metrics.seq_score if metrics else None
+            seq_reasoning = metrics.seq_reasoning if metrics else None
             
-            task_runs_data.append(TaskRunSummary(
-                id=task_run.id,
-                task_description=task_def.description if task_def else "Unknown",
-                clone_id=clone.clone_id,
-                status=task_run.status.value,
-                steps_taken=steps_taken,
-                seq_score=seq_score,
-                verification_result=task_run.verification_result.value if task_run.verification_result else None,
-                agent_done=task_run.agent_done
-            ))
+            task_runs_data.append({
+                "id": str(task_run.id),
+                "task_description": task_def.description if task_def else "Unknown",
+                "clone_id": clone.clone_id,
+                "status": task_run.status.value,
+                "steps_taken": steps_taken,
+                "seq_score": seq_score,
+                "seq_reasoning": seq_reasoning,  # Add reasoning
+                "verification_result": task_run.verification_result.value if task_run.verification_result else None,
+                "agent_done": task_run.agent_done
+            })
             
             if metrics:
                 all_metrics.append(metrics)
     
     # Calculate aggregate metrics
     total_tasks = len(task_runs_data)
-    successful_tasks = sum(1 for tr in task_runs_data if tr.status == "VERIFIED")
+    successful_tasks = sum(1 for tr in task_runs_data if tr["status"] == "VERIFIED")
     
     avg_steps = 0
     avg_seq = 0
@@ -528,13 +585,121 @@ async def get_evaluation_report(
         "avg_sus_score": round(avg_sus, 1)
     }
     
-    return EvaluationReport(
-        evaluation=eval_summary,
-        clones=clones_data,
-        task_runs=task_runs_data,
-        metrics_summary=metrics_summary
-    )
+    return {
+        "evaluation": eval_summary,
+        "clones": clones_data,
+        "task_runs": task_runs_data,
+        "metrics_summary": metrics_summary
+    }
 
+@app.get("/edit/{evaluation_id}")
+async def edit_evaluation_page(evaluation_id: UUID):
+    """Serve evaluation edit page"""
+    return FileResponse("src/ui/static/edit.html")
+
+@app.get("/api/evaluation/{evaluation_id}/editable")
+async def get_editable_evaluation(
+    evaluation_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get evaluation data for editing (only if PENDING)"""
+    result = await db.execute(
+        select(Evaluation)
+        .where(Evaluation.id == evaluation_id)
+        .options(selectinload(Evaluation.tasks), selectinload(Evaluation.clones))
+    )
+    evaluation = result.scalar_one_or_none()
+    
+    if not evaluation:
+        raise HTTPException(status_code=404, detail="Evaluation not found")
+    
+    if evaluation.status != EvaluationStatus.PENDING:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot edit evaluation with status {evaluation.status.value}"
+        )
+    
+    return {
+        "id": str(evaluation.id),
+        "name": evaluation.name,
+        "base_url": evaluation.base_url,
+        "clone_count": len(evaluation.clones),
+        "tasks": [
+            {
+                "description": task.description,
+                "max_steps": task.max_steps,
+                "base_url_override": task.base_url_override,
+                "verification_rules": task.verification_rules
+            }
+            for task in evaluation.tasks
+        ]
+    }
+
+from sqlalchemy import delete
+
+@app.put("/api/evaluations/{evaluation_id}")
+async def update_evaluation(
+    evaluation_id: UUID,
+    data: EvaluationCreate,  # Reuse existing Pydantic model
+    db: AsyncSession = Depends(get_db)
+):
+    """Update evaluation (only if PENDING)"""
+    result = await db.execute(
+        select(Evaluation)
+        .where(Evaluation.id == evaluation_id)
+    )
+    evaluation = result.scalar_one_or_none()
+    
+    if not evaluation:
+        raise HTTPException(status_code=404, detail="Evaluation not found")
+    
+    if evaluation.status != EvaluationStatus.PENDING:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot edit evaluation with status {evaluation.status.value}"
+        )
+    
+    # Update basic fields
+    evaluation.name = data.name
+    evaluation.base_url = data.base_url
+    
+    # Delete old tasks
+    await db.execute(
+        delete(TaskDefinition).where(TaskDefinition.evaluation_id == evaluation_id)
+    )
+    
+    # Delete old clones
+    await db.execute(
+        delete(EvaluationClone).where(EvaluationClone.evaluation_id == evaluation_id)
+    )
+    
+    # Create new clones
+    for i in range(data.clone_count):
+        clone = EvaluationClone(
+            evaluation_id=evaluation.id,
+            clone_id=f"placeholder_clone_{i+1}",
+            persona_cache={"name": f"Placeholder Persona {i+1}", "description": "Generic user"}
+        )
+        db.add(clone)
+    
+    # Create new tasks
+    for task_data in data.tasks:
+        task = TaskDefinition(
+            evaluation_id=evaluation.id,
+            description=task_data.description,
+            base_url_override=task_data.base_url_override,
+            max_steps=task_data.max_steps,
+            verification_rules=task_data.verification_rules
+        )
+        db.add(task)
+    
+    await db.commit()
+    
+    return {
+        "evaluation_id": str(evaluation.id),
+        "status": "updated",
+        "message": "Evaluation updated successfully"
+    }
 
 @app.delete("/api/evaluation/{evaluation_id}")
 async def delete_evaluation(
@@ -569,8 +734,7 @@ async def delete_evaluation(
         "evaluation_id": str(evaluation_id),
         "status": "deleted"
     }
-
-
+    
 # ============================================================================
 # API ROUTES - TASK RUNS
 # ============================================================================
@@ -600,8 +764,8 @@ async def get_task_run_detail(
     
     if not task_run:
         raise HTTPException(status_code=404, detail="Task run not found")
-    
-    # Build metrics dict
+
+    # Build metrics dict with FULL SEQ response
     metrics_dict = None
     if task_run.metrics:
         metrics_dict = {
@@ -609,7 +773,8 @@ async def get_task_run_detail(
             "failed_action_count": task_run.metrics.failed_action_count,
             "outcome_mismatch_count": task_run.metrics.outcome_mismatch_count,
             "backtracking_count": task_run.metrics.backtracking_count,
-            "seq_score": task_run.metrics.seq_score
+            "seq_score": task_run.metrics.seq_score,
+            "seq_reasoning": task_run.metrics.seq_reasoning
         }
     
     # Build action records
@@ -668,7 +833,6 @@ async def get_screenshot(url: str):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve screenshot: {str(e)}")
-
 
 # ============================================================================
 # WEBSOCKET - LIVE PROGRESS UPDATES

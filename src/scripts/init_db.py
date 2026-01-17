@@ -10,8 +10,8 @@ from database.connection import init_db, drop_db
 
 async def main(auto_yes: bool):
     if not auto_yes:
-        print("⚠️  WARNING: This will DELETE ALL DATA in the database.")
-        confirm = input("Are you sure you want to continue? (y/n): ").strip().lower()
+        print("### WARNING: This will DELETE ALL DATA in the database. ###")
+        confirm = input("\tAre you sure you want to continue? (y/n): ").strip().lower()
 
         if confirm not in ("y", "yes"):
             print("Aborted. Database was not modified.")

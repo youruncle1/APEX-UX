@@ -11,7 +11,8 @@ class BrowserConnector:
         headless: bool = True,
         viewport_width: int = 1280,
         viewport_height: int = 720,
-        timeout: int = 10000
+        timeout: int = 10000,
+        stabilization_wait: int = 300 
     ):
         self.playwright: Optional[Playwright] = None
         self.browser: Optional[Browser] = None
@@ -20,6 +21,7 @@ class BrowserConnector:
         self.viewport_height = viewport_height
         self.timeout = timeout
         self.headless = headless
+        self.stabilization_wait = stabilization_wait  
     
     async def start(self, url: str) -> None:
         """Launch browser and navigate to initial URL"""
@@ -42,6 +44,30 @@ class BrowserConnector:
         screenshot_bytes = await self.page.screenshot(type="png")
         return base64.b64encode(screenshot_bytes).decode("utf-8")
     
+    async def _wait_for_stabilization(self, action_type: ActionType) -> None:
+        """
+        Wait for page to stabilize after actions.
+        """
+        
+        if action_type == ActionType.CLICK:
+            # Try network idle first, then fallback to stabilization wait
+            try:
+                await self.page.wait_for_load_state("networkidle", timeout=500)
+            except:
+                # Network idle timeout, use fixed wait instead
+                await self.page.wait_for_timeout(self.stabilization_wait)
+        
+        elif action_type in [ActionType.TYPE, ActionType.HOVER]:
+            # wait for visual feedback to render
+            await self.page.wait_for_timeout(self.stabilization_wait)
+        
+        elif action_type in [ActionType.PRESS_KEY]:
+            # Keys might navigate or submit forms
+            try:
+                await self.page.wait_for_load_state("domcontentloaded", timeout=1000)
+            except:
+                await self.page.wait_for_timeout(self.stabilization_wait)
+    
     async def execute_action(self, action: Action) -> ExecutionResult:
         """Execute an action and return feedback"""
         if not self.page:
@@ -54,19 +80,24 @@ class BrowserConnector:
         try:
             if action.action_type == ActionType.CLICK:
                 await self.page.mouse.click(action.x, action.y)
-                await self.page.wait_for_load_state("domcontentloaded")
+                
+                # NEW: Wait for UI to stabilize (dropdowns, modals, animations)
+                await self._wait_for_stabilization(ActionType.CLICK)
+                
                 return ExecutionResult(
                     success=True,
                     feedback=f"Clicked at ({action.x}, {action.y})"
                 )
             
             elif action.action_type == ActionType.TYPE:
-                # Click the target and wait to focus it
+                # TYPE action: Click to focus, then type
                 await self.page.mouse.click(action.x, action.y)
-                await self.page.wait_for_timeout(100)
+                await self.page.wait_for_timeout(100)  # Focus delay
                 
-                # Type the text
                 await self.page.keyboard.type(action.text)
+                
+                # NEW: Wait for input feedback to render
+                await self._wait_for_stabilization(ActionType.TYPE)
                 
                 return ExecutionResult(
                     success=True,
@@ -76,7 +107,7 @@ class BrowserConnector:
             elif action.action_type == ActionType.SCROLL_DOWN:
                 scroll_amount = self.viewport_height
                 await self.page.mouse.wheel(0, scroll_amount)
-                await self.page.wait_for_timeout(200)
+                await self.page.wait_for_timeout(200)  # Wait for scroll to complete
                 return ExecutionResult(
                     success=True,
                     feedback=f"Scrolled down {scroll_amount}px"
@@ -85,7 +116,7 @@ class BrowserConnector:
             elif action.action_type == ActionType.SCROLL_UP:
                 scroll_amount = self.viewport_height
                 await self.page.mouse.wheel(0, -scroll_amount)
-                await self.page.wait_for_timeout(200)
+                await self.page.wait_for_timeout(200)  # Wait for scroll to complete
                 return ExecutionResult(
                     success=True,
                     feedback=f"Scrolled up {scroll_amount}px"
@@ -93,6 +124,10 @@ class BrowserConnector:
             
             elif action.action_type == ActionType.HOVER:
                 await self.page.mouse.move(action.x, action.y)
+                
+                # NEW: Wait for hover effects (tooltips, menus)
+                await self._wait_for_stabilization(ActionType.HOVER)
+                
                 return ExecutionResult(
                     success=True,
                     feedback=f"Hovered at ({action.x}, {action.y})"
@@ -103,6 +138,7 @@ class BrowserConnector:
                 await self.page.mouse.down()
                 await self.page.mouse.move(action.x2, action.y2)
                 await self.page.mouse.up()
+                await self.page.wait_for_timeout(200)  # Wait for drop animation
                 return ExecutionResult(
                     success=True,
                     feedback=f"Dragged from ({action.x}, {action.y}) to ({action.x2}, {action.y2})"
@@ -110,7 +146,10 @@ class BrowserConnector:
             
             elif action.action_type == ActionType.PRESS_KEY:
                 await self.page.keyboard.press(action.key)
-                await self.page.wait_for_load_state("domcontentloaded")
+                
+                # NEW: Wait for key action to complete (might navigate)
+                await self._wait_for_stabilization(ActionType.PRESS_KEY)
+                
                 return ExecutionResult(
                     success=True,
                     feedback=f"Pressed key: {action.key}"

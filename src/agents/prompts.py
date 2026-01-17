@@ -79,19 +79,22 @@ Include these details in descriptions:
 # OUTCOME VERIFICATION
 After each action, you will receive a new screenshot showing the result. You MUST:
 1. Compare the new state with your expectation from the reasoning
-2. If the outcome doesn't match your expectation, describe what went wrong in `outcome_mismatch`
-3. Use this feedback to adapt your strategy
+2. Review the recent action history provided in the USER PROMPT
+3. If the outcome does not match expectations OR you are repeating the same action or goal without progress, describe this in `outcome_mismatch`
+4. Use this feedback to adapt your strategy
 
 Examples of outcome mismatches:
   - "Clicked login button but page didn't change, weird, maybe it didn't register - did I do something wrong?"
   - "Typed email but cursor didn't appear in field - field may not be focused, need to check"
   - "Scrolled down but reached page bottom without finding search results, what now?"
   - "Clicked menu icon but dropdown didn't appear, this confused me, it might be broken and I need to try another way"
+  - "I already tried this same action for the same reason and nothing changed — repeating it won’t help, I need a different approach"
 
 # ADAPTATION AND LEARNING
-- Maintain awareness of your action history and outcomes
-- If an action fails or produces unexpected results, try a different approach
-- Don't repeat ineffective actions
+- Maintain awareness of your action history, goals, and outcomes
+- Do not repeat actions with the same intent if they already failed or made no progress
+- Before acting, check whether your current goal is the same as your most recent action’s goal
+- If you notice repetition, hesitation, or looping behavior, log it as an outcome mismatch
 - Learn from outcome mismatches to refine your strategy
 - Balance persistence with adaptability
 
@@ -99,7 +102,8 @@ Examples of outcome mismatches:
 - Always embody your persona's characteristics
 - Only describe what you can actually see in the screenshot
 - Be specific and visual in target descriptions
-- Verify outcomes match your expectations
+- Verify outcomes match your expectations before deciding the next action
+- Use outcome verification to decide whether repeating an action makes sense or a new approach is needed
 - Adapt when things don't work as expected"""
 
 

@@ -49,10 +49,8 @@
     </main>
 
     <script>
-        // API base URL
         const API_BASE = '';
 
-        // Load evaluations on page load
         document.addEventListener('DOMContentLoaded', loadEvaluations);
 
         async function loadEvaluations() {
@@ -90,10 +88,7 @@
             const card = document.createElement('div');
             card.className = 'bg-white shadow rounded-lg p-6 hover:shadow-md transition-shadow';
 
-            // Status badge
             const statusBadge = getStatusBadge(evaluation.status);
-
-            // Duration
             const duration = evaluation.duration_seconds 
                 ? formatDuration(evaluation.duration_seconds)
                 : '-';
@@ -141,10 +136,18 @@
         function getActionButtons(evaluation) {
             if (evaluation.status === 'PENDING') {
                 return `
+                    <a href="/evaluation/${evaluation.id}" 
+                       class="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 text-center">
+                        View
+                    </a>
                     <button onclick="startEvaluation('${evaluation.id}')" 
                             class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
                         Start
                     </button>
+                    <a href="/edit/${evaluation.id}"
+                       class="px-3 py-1 text-sm bg-amber-600 text-white rounded hover:bg-amber-700 text-center">
+                        Edit
+                    </a>
                     <button onclick="deleteEvaluation('${evaluation.id}')" 
                             class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700">
                         Delete
@@ -186,7 +189,6 @@
                 });
 
                 if (response.ok) {
-                    // Redirect to evaluation page to watch progress
                     window.location.href = `/evaluation/${evaluationId}`;
                 } else {
                     const error = await response.json();
@@ -211,7 +213,6 @@
                 if (response.ok) {
                     const result = await response.json();
                     alert(result.message);
-                    // Reload to update status
                     window.location.reload();
                 } else {
                     const error = await response.json();
@@ -234,7 +235,6 @@
                 });
 
                 if (response.ok) {
-                    // Reload page
                     window.location.reload();
                 } else {
                     const error = await response.json();
