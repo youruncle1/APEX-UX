@@ -96,6 +96,7 @@
         const API_BASE = '';
         const evaluationId = window.location.pathname.split('/')[2];
         let taskIdCounter = 0;
+        let verifyRuleCounter = 0;
 
         document.addEventListener('DOMContentLoaded', loadEvaluation);
 
@@ -155,9 +156,7 @@
             const description = taskData ? taskData.description : '';
             const maxSteps = taskData ? taskData.max_steps : 25;
             const urlOverride = taskData ? (taskData.base_url_override || '') : '';
-            const verifyRules = taskData && taskData.verification_rules 
-                ? JSON.stringify(taskData.verification_rules, null, 2) 
-                : '';
+            const hasVerification = taskData && taskData.verification_rules;
 
             taskCard.innerHTML = `
                 <div class="flex justify-between items-start mb-3">
@@ -207,12 +206,48 @@
                         </div>
                     </div>
 
+                    <!-- Verification UI -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Verification Rules (JSON)</label>
-                        <textarea id="verify-rules-${taskId}" rows="3"
-                                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 font-mono text-xs"
-                                  placeholder='{"type": "url_contains", "value": "/cart"}'>${verifyRules}</textarea>
-                        <p class="mt-1 text-xs text-gray-500">Optional. Leave empty for agent-only verification.</p>
+                        <div class="flex items-center space-x-2 mb-3">
+                            <input type="checkbox" id="verify-enabled-${taskId}" 
+                                   ${hasVerification ? 'checked' : ''}
+                                   class="rounded border-gray-300"
+                                   onchange="toggleVerification(${taskId})">
+                            <label for="verify-enabled-${taskId}" class="text-sm font-medium text-gray-700">
+                                Verify task completion automatically
+                            </label>
+                        </div>
+
+                        <div id="verify-options-${taskId}" class="${hasVerification ? '' : 'hidden'} pl-6 border-l-2 border-blue-200 space-y-3">
+                            <!-- Verification Logic Toggle -->
+                            <div class="bg-blue-50 rounded p-3">
+                                <div class="text-xs font-medium text-gray-700 mb-2">How should verification work?</div>
+                                <label class="flex items-center space-x-2 mb-2">
+                                    <input type="radio" name="verify-logic-${taskId}" value="any_of" checked
+                                           class="border-gray-300">
+                                    <span class="text-sm">ANY one of these rules passes (OR logic)</span>
+                                </label>
+                                <label class="flex items-center space-x-2">
+                                    <input type="radio" name="verify-logic-${taskId}" value="all_of"
+                                           class="border-gray-300">
+                                    <span class="text-sm">ALL of these rules must pass (AND logic)</span>
+                                </label>
+                            </div>
+
+                            <!-- Rules Container -->
+                            <div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-sm font-medium text-gray-700">Verification Rules:</span>
+                                    <button type="button" onclick="addVerifyRule(${taskId})"
+                                            class="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                                        + Add rule
+                                    </button>
+                                </div>
+                                <div id="verify-rules-${taskId}" class="space-y-2">
+                                    <!-- Rules will be populated here -->
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <button type="button" onclick="toggleAdvanced(${taskId})" 
@@ -223,6 +258,54 @@
             `;
 
             container.appendChild(taskCard);
+            
+            // Populate verification rules if they exist
+            if (hasVerification && taskData.verification_rules) {
+                populateVerificationRules(taskId, taskData.verification_rules);
+            }
+        }
+
+        function populateVerificationRules(taskId, rules) {
+            if (!rules) return;
+            
+            // Determine logic type (any_of, all_of, or single rule)
+            let logic = 'any_of';  // default
+            let conditions = [];
+            
+            if (rules.type === 'any_of' || rules.type === 'all_of') {
+                logic = rules.type;
+                conditions = rules.conditions || [];
+            } else {
+                // Single rule - treat as single condition
+                conditions = [rules];
+            }
+            
+            // Set logic radio button
+            const logicRadio = document.querySelector(`input[name="verify-logic-${taskId}"][value="${logic}"]`);
+            if (logicRadio) logicRadio.checked = true;
+            
+            // Add each condition as a rule
+            conditions.forEach(condition => {
+                addVerifyRule(taskId);
+                
+                // Find the last added rule
+                const rulesContainer = document.getElementById(`verify-rules-${taskId}`);
+                const lastRule = rulesContainer.lastElementChild;
+                if (!lastRule) return;
+                
+                const ruleId = lastRule.id.split('-').pop();
+                const typeSelect = document.getElementById(`verify-rule-type-${taskId}-${ruleId}`);
+                const valueInput = document.getElementById(`verify-rule-value-${taskId}-${ruleId}`);
+                
+                if (condition.type === 'url_contains') {
+                    typeSelect.value = 'url_contains';
+                    valueInput.value = condition.value || '';
+                } else if (condition.type === 'text_any') {
+                    typeSelect.value = 'text_any';
+                    // Take first text from array
+                    valueInput.value = (condition.texts && condition.texts[0]) || '';
+                }
+            });
         }
 
         function removeTask(taskId) {
@@ -251,6 +334,107 @@
                 simple.classList.add('hidden');
                 advanced.classList.remove('hidden');
             }
+        }
+
+        function toggleVerification(taskId) {
+            const enabled = document.getElementById(`verify-enabled-${taskId}`).checked;
+            const options = document.getElementById(`verify-options-${taskId}`);
+            
+            options.classList.toggle('hidden', !enabled);
+            
+            // Add first rule if enabling and no rules exist
+            if (enabled && document.getElementById(`verify-rules-${taskId}`).children.length === 0) {
+                addVerifyRule(taskId);
+            }
+        }
+
+        function addVerifyRule(taskId) {
+            const ruleId = verifyRuleCounter++;
+            const container = document.getElementById(`verify-rules-${taskId}`);
+            
+            const ruleDiv = document.createElement('div');
+            ruleDiv.id = `verify-rule-${taskId}-${ruleId}`;
+            ruleDiv.className = 'flex items-center space-x-2 bg-gray-50 p-2 rounded';
+            
+            ruleDiv.innerHTML = `
+                <select id="verify-rule-type-${taskId}-${ruleId}" 
+                        class="text-sm border-gray-300 rounded flex-shrink-0">
+                    <option value="url_contains">URL contains</option>
+                    <option value="text_any">Page shows text</option>
+                </select>
+                <input type="text" id="verify-rule-value-${taskId}-${ruleId}"
+                       placeholder="Enter value..."
+                       class="flex-1 text-sm border-gray-300 rounded">
+                <button type="button" onclick="removeVerifyRule(${taskId}, ${ruleId})"
+                        class="text-red-600 hover:text-red-800 text-sm px-2">
+                    Remove
+                </button>
+            `;
+            
+            container.appendChild(ruleDiv);
+        }
+
+        function removeVerifyRule(taskId, ruleId) {
+            const ruleDiv = document.getElementById(`verify-rule-${taskId}-${ruleId}`);
+            if (ruleDiv) {
+                ruleDiv.remove();
+            }
+        }
+
+        function buildVerificationRules(taskId) {
+            const enabled = document.getElementById(`verify-enabled-${taskId}`);
+            if (!enabled || !enabled.checked) {
+                return null;
+            }
+            
+            const rulesContainer = document.getElementById(`verify-rules-${taskId}`);
+            if (!rulesContainer || rulesContainer.children.length === 0) {
+                return null;
+            }
+            
+            const logic = document.querySelector(`input[name="verify-logic-${taskId}"]:checked`).value;
+            const conditions = [];
+            
+            // Collect all rules
+            for (let child of rulesContainer.children) {
+                const ruleId = child.id.split('-').pop();
+                const typeSelect = document.getElementById(`verify-rule-type-${taskId}-${ruleId}`);
+                const valueInput = document.getElementById(`verify-rule-value-${taskId}-${ruleId}`);
+                
+                if (!typeSelect || !valueInput) continue;
+                
+                const type = typeSelect.value;
+                const value = valueInput.value.trim();
+                
+                if (!value) continue;
+                
+                if (type === 'url_contains') {
+                    conditions.push({
+                        type: 'url_contains',
+                        value: value
+                    });
+                } else if (type === 'text_any') {
+                    conditions.push({
+                        type: 'text_any',
+                        texts: [value]
+                    });
+                }
+            }
+            
+            if (conditions.length === 0) {
+                return null;
+            }
+            
+            // Single rule - return directly
+            if (conditions.length === 1) {
+                return conditions[0];
+            }
+            
+            // Multiple rules - wrap in logic
+            return {
+                type: logic,
+                conditions: conditions
+            };
         }
 
         // Form submission
@@ -289,17 +473,8 @@
                     max_steps = parseInt(document.getElementById(`max-steps-${i}`).value);
                     url_override = document.getElementById(`url-override-${i}`).value.trim() || null;
 
-                    const rulesText = document.getElementById(`verify-rules-${i}`).value.trim();
-                    if (rulesText) {
-                        try {
-                            verify_rules = JSON.parse(rulesText);
-                        } catch (e) {
-                            alert(`Invalid JSON in Task ${i + 1} verification rules: ${e.message}`);
-                            return;
-                        }
-                    } else {
-                        verify_rules = null;
-                    }
+                    // Build verification rules
+                    verify_rules = buildVerificationRules(i);
                 }
 
                 if (!description) {

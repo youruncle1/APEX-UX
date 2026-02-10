@@ -64,6 +64,21 @@ class Verifier:
                 evidence="None of the conditions passed"
             )
         
+        elif rule_type == "all_of":
+            conditions = self.rules.get("conditions", [])
+            for condition in conditions:
+                verifier = Verifier(condition)
+                result = await verifier.verify(current_url, page_text)
+                if result.status != VerificationStatus.PASS:
+                    return VerificationResult(
+                        status=VerificationStatus.FAIL,
+                        evidence=f"Condition failed: {result.evidence}"
+                    )
+            return VerificationResult(
+                status=VerificationStatus.PASS,
+                evidence="All conditions passed"
+            )
+        
         return VerificationResult(
             status=VerificationStatus.UNKNOWN,
             evidence=f"Unknown verification type: {rule_type}"

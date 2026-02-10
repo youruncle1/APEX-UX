@@ -322,7 +322,32 @@
                 : '<span class="text-sm text-gray-400">SUS pending</span>';
 
             const tasksHtml = tasks.map(task => {
-                const statusIcon = getTaskStatusIcon(task.status);
+                // Build status display
+                let statusDisplay = '';
+                
+                // Step 1: Completion status (from agent perspective)
+                if (task.agent_done) {
+                    statusDisplay = '<span class="text-green-600 font-medium">✓ Completed</span>';
+                } else {
+                    // Agent never called DONE
+                    if (task.status === 'TIMEOUT') {
+                        statusDisplay = '<span class="text-amber-600 font-medium">⏱ Timeout</span>';
+                    } else {
+                        statusDisplay = '<span class="text-red-600 font-medium">✗ Failed</span>';
+                    }
+                }
+                
+                // Step 2: Verification badge (from system perspective)
+                if (task.agent_done && task.verification_result) {
+                    if (task.verification_result === 'PASS') {
+                        statusDisplay += ' <span class="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded font-semibold">🔒 Verified</span>';
+                    } else if (task.verification_result === 'FAIL') {
+                        statusDisplay += ' <span class="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-800 rounded font-semibold">✗ Verification Failed</span>';
+                    } else if (task.verification_result === 'ERROR' || task.verification_result === 'UNKNOWN') {
+                        statusDisplay += ' <span class="ml-2 px-2 py-0.5 text-xs bg-amber-100 text-amber-800 rounded font-semibold">⚠ Verification Error</span>';
+                    }
+                }
+                
                 const seqDisplay = task.seq_score ? `SEQ: ${task.seq_score.toFixed(1)}/7` : '';
                 const seqButton = task.seq_score && task.seq_reasoning
                     ? `<button onclick='showSEQModal(${JSON.stringify(task).replace(/'/g, "&apos;")})' 
@@ -334,7 +359,10 @@
                 return `
                     <div class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
                         <div class="flex-1">
-                            <span class="text-sm">${statusIcon} ${task.task_description}</span>
+                            <div class="text-sm font-medium mb-1">${task.task_description}</div>
+                            <div class="flex items-center space-x-2 text-sm">
+                                <span>${statusDisplay}</span>
+                            </div>
                             <div class="text-xs text-gray-500 mt-1">
                                 ${task.steps_taken} steps ${seqDisplay ? `• ${seqDisplay}` : ''}
                                 ${seqButton}
@@ -503,17 +531,6 @@
         }
 
         // Helper Functions
-        function getTaskStatusIcon(status) {
-            const icons = {
-                'VERIFIED': '✓',
-                'FAILED': '✗',
-                'TIMEOUT': '⏱',
-                'RUNNING': '⏳',
-                'PENDING': '○'
-            };
-            return icons[status] || '○';
-        }
-
         function getStatusBadge(status) {
             const badges = {
                 'PENDING': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">Pending</span>',

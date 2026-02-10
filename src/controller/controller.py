@@ -38,7 +38,7 @@ class TwoAgentController:
         # Initialize planner with backend selection
         self.planner = PlannerAgent(
             persona_context=persona_context,
-            backend=planner_backend  # Uses env var if None
+            backend=planner_backend 
         )
         self.grounder = grounder
         self.browser = browser
@@ -79,7 +79,7 @@ class TwoAgentController:
         for step in range(1, max_steps + 1):
             print(f"\n[Controller] Step {step}/{max_steps}")
             
-            # Capture screenshot (base64 PNG)
+            # Capture screenshot (base64)
             screenshot_base64 = await self.browser.screenshot()
             
             # Save screenshot to storage and get URL
@@ -91,11 +91,10 @@ class TwoAgentController:
             )
             print(f"[Controller] Screenshot saved: {screenshot_url}")
             
-            # Maybe compress memory if threshold reached
+            # compress memory if threshold reached
             await memory.maybe_compress()
             
-            # Plan next action (with retry logic for robustness)
-            # FIX: Pass simple list of mismatch strings to planner
+            # Plan next action
             planner_action = None
             for retry in range(3):  # Max 3 retries for invalid output
                 planner_action = await self.planner.plan(
@@ -126,7 +125,6 @@ class TwoAgentController:
             
             # Check if task is done
             if planner_action.action_type == "DONE":
-                # Record DONE action in action_records
                 action_records.append({
                     "step_number": step,
                     "action_type": "DONE",
@@ -141,36 +139,20 @@ class TwoAgentController:
                     "screenshot": screenshot_url
                 })
                 
-                # Add to memory (this increments step counter)
+                # Add to memory
                 memory.add_action({
                     "action_type": "DONE",
                     "reasoning": planner_action.reasoning
                 })
                 
-                # Verify if rules provided
-                if verification_rules:
-                    verification = await self.browser.verify(verification_rules)
+                return {
+                    "status": "COMPLETED",
+                    "agent_done": True,
+                    "steps_taken": step,
+                    "action_records": action_records,
+                    "memory_state": memory.get_state()
+                }
                     
-                    return {
-                        "status": "VERIFIED" if verification.status == "PASS" else "FAILED",
-                        "agent_done": True,
-                        "steps_taken": step,
-                        "action_records": action_records,
-                        "memory_state": memory.get_state(),
-                        "verification_result": {
-                            "status": verification.status,
-                            "evidence": verification.evidence
-                        }
-                    }
-                else:
-                    # No verification, trust agent
-                    return {
-                        "status": "VERIFIED",
-                        "steps_taken": step,
-                        "agent_done": True,
-                        "action_records": action_records,
-                        "memory_state": memory.get_state()
-                    }
             
             # Ground if needed (CLICK, HOVER, DRAG_AND_DROP, TYPE)
             coordinates = None
@@ -191,8 +173,7 @@ class TwoAgentController:
                     print(f"[Controller] Grounder: {coordinates}")
                 else:
                     print("[Controller] Grounding failed, skipping action")
-                    
-                    # FIX: Add to memory BEFORE recording mismatch (so step counter is correct)
+                
                     memory.add_action({
                         "action_type": planner_action.action_type,
                         "reasoning": planner_action.reasoning
@@ -213,12 +194,12 @@ class TwoAgentController:
                         "screenshot": screenshot_url
                     })
                     
-                    # Add outcome mismatch (now tied to current step)
+                    # Add outcome mismatch
                     memory.add_outcome_mismatch(
                         f"Failed to locate element: {planner_action.target_description}"
                     )
                     
-                    continue  # Skip to next step
+                    continue  
             
             # Build browser action
             browser_action = self._build_browser_action(planner_action, coordinates)
@@ -227,13 +208,12 @@ class TwoAgentController:
             result = await self.browser.execute_action(browser_action)
             print(f"[Controller] Execution: {result.feedback}")
             
-            # FIX: Add to memory BEFORE recording mismatch (so step counter is correct)
             memory.add_action({
                 "action_type": planner_action.action_type,
                 "reasoning": planner_action.reasoning
             })
             
-            # Record action (only store URL, not base64!)
+            # Record action 
             action_record = {
                 "step_number": step,
                 "action_type": planner_action.action_type,
@@ -249,7 +229,7 @@ class TwoAgentController:
             }
             action_records.append(action_record)
             
-            # Add outcome mismatch if reported by planner (now tied to current step)
+            # Add outcome mismatch 
             if planner_action.outcome_mismatch:
                 memory.add_outcome_mismatch(planner_action.outcome_mismatch)
         
@@ -275,5 +255,5 @@ class TwoAgentController:
             x=coordinates[0] if coordinates else None,
             y=coordinates[1] if coordinates else None,
             text=planner_action.input_value,
-            key=planner_action.input_value,  # For PRESS_KEY
+            key=planner_action.input_value, 
         )

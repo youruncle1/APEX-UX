@@ -61,27 +61,6 @@ class EvaluationRunner:
     async def run(self, evaluation_id: UUID):
         """
         Run a complete evaluation.
-
-        Orchestration flow:
-        1. Load evaluation from database
-        2. For each clone:
-            - Get persona context (currently placeholder)
-            - Initialize controller with persona and agents
-            - For each task:
-                - Create TaskRun in DB
-                - Execute task via Controller
-                - Calculate basic metrics
-                - Collect SEQ score
-                - Save action records + metrics to DB
-            - Clean up browser resources
-        3. Mark evaluation as completed or aborted
-
-        Args:
-            evaluation_id: UUID of the evaluation to run
-
-        Raises:
-            ValueError: If evaluation not found
-            Exception: Any unhandled error during execution (if error_policy is "fail_fast")
         """
 
         async with AsyncSessionLocal() as session:
@@ -108,12 +87,12 @@ class EvaluationRunner:
                         print(f"[Runner] Clone {clone.clone_id} failed: {e}")
                         if self.error_policy == "fail_fast":
                             raise
-                        # Continue with next clone if policy allows
+                        
                         evaluation_failed = True
 
                 # Mark evaluation as completed
                 if evaluation_failed:
-                    evaluation.status = EvaluationStatus.COMPLETED  # Partial completion
+                    evaluation.status = EvaluationStatus.COMPLETED  
                     print(f"[Runner] Evaluation completed with failures")
                 else:
                     evaluation.status = EvaluationStatus.COMPLETED
@@ -141,7 +120,7 @@ class EvaluationRunner:
 
         print(f"\n[Runner] Running clone: {clone.clone_id}")
 
-        # Get persona context (currently placeholder)
+        # Get persona context (placeholder)
         persona_context = PLACEHOLDER_PERSONA
 
         # Initialize agents
@@ -165,15 +144,13 @@ class EvaluationRunner:
                         task_def=task_def,
                         clone=clone,
                         controller=controller,
-                        persona_context=persona_context  # Pass for SEQ collection
+                        persona_context=persona_context  # for SEQ collection
                     )
                 except Exception as e:
                     print(f"[Runner] Task '{task_def.description[:50]}...' failed: {e}")
                     if self.error_policy == "fail_fast":
                         raise
-                    # Continue with next task if policy allows
-            
-            # PHASE 3: SUS COLLECTION  
+                    
             print(f"\n[Runner] Collecting SUS for clone {clone.clone_id}...")
             
             # Collect task data for SUS prompt
@@ -197,7 +174,7 @@ class EvaluationRunner:
                     "status": task_run.status.value,
                     "steps_taken": task_run.metrics.steps_taken if task_run.metrics else 0,
                     "seq_score": task_run.metrics.seq_score if task_run.metrics else None,
-                    "action_history": full_action_history,  # COMPLETE history
+                    "action_history": full_action_history, 
                     "outcome_mismatches": task_run.final_outcome_mismatches or []
                 })
             
@@ -209,7 +186,6 @@ class EvaluationRunner:
                 )
                 
                 if sus_result:
-                    # FIX: Save all three fields
                     clone.sus_score = sus_result["sus_score"]
                     clone.sus_ratings = sus_result["ratings"]
                     clone.sus_reasoning = sus_result["reasoning"]
@@ -239,19 +215,16 @@ class EvaluationRunner:
         """
         Run a single task for a clone.
 
-        Creates TaskRun record, executes via controller,
-        calculates metrics, collects SEQ score, and saves everything to database.
+        Creates TaskRun record, executes using controller,
+        calculates metrics, collects SEQ score, saves to database.
 
         Args:
             session: Database session
             evaluation_id: Evaluation UUID (for screenshot storage)
             task_def: Task definition to execute
             clone: Clone executing the task
-            controller: Controller instance (already has persona context)
+            controller: Controller instance
             persona_context: Persona description (for SEQ collection)
-
-        Raises:
-            Exception: Any error during task execution
         """
 
         print(f"\n[Runner] Task: {task_def.description[:50]}...")
@@ -264,7 +237,7 @@ class EvaluationRunner:
             started_at=datetime.utcnow()
         )
         session.add(task_run)
-        await session.flush()  # Get task_run.id but don't commit yet
+        await session.flush()  
         await session.refresh(task_run)
 
         try:
@@ -281,22 +254,51 @@ class EvaluationRunner:
                 verification_rules=task_def.verification_rules
             )
 
-            # Update TaskRun with results
-            task_run.status = TaskRunStatus(result["status"])
-            task_run.finished_at = datetime.utcnow()
+            # Determine final status based on agent completion and verification
             task_run.agent_done = result.get("agent_done", False)
+            
+            if result["status"] == "COMPLETED":
+                # Agent called DONE
+                if task_def.verification_rules:
+                    try:
+                        verification = await controller.browser.verify(task_def.verification_rules)
+                        
+                        # Store verification details
+                        from src.database.models import VerificationResult as VR
+                        task_run.verification_result = VR(verification.status.value)
+                        task_run.verification_evidence = verification.evidence
+                        
+                        if verification.status.value == "PASS":
+                            task_run.status = TaskRunStatus.VERIFIED
+                        elif verification.status.value == "FAIL":
+                            task_run.status = TaskRunStatus.FAILED
+                        else:  # ERROR, UNKNOWN, SKIPPED
+                            # Keep as COMPLETED but flag verification issue
+                            task_run.status = TaskRunStatus.COMPLETED
+                            print(f"[Runner] Verification error: {verification.evidence}")
+                    
+                    except Exception as e:
+                        # Verification system error
+                        print(f"[Runner] Verification exception: {e}")
+                        task_run.status = TaskRunStatus.COMPLETED
+                        from src.database.models import VerificationResult as VR
+                        task_run.verification_result = VR.UNKNOWN
+                        task_run.verification_evidence = f"Verification error: {str(e)}"
+                else:
+                    # No verification
+                    task_run.status = TaskRunStatus.COMPLETED
+            
+            elif result["status"] == "TIMEOUT":
+                # Max steps reached, agent never called DONE
+                task_run.status = TaskRunStatus.TIMEOUT
+                task_run.failure_reason = "Maximum steps reached"
+            
+            else:
+                # Other failure (should not happen in normal flow)
+                task_run.status = TaskRunStatus.FAILED
+                task_run.failure_reason = result.get("failure_reason", "Unknown failure")
 
-            # Save failure reason if exists
-            if "failure_reason" in result:
-                task_run.failure_reason = result["failure_reason"]
-
-            # Save verification results if present
-            if "verification_result" in result:
-                from src.database.models import VerificationResult
-                task_run.verification_result = VerificationResult(
-                    result["verification_result"]["status"]
-                )
-                task_run.verification_evidence = result["verification_result"].get("evidence")
+            task_run.finished_at = datetime.utcnow()
 
             # Save memory state
             memory_state = result.get("memory_state", {})
@@ -343,10 +345,8 @@ class EvaluationRunner:
                 )
             except Exception as e:
                 print(f"[Runner] SEQ collection failed (non-fatal): {e}")
-                # Continue - task is still complete even without SEQ
             
             # Create TaskRunMetrics
-            # FIX: Save seq_reasoning as well
             metrics = TaskRunMetrics(
                 task_run_id=task_run.id,
                 steps_taken=basic_metrics["steps_taken"],
