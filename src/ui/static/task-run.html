@@ -603,8 +603,104 @@
             return '<div class="text-sm text-gray-600 italic">Unknown rule type</div>';
         }
 
+        // NEW SYSTEM: Render using verification_details (accurate pass/fail per rule)
+        function renderVerificationRulesFromDetails(details, depth = 0) {
+            if (!details) {
+                return '<div class="text-sm text-gray-600 italic">No verification details available</div>';
+            }
+
+            const indent = depth * 20;
+            const type = details.type;
+            const passed = details.passed;
+
+            // Individual rules
+            if (type === 'url_contains') {
+                const icon = passed ? '✓' : '✗';
+                const color = passed ? 'text-green-600' : 'text-red-600';
+                const label = passed ? 'PASSED' : 'FAILED';
+                const labelColor = passed ? 'text-green-600' : 'text-red-600';
+                const value = details.rule.value;
+
+                return `
+                    <div class="flex items-start space-x-2 py-2" style="margin-left: ${indent}px">
+                        <span class="${color} font-semibold text-lg">${icon}</span>
+                        <div class="flex-1">
+                            <span class="text-sm font-medium text-gray-700">URL contains:</span>
+                            <code class="ml-2 px-2 py-0.5 bg-gray-100 rounded text-xs">${value}</code>
+                            <span class="ml-2 text-xs ${labelColor} font-semibold">${label}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (type === 'text_any') {
+                const icon = passed ? '✓' : '✗';
+                const color = passed ? 'text-green-600' : 'text-red-600';
+                const label = passed ? 'PASSED' : 'FAILED';
+                const labelColor = passed ? 'text-green-600' : 'text-red-600';
+                const texts = details.rule.texts || [];
+
+                return `
+                    <div class="flex items-start space-x-2 py-2" style="margin-left: ${indent}px">
+                        <span class="${color} font-semibold text-lg">${icon}</span>
+                        <div class="flex-1">
+                            <span class="text-sm font-medium text-gray-700">Page shows text:</span>
+                            <code class="ml-2 px-2 py-0.5 bg-gray-100 rounded text-xs">${texts.join(', ')}</code>
+                            <span class="ml-2 text-xs ${labelColor} font-semibold">${label}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Compound rules
+            if (type === 'any_of') {
+                const groupName = details.rule.name || 'OR Group';
+                const children = details.children || [];
+                const groupColor = passed ? 'border-green-300' : 'border-red-300';
+                const passLabel = passed ? '<span class="ml-2 text-xs text-green-600 font-semibold">✓ PASSED</span>' : '<span class="ml-2 text-xs text-red-600 font-semibold">✗ FAILED</span>';
+
+                let html = `
+                    <div class="border-l-2 ${groupColor} pl-3 py-2" style="margin-left: ${indent}px">
+                        <div class="text-sm font-semibold text-blue-700 mb-2">
+                            ${groupName} <span class="text-xs font-normal text-gray-600">(any one must pass)</span>
+                            ${passLabel}
+                        </div>
+                `;
+
+                children.forEach(child => {
+                    html += renderVerificationRulesFromDetails(child, depth + 1);
+                });
+
+                html += '</div>';
+                return html;
+            }
+
+            if (type === 'all_of') {
+                const children = details.children || [];
+                const groupColor = passed ? 'border-green-300' : 'border-red-300';
+                const passLabel = passed ? '<span class="ml-2 text-xs text-green-600 font-semibold">✓ PASSED</span>' : '<span class="ml-2 text-xs text-red-600 font-semibold">✗ FAILED</span>';
+
+                let html = `
+                    <div class="border-l-2 ${groupColor} pl-3 py-2" style="margin-left: ${indent}px">
+                        <div class="text-sm font-semibold text-purple-700 mb-2">
+                            AND Group <span class="text-xs font-normal text-gray-600">(all must pass)</span>
+                            ${passLabel}
+                        </div>
+                `;
+
+                children.forEach(child => {
+                    html += renderVerificationRulesFromDetails(child, depth + 1);
+                });
+
+                html += '</div>';
+                return html;
+            }
+
+            return '<div class="text-sm text-gray-600 italic">Unknown rule type</div>';
+        }
+
         /**
-         * Show verification modal
+         * Show verification modal (HYBRID - uses verification_details if available)
          */
         async function showVerificationModalEnhanced() {
             try {
@@ -627,12 +723,19 @@
                 document.getElementById('verification-modal-status').innerHTML = 
                     statusBadges[taskRunData.verification_result] || statusBadges['UNKNOWN'];
 
-                // Render rules (using verification_rules from task definition)
-                const rulesHtml = renderVerificationRules(
-                    taskRunData.verification_rules, 
-                    taskRunData.verification_evidence,
-                    taskRunData.verification_result
-                );
+                // HYBRID: Use verification_details if available, otherwise fall back to verification_rules
+                let rulesHtml;
+                if (taskRunData.verification_details) {
+                    // NEW SYSTEM: Use detailed results with accurate pass/fail
+                    rulesHtml = renderVerificationRulesFromDetails(taskRunData.verification_details);
+                } else {
+                    // OLD SYSTEM: Use verification_rules (fallback for old task runs)
+                    rulesHtml = renderVerificationRules(
+                        taskRunData.verification_rules, 
+                        taskRunData.verification_evidence,
+                        taskRunData.verification_result
+                    );
+                }
                 document.getElementById('verification-modal-rules').innerHTML = rulesHtml;
 
                 // Evidence
