@@ -268,15 +268,42 @@
         function populateVerificationRules(taskId, rules) {
             if (!rules) return;
             
-            // Determine logic type (any_of, all_of, or single rule)
-            let logic = 'any_of';  // default
+            // Detect if this is advanced mode (has all_of with any_of children or mixed types)
+            const isAdvanced = detectAdvancedMode(rules);
+            
+            if (isAdvanced) {
+                // Switch to advanced mode
+                verifyModes[taskId] = 'advanced';
+                document.getElementById(`verify-simple-${taskId}`).classList.add('hidden');
+                document.getElementById(`verify-advanced-${taskId}`).classList.remove('hidden');
+                document.getElementById(`verify-mode-btn-${taskId}`).textContent = '← Switch to Simple Mode';
+                
+                populateAdvancedRules(taskId, rules);
+            } else {
+                // Simple mode
+                populateSimpleRules(taskId, rules);
+            }
+        }
+
+        function detectAdvancedMode(rules) {
+            // Advanced if top-level is all_of with mixed children (any_of groups + regular rules)
+            if (rules.type === 'all_of' && rules.conditions) {
+                const hasAnyOf = rules.conditions.some(c => c.type === 'any_of');
+                const hasRegular = rules.conditions.some(c => c.type !== 'any_of');
+                return hasAnyOf; // If any OR groups exist, it's advanced
+            }
+            return false;
+        }
+
+        function populateSimpleRules(taskId, rules) {
+            let logic = 'any_of';
             let conditions = [];
             
             if (rules.type === 'any_of' || rules.type === 'all_of') {
                 logic = rules.type;
                 conditions = rules.conditions || [];
             } else {
-                // Single rule - treat as single condition
+                // Single rule
                 conditions = [rules];
             }
             
@@ -288,7 +315,6 @@
             conditions.forEach(condition => {
                 addVerifyRule(taskId);
                 
-                // Find the last added rule
                 const rulesContainer = document.getElementById(`verify-rules-${taskId}`);
                 const lastRule = rulesContainer.lastElementChild;
                 if (!lastRule) return;
@@ -302,8 +328,95 @@
                     valueInput.value = condition.value || '';
                 } else if (condition.type === 'text_any') {
                     typeSelect.value = 'text_any';
-                    // Take first text from array
                     valueInput.value = (condition.texts && condition.texts[0]) || '';
+                }
+            });
+        }
+
+        function populateAdvancedRules(taskId, rules) {
+            if (rules.type !== 'all_of' || !rules.conditions) return;
+            
+            advancedGroupCounter[taskId] = 1;
+            
+            rules.conditions.forEach(condition => {
+                if (condition.type === 'any_of') {
+                    // This is an OR group
+                    const groupId = advancedGroupCounter[taskId]++;
+                    const groupsContainer = document.getElementById(`verify-advanced-groups-${taskId}`);
+                    
+                    // Create group manually to set name
+                    const groupDiv = document.createElement('div');
+                    groupDiv.id = `verify-advanced-group-${taskId}-${groupId}`;
+                    groupDiv.className = 'border-2 border-blue-200 rounded-lg p-3 bg-blue-50';
+                    
+                    const groupName = condition.name || `Group ${groupId}`;
+                    
+                    groupDiv.innerHTML = `
+                        <div class="flex justify-between items-center mb-3">
+                            <input type="text" id="verify-advanced-group-name-${taskId}-${groupId}"
+                                value="${groupName}"
+                                class="text-sm font-medium border-gray-300 rounded px-2 py-1 bg-white"
+                                placeholder="Group name">
+                            <button type="button" onclick="removeAdvancedORGroup(${taskId}, ${groupId})"
+                                    class="text-red-600 hover:text-red-800 text-sm font-medium">
+                                Remove Group
+                            </button>
+                        </div>
+                        
+                        <div class="text-xs text-gray-600 mb-2">ANY of these rules must pass:</div>
+                        
+                        <div id="verify-advanced-group-rules-${taskId}-${groupId}" class="space-y-2 mb-2">
+                        </div>
+                        
+                        <button type="button" onclick="addAdvancedGroupRule(${taskId}, ${groupId})"
+                                class="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                            + Add rule to group
+                        </button>
+                    `;
+                    
+                    groupsContainer.appendChild(groupDiv);
+                    
+                    // Add rules to group
+                    advancedGroupRuleCounters[`${taskId}-${groupId}`] = 0;
+                    (condition.conditions || []).forEach(rule => {
+                        addAdvancedGroupRule(taskId, groupId);
+                        
+                        const rulesContainer = document.getElementById(`verify-advanced-group-rules-${taskId}-${groupId}`);
+                        const lastRule = rulesContainer.lastElementChild;
+                        if (!lastRule) return;
+                        
+                        const ruleId = lastRule.id.split('-').pop();
+                        const typeSelect = document.getElementById(`verify-advanced-group-rule-type-${taskId}-${groupId}-${ruleId}`);
+                        const valueInput = document.getElementById(`verify-advanced-group-rule-value-${taskId}-${groupId}-${ruleId}`);
+                        
+                        if (rule.type === 'url_contains') {
+                            typeSelect.value = 'url_contains';
+                            valueInput.value = rule.value || '';
+                        } else if (rule.type === 'text_any') {
+                            typeSelect.value = 'text_any';
+                            valueInput.value = (rule.texts && rule.texts[0]) || '';
+                        }
+                    });
+                    
+                } else {
+                    // Individual rule
+                    addAdvancedIndividualRule(taskId);
+                    
+                    const container = document.getElementById(`verify-advanced-individual-${taskId}`);
+                    const lastRule = container.lastElementChild;
+                    if (!lastRule) return;
+                    
+                    const ruleId = lastRule.id.split('-').pop();
+                    const typeSelect = document.getElementById(`verify-advanced-individual-type-${taskId}-${ruleId}`);
+                    const valueInput = document.getElementById(`verify-advanced-individual-value-${taskId}-${ruleId}`);
+                    
+                    if (condition.type === 'url_contains') {
+                        typeSelect.value = 'url_contains';
+                        valueInput.value = condition.value || '';
+                    } else if (condition.type === 'text_any') {
+                        typeSelect.value = 'text_any';
+                        valueInput.value = (condition.texts && condition.texts[0]) || '';
+                    }
                 }
             });
         }
