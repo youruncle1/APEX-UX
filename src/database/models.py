@@ -87,6 +87,7 @@ class TaskRun(Base):
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
     failure_reason = Column(Text, nullable=True)
+    verification_details = Column(JSON, nullable=True) 
     
     # Memory snapshots (JSON)
     final_action_history = Column(JSON, nullable=True)

@@ -54,10 +54,14 @@
             <!-- Summary Metrics -->
             <div class="bg-white shadow rounded-lg p-6">
                 <h2 class="text-lg font-semibold text-gray-900 mb-4">📊 Summary Metrics</h2>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div class="text-center">
                         <div class="text-3xl font-bold text-blue-600" id="metric-success-rate">-</div>
                         <div class="text-sm text-gray-600">Success Rate</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-green-600" id="metric-tasks-passed">-</div>
+                        <div class="text-sm text-gray-600">Tasks Passed</div>
                     </div>
                     <div class="text-center">
                         <div class="text-3xl font-bold text-blue-600" id="metric-avg-steps">-</div>
@@ -180,13 +184,11 @@
                         </div>
                     </div>
 
-                    <!-- Visual Scale -->
+                    <!-- Scale Visual -->
                     <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                        <div class="text-xs text-center text-gray-600 mb-3 font-medium">
-                            1 (Very Difficult) to 7 (Very Easy)
-                        </div>
+                        <div class="text-xs text-center text-gray-600 mb-3 font-medium">1 (Very Difficult) to 7 (Very Easy)</div>
                         <div class="flex gap-2" id="seq-scale">
-                            <!-- Scale boxes will be inserted here -->
+                            <!-- Scale will be rendered here -->
                         </div>
                     </div>
 
@@ -210,33 +212,65 @@
         </div>
     </div>
 
+    <!-- NEW: Verification Modal -->
+    <div id="verification-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50" onclick="if(event.target.id==='verification-modal') closeVerificationModal()">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-2xl w-full shadow-2xl" onclick="event.stopPropagation()">
+                <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 flex justify-between items-center rounded-t-lg">
+                    <div>
+                        <h2 class="text-xl font-bold">Verification Details</h2>
+                        <p class="text-sm opacity-90 mt-1" id="verification-modal-task">-</p>
+                    </div>
+                    <button onclick="closeVerificationModal()" class="text-white hover:text-gray-200 text-3xl leading-none">&times;</button>
+                </div>
+                <div class="px-6 py-6">
+                    <div class="mb-6">
+                        <div class="text-sm font-medium text-gray-600 mb-2">Status</div>
+                        <div id="verification-modal-status"></div>
+                    </div>
+                    <div class="mb-6">
+                        <h3 class="font-semibold text-gray-900 mb-3">Verification Rules</h3>
+                        <div id="verification-modal-rules" class="space-y-2"></div>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-2">Evidence</h3>
+                        <div class="bg-blue-50 rounded-lg p-4 text-sm text-gray-700 border-l-4 border-blue-500 whitespace-pre-wrap" id="verification-modal-evidence">-</div>
+                    </div>
+                </div>
+                <div class="bg-gray-100 px-6 py-3 flex justify-end border-t rounded-b-lg">
+                    <button onclick="closeVerificationModal()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm font-medium">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API_BASE = '';
         let websocket = null;
         let evaluationId = window.location.pathname.split('/')[2];
 
-        // SUS Questions (constants)
-        const SUS_ITEMS = [
-            "I think that I would like to use this website frequently.",
-            "I found the website unnecessarily complex.",
-            "I thought the website was easy to use.",
-            "I think that I would need the support of a technical person to be able to use this website.",
-            "I found the various functions in this website were well integrated.",
-            "I thought there was too much inconsistency in this website.",
-            "I would imagine that most people would learn to use this website very quickly.",
-            "I found the website very cumbersome to use.",
-            "I felt very confident using the website.",
-            "I needed to learn a lot of things before I could get going with this website."
+        const SUS_QUESTIONS = [
+            "I think that I would like to use this system frequently",
+            "I found the system unnecessarily complex",
+            "I thought the system was easy to use",
+            "I think that I would need the support of a technical person to be able to use this system",
+            "I found the various functions in this system were well integrated",
+            "I thought there was too much inconsistency in this system",
+            "I would imagine that most people would learn to use this system very quickly",
+            "I found the system very cumbersome to use",
+            "I felt very confident using the system",
+            "I needed to learn a lot of things before I could get going with this system"
         ];
 
-        // SEQ Labels (constants)
         const SEQ_LABELS = ['Very Difficult', 'Difficult', 'Somewhat Difficult', 'Neutral', 
                            'Somewhat Easy', 'Easy', 'Very Easy'];
+
+        let reportData = null;
+        let fullTaskRunsData = [];
 
         // Load report on page load
         document.addEventListener('DOMContentLoaded', () => {
             loadReport();
-            connectWebSocket();
         });
 
         async function loadReport() {
@@ -258,6 +292,7 @@
                 // If running, show progress section
                 if (report.evaluation.status === 'RUNNING') {
                     document.getElementById('progress-section').classList.remove('hidden');
+                    connectWebSocket();
                 }
             } catch (error) {
                 console.error('Failed to load report:', error);
@@ -270,6 +305,9 @@
         function renderReport(report) {
             const { evaluation, clones, task_runs, metrics_summary } = report;
 
+            // Store task runs for verification modal
+            fullTaskRunsData = task_runs;
+
             // Header
             document.getElementById('eval-title').textContent = evaluation.name || 'Evaluation Report';
             document.getElementById('status-badge').innerHTML = getStatusBadge(evaluation.status);
@@ -277,6 +315,12 @@
             // Metrics
             document.getElementById('metric-success-rate').textContent = 
                 `${(metrics_summary.success_rate * 100).toFixed(0)}%`;
+            
+            // NEW: Tasks passed count
+            const totalTasks = task_runs.length;
+            const verifiedTasks = task_runs.filter(t => t.verification_result === 'PASS').length;
+            document.getElementById('metric-tasks-passed').textContent = `${verifiedTasks}/${totalTasks}`;
+            
             document.getElementById('metric-avg-steps').textContent = 
                 metrics_summary.avg_steps_per_task.toFixed(1);
             document.getElementById('metric-seq').textContent = 
@@ -338,54 +382,77 @@
                 }
                 
                 // Step 2: Verification badge (from system perspective)
+                let verificationBadge = '';
                 if (task.agent_done && task.verification_result) {
                     if (task.verification_result === 'PASS') {
-                        statusDisplay += ' <span class="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded font-semibold">🔒 Verified</span>';
+                        verificationBadge = ` <button onclick='showVerificationModal("${task.id}")' class="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded font-semibold hover:bg-blue-200 transition-colors cursor-pointer">🔒 Verified</button>`;
                     } else if (task.verification_result === 'FAIL') {
-                        statusDisplay += ' <span class="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-800 rounded font-semibold">✗ Verification Failed</span>';
-                    } else if (task.verification_result === 'ERROR' || task.verification_result === 'UNKNOWN') {
-                        statusDisplay += ' <span class="ml-2 px-2 py-0.5 text-xs bg-amber-100 text-amber-800 rounded font-semibold">⚠ Verification Error</span>';
+                        verificationBadge = ` <button onclick='showVerificationModal("${task.id}")' class="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-800 rounded font-semibold hover:bg-red-200 transition-colors cursor-pointer">✗ Verification Failed</button>`;
+                    } else if (task.verification_result === 'UNKNOWN') {
+                        verificationBadge = ` <button onclick='showVerificationModal("${task.id}")' class="ml-2 px-2 py-0.5 text-xs bg-amber-100 text-amber-800 rounded font-semibold hover:bg-amber-200 transition-colors cursor-pointer">⚠ Unknown</button>`;
+                    } else if (task.verification_result === 'SKIPPED') {
+                        verificationBadge = ' <span class="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-800 rounded font-semibold">○ Skipped</span>';
                     }
                 }
-                
-                const seqDisplay = task.seq_score ? `SEQ: ${task.seq_score.toFixed(1)}/7` : '';
-                const seqButton = task.seq_score && task.seq_reasoning
+
+                // SEQ display
+                const seqDisplay = task.seq_score 
                     ? `<button onclick='showSEQModal(${JSON.stringify(task).replace(/'/g, "&apos;")})' 
-                               class="text-xs text-blue-600 hover:underline ml-2 font-medium">
-                            📈 View SEQ
+                               class="text-blue-600 hover:text-blue-800 hover:underline font-medium">
+                            ${task.seq_score.toFixed(1)}/7
                        </button>`
-                    : '';
-                
+                    : '<span class="text-gray-400">-</span>';
+
                 return `
-                    <div class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
-                        <div class="flex-1">
-                            <div class="text-sm font-medium mb-1">${task.task_description}</div>
-                            <div class="flex items-center space-x-2 text-sm">
-                                <span>${statusDisplay}</span>
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-3 py-2 text-sm">
+                            <div class="max-w-xs truncate" title="${task.task_description}">
+                                ${task.task_description}
                             </div>
-                            <div class="text-xs text-gray-500 mt-1">
-                                ${task.steps_taken} steps ${seqDisplay ? `• ${seqDisplay}` : ''}
-                                ${seqButton}
-                            </div>
-                        </div>
-                        <a href="/task-run/${task.id}" 
-                           class="ml-4 px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
-                            Replay
-                        </a>
-                    </div>
+                        </td>
+                        <td class="px-3 py-2 text-sm">
+                            ${statusDisplay}${verificationBadge}
+                        </td>
+                        <td class="px-3 py-2 text-sm text-center">${seqDisplay}</td>
+                        <td class="px-3 py-2 text-sm text-center text-gray-600">${task.steps_taken || task.metrics?.steps_taken || '-'}</td>
+                        <td class="px-3 py-2 text-sm text-center">
+                            <a href="/task-run/${task.id}" 
+                               class="text-blue-600 hover:text-blue-800 hover:underline">
+                                View →
+                            </a>
+                        </td>
+                    </tr>
                 `;
             }).join('');
 
             card.innerHTML = `
-                <div class="flex justify-between items-start mb-3">
-                    <h3 class="text-md font-semibold text-gray-900">${clone.persona_name}</h3>
-                    <div class="text-right">
-                        <div class="text-lg font-bold text-indigo-600 mb-1">SUS: ${susDisplay}</div>
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">👤 ${clone.clone_id}</h3>
+                        <p class="text-sm text-gray-500 mt-1">
+                            ${tasks.length} task${tasks.length !== 1 ? 's' : ''} | 
+                            SUS: ${susDisplay}
+                        </p>
+                    </div>
+                    <div>
                         ${susButton}
                     </div>
                 </div>
-                <div class="space-y-1">
-                    ${tasksHtml}
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">Task</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">Status</th>
+                                <th class="px-3 py-2 text-center text-xs font-medium text-gray-600 uppercase">SEQ</th>
+                                <th class="px-3 py-2 text-center text-xs font-medium text-gray-600 uppercase">Steps</th>
+                                <th class="px-3 py-2 text-center text-xs font-medium text-gray-600 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            ${tasksHtml}
+                        </tbody>
+                    </table>
                 </div>
             `;
 
@@ -394,34 +461,31 @@
 
         // SUS Modal Functions
         function showSUSModal(clone) {
-            if (!clone.sus_score || !clone.sus_ratings) {
-                alert('SUS data not available for this persona');
+            if (!clone.sus_score) {
+                alert('SUS data not available');
                 return;
             }
 
             // Set persona name and score
-            document.getElementById('sus-persona-name').textContent = clone.persona_name;
-            document.getElementById('sus-score').textContent = Math.round(clone.sus_score);
+            document.getElementById('sus-persona-name').textContent = clone.clone_id;
+            document.getElementById('sus-score').textContent = clone.sus_score.toFixed(1);
 
-            // Set interpretation
-            const interp = getSUSInterpretation(clone.sus_score);
+            // Set interpretation badge
+            const interpretation = getSUSInterpretation(clone.sus_score);
             const badge = document.getElementById('sus-badge');
-            badge.textContent = interp.label;
-            badge.style.backgroundColor = interp.color;
+            badge.textContent = interpretation.label;
+            badge.style.backgroundColor = interpretation.color;
             badge.style.color = 'white';
 
-            // Render questions
-            const qContainer = document.getElementById('sus-questions');
-            qContainer.innerHTML = clone.sus_ratings.map((rating, i) => `
-                <div class="py-4 border-b last:border-0 hover:bg-gray-50 transition-colors">
-                    <div class="mb-3 text-sm">
-                        <span class="font-semibold text-gray-900">Q${i+1}:</span>
-                        <span class="text-gray-700">${SUS_ITEMS[i]}</span>
-                    </div>
-                    <div class="flex gap-1 mb-2">
-                        ${[1,2,3,4,5].map(n => `
-                            <div class="w-10 h-10 border-2 rounded flex items-center justify-center font-semibold text-sm transition-all ${
-                                n === rating 
+            // Render questions using sus_ratings (array of ratings)
+            const questions = document.getElementById('sus-questions');
+            questions.innerHTML = SUS_QUESTIONS.map((q, i) => `
+                <div class="mb-6">
+                    <div class="text-sm font-medium text-gray-700 mb-3">${i + 1}. ${q}</div>
+                    <div class="flex items-center gap-2">
+                        ${[1, 2, 3, 4, 5].map(n => `
+                            <div class="flex-1 text-center py-3 rounded border-2 transition-all ${
+                                clone.sus_ratings && clone.sus_ratings[i] === n 
                                     ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white border-indigo-600 transform scale-110 shadow-md' 
                                     : 'border-gray-300 text-gray-600'
                             }">${n}</div>
@@ -487,6 +551,146 @@
 
         function closeSEQModal() {
             document.getElementById('seq-modal').classList.add('hidden');
+        }
+
+        // NEW: Verification Modal Functions
+        function renderVerificationRules(rules, evidence, result) {
+            if (!rules) {
+                return '<div class="text-sm text-gray-600 italic">No verification rules defined</div>';
+            }
+            
+            return renderRule(rules, evidence, result, 0);
+        }
+
+        function renderRule(rule, evidence, result, depth = 0) {
+            const indent = depth * 20;
+            const passed = result === 'PASS';
+            
+            if (!rule.type) {
+                return '<div class="text-sm text-gray-600 italic">Invalid rule format</div>';
+            }
+            
+            // Individual rules
+            if (rule.type === 'url_contains') {
+                const icon = passed ? '✓' : '✗';
+                const color = passed ? 'text-green-600' : 'text-gray-400';
+                return `
+                    <div class="flex items-start space-x-2 py-2" style="margin-left: ${indent}px">
+                        <span class="${color} font-semibold">${icon}</span>
+                        <div class="flex-1">
+                            <span class="text-sm font-medium text-gray-700">URL contains:</span>
+                            <code class="ml-2 px-2 py-0.5 bg-gray-100 rounded text-xs">${rule.value}</code>
+                            ${passed ? '<span class="ml-2 text-xs text-green-600 font-semibold">PASSED</span>' : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (rule.type === 'text_any') {
+                const icon = passed ? '✓' : '✗';
+                const color = passed ? 'text-green-600' : 'text-gray-400';
+                const texts = rule.texts || [];
+                return `
+                    <div class="flex items-start space-x-2 py-2" style="margin-left: ${indent}px">
+                        <span class="${color} font-semibold">${icon}</span>
+                        <div class="flex-1">
+                            <span class="text-sm font-medium text-gray-700">Page shows text:</span>
+                            <code class="ml-2 px-2 py-0.5 bg-gray-100 rounded text-xs">${texts.join(', ')}</code>
+                            ${passed ? '<span class="ml-2 text-xs text-green-600 font-semibold">PASSED</span>' : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Compound rules
+            if (rule.type === 'any_of') {
+                const groupName = rule.name || 'OR Group';
+                const conditions = rule.conditions || [];
+                
+                // For OR groups, only one needs to pass - we show which one based on evidence
+                let html = `
+                    <div class="border-l-2 border-blue-300 pl-3 py-2" style="margin-left: ${indent}px">
+                        <div class="text-sm font-semibold text-blue-700 mb-2">
+                            ${groupName} <span class="text-xs font-normal text-gray-600">(any one must pass)</span>
+                        </div>
+                `;
+                
+                // Since backend stops at first pass, only one condition in OR group passed
+                // We mark the first one as passed if overall result is PASS
+                conditions.forEach((condition, index) => {
+                    // Only first condition passes in an OR group (backend stops at first match)
+                    const conditionPassed = passed && index === 0;
+                    html += renderRule(condition, evidence, conditionPassed ? 'PASS' : 'FAIL', depth + 1);
+                });
+                
+                html += '</div>';
+                return html;
+            }
+            
+            if (rule.type === 'all_of') {
+                const conditions = rule.conditions || [];
+                
+                let html = `
+                    <div class="border-l-2 border-purple-300 pl-3 py-2" style="margin-left: ${indent}px">
+                        <div class="text-sm font-semibold text-purple-700 mb-2">
+                            AND Group <span class="text-xs font-normal text-gray-600">(all must pass)</span>
+                        </div>
+                `;
+                
+                conditions.forEach((condition) => {
+                    // For all_of, all conditions must pass
+                    html += renderRule(condition, evidence, result, depth + 1);
+                });
+                
+                html += '</div>';
+                return html;
+            }
+            
+            return '<div class="text-sm text-gray-600 italic">Unknown rule type</div>';
+        }
+
+        async function showVerificationModal(taskId) {
+            try {
+                // Fetch full task run details
+                const response = await fetch(`${API_BASE}/api/task-run/${taskId}`);
+                const taskRun = await response.json();
+
+                // Set modal content
+                document.getElementById('verification-modal-task').textContent = taskRun.task_description;
+
+                // Status badge
+                const statusBadges = {
+                    'PASS': '<span class="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-full font-semibold">✓ Verified (PASS)</span>',
+                    'FAIL': '<span class="px-3 py-1 text-sm bg-red-100 text-red-800 rounded-full font-semibold">✗ Failed</span>',
+                    'SKIPPED': '<span class="px-3 py-1 text-sm bg-gray-100 text-gray-800 rounded-full font-semibold">○ Skipped</span>',
+                    'UNKNOWN': '<span class="px-3 py-1 text-sm bg-amber-100 text-amber-800 rounded-full font-semibold">⚠ Unknown</span>'
+                };
+                document.getElementById('verification-modal-status').innerHTML = 
+                    statusBadges[taskRun.verification_result] || statusBadges['UNKNOWN'];
+
+                // Render rules (using verification_rules from task definition)
+                const rulesHtml = renderVerificationRules(
+                    taskRun.verification_rules, 
+                    taskRun.verification_evidence,
+                    taskRun.verification_result
+                );
+                document.getElementById('verification-modal-rules').innerHTML = rulesHtml;
+
+                // Evidence
+                document.getElementById('verification-modal-evidence').textContent = 
+                    taskRun.verification_evidence || 'No evidence available';
+
+                // Show modal
+                document.getElementById('verification-modal').classList.remove('hidden');
+
+            } catch (error) {
+                console.error('Failed to show verification details:', error);
+                alert('Failed to show verification details');
+            }
+        }
+
+        function closeVerificationModal() {
+            document.getElementById('verification-modal').classList.add('hidden');
         }
 
         // Action Button Functions

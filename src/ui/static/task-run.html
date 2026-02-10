@@ -164,6 +164,55 @@
         </div>
     </div>
 
+    <!-- Verification Modal -->
+    <div id="verification-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50" onclick="if(event.target.id==='verification-modal') closeVerificationModal()">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-2xl w-full shadow-2xl" onclick="event.stopPropagation()">
+                <!-- Modal Header -->
+                <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 flex justify-between items-center rounded-t-lg">
+                    <div>
+                        <h2 class="text-xl font-bold">Verification Details</h2>
+                        <p class="text-sm opacity-90 mt-1" id="verification-modal-task">-</p>
+                    </div>
+                    <button onclick="closeVerificationModal()" class="text-white hover:text-gray-200 text-3xl leading-none">
+                        &times;
+                    </button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="px-6 py-6">
+                    <!-- Status Display -->
+                    <div class="mb-6">
+                        <div class="text-sm font-medium text-gray-600 mb-2">Status</div>
+                        <div id="verification-modal-status"></div>
+                    </div>
+
+                    <!-- Rules Display -->
+                    <div class="mb-6">
+                        <h3 class="font-semibold text-gray-900 mb-3">Verification Rules</h3>
+                        <div id="verification-modal-rules" class="space-y-2"></div>
+                    </div>
+
+                    <!-- Evidence Display -->
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-2">Evidence</h3>
+                        <div class="bg-blue-50 rounded-lg p-4 text-sm text-gray-700 border-l-4 border-blue-500" id="verification-modal-evidence">
+                            -
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="bg-gray-100 px-6 py-3 flex justify-end border-t rounded-b-lg">
+                    <button onclick="closeVerificationModal()" 
+                            class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm font-medium">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API_BASE = '';
         const taskRunId = window.location.pathname.split('/')[2];
@@ -228,9 +277,18 @@
                         SEQ_LABELS[Math.round(taskRunData.metrics.seq_score) - 1];
                 }
             }
+            
+            // Verification badge (clickable)
             if (taskRunData.verification_result) {
-                metricsHtml.push(`<div><strong>Verification:</strong> ${taskRunData.verification_result}</div>`);
+                const verificationBadges = {
+                    'PASS': `<button onclick="showVerificationModalEnhanced()" class="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded font-semibold hover:bg-blue-200 transition-colors cursor-pointer">🔒 Verified</button>`,
+                    'FAIL': `<button onclick="showVerificationModalEnhanced()" class="px-2 py-0.5 text-xs bg-red-100 text-red-800 rounded font-semibold hover:bg-red-200 transition-colors cursor-pointer">✗ Verification Failed</button>`,
+                    'SKIPPED': '<span class="px-2 py-0.5 text-xs bg-gray-100 text-gray-800 rounded font-semibold">○ Skipped</span>',
+                    'UNKNOWN': `<button onclick="showVerificationModalEnhanced()" class="px-2 py-0.5 text-xs bg-amber-100 text-amber-800 rounded font-semibold hover:bg-amber-200 transition-colors cursor-pointer">⚠ Unknown</button>`
+                };
+                metricsHtml.push(`<div><strong>Verification:</strong> ${verificationBadges[taskRunData.verification_result] || verificationBadges['UNKNOWN']}</div>`);
             }
+            
             document.getElementById('metrics-display').innerHTML = metricsHtml.join('');
 
             renderTimeline();
@@ -318,7 +376,7 @@
                 details.push(`<div class="text-sm text-gray-600 mt-2">${action.execution_feedback}</div>`);
             }
 
-            // ADD: Outcome Mismatch display
+            // Outcome Mismatch display
             const outcomeMismatch = outcomeMismatchesMap[action.step_number];
             if (outcomeMismatch) {
                 details.push(`
@@ -445,6 +503,153 @@
 
         function closeSEQModal() {
             document.getElementById('seq-modal').classList.add('hidden');
+        }
+
+        // ============================================================================
+        // VERIFICATION MODAL FUNCTIONS - ENHANCED WITH DETAILS
+        // ============================================================================
+
+        /**
+         * Render verification rules (OLD SYSTEM - uses verification_rules)
+         */
+        function renderVerificationRules(rules, evidence, result) {
+            if (!rules) {
+                return '<div class="text-sm text-gray-600 italic">No verification rules defined</div>';
+            }
+            
+            return renderRule(rules, evidence, result, 0);
+        }
+
+        function renderRule(rule, evidence, result, depth = 0) {
+            const indent = depth * 20;
+            const passed = result === 'PASS';
+            
+            if (!rule.type) {
+                return '<div class="text-sm text-gray-600 italic">Invalid rule format</div>';
+            }
+            
+            // Individual rules
+            if (rule.type === 'url_contains') {
+                const icon = passed ? '✓' : '✗';
+                const color = passed ? 'text-green-600' : 'text-gray-400';
+                return `
+                    <div class="flex items-start space-x-2 py-2" style="margin-left: ${indent}px">
+                        <span class="${color} font-semibold">${icon}</span>
+                        <div class="flex-1">
+                            <span class="text-sm font-medium text-gray-700">URL contains:</span>
+                            <code class="ml-2 px-2 py-0.5 bg-gray-100 rounded text-xs">${rule.value}</code>
+                            ${passed ? '<span class="ml-2 text-xs text-green-600 font-semibold">PASSED</span>' : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (rule.type === 'text_any') {
+                const icon = passed ? '✓' : '✗';
+                const color = passed ? 'text-green-600' : 'text-gray-400';
+                const texts = rule.texts || [];
+                return `
+                    <div class="flex items-start space-x-2 py-2" style="margin-left: ${indent}px">
+                        <span class="${color} font-semibold">${icon}</span>
+                        <div class="flex-1">
+                            <span class="text-sm font-medium text-gray-700">Page shows text:</span>
+                            <code class="ml-2 px-2 py-0.5 bg-gray-100 rounded text-xs">${texts.join(', ')}</code>
+                            ${passed ? '<span class="ml-2 text-xs text-green-600 font-semibold">PASSED</span>' : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Compound rules
+            if (rule.type === 'any_of') {
+                const groupName = rule.name || 'OR Group';
+                const conditions = rule.conditions || [];
+                
+                let html = `
+                    <div class="border-l-2 border-blue-300 pl-3 py-2" style="margin-left: ${indent}px">
+                        <div class="text-sm font-semibold text-blue-700 mb-2">
+                            ${groupName} <span class="text-xs font-normal text-gray-600">(any one must pass)</span>
+                        </div>
+                `;
+                
+                // Since backend stops at first pass, only one condition in OR group passed
+                conditions.forEach((condition, index) => {
+                    const conditionPassed = passed && index === 0;
+                    html += renderRule(condition, evidence, conditionPassed ? 'PASS' : 'FAIL', depth + 1);
+                });
+                
+                html += '</div>';
+                return html;
+            }
+            
+            if (rule.type === 'all_of') {
+                const conditions = rule.conditions || [];
+                
+                let html = `
+                    <div class="border-l-2 border-purple-300 pl-3 py-2" style="margin-left: ${indent}px">
+                        <div class="text-sm font-semibold text-purple-700 mb-2">
+                            AND Group <span class="text-xs font-normal text-gray-600">(all must pass)</span>
+                        </div>
+                `;
+                
+                conditions.forEach((condition) => {
+                    html += renderRule(condition, evidence, result, depth + 1);
+                });
+                
+                html += '</div>';
+                return html;
+            }
+            
+            return '<div class="text-sm text-gray-600 italic">Unknown rule type</div>';
+        }
+
+        /**
+         * Show verification modal
+         */
+        async function showVerificationModalEnhanced() {
+            try {
+                // taskRunData is already loaded
+                if (!taskRunData) {
+                    alert('Task data not loaded');
+                    return;
+                }
+
+                // Set modal content
+                document.getElementById('verification-modal-task').textContent = taskRunData.task_description;
+                
+                // Status badge
+                const statusBadges = {
+                    'PASS': '<span class="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-full font-semibold">✓ Verified (PASS)</span>',
+                    'FAIL': '<span class="px-3 py-1 text-sm bg-red-100 text-red-800 rounded-full font-semibold">✗ Failed</span>',
+                    'SKIPPED': '<span class="px-3 py-1 text-sm bg-gray-100 text-gray-800 rounded-full font-semibold">○ Skipped</span>',
+                    'UNKNOWN': '<span class="px-3 py-1 text-sm bg-amber-100 text-amber-800 rounded-full font-semibold">⚠ Unknown</span>'
+                };
+                document.getElementById('verification-modal-status').innerHTML = 
+                    statusBadges[taskRunData.verification_result] || statusBadges['UNKNOWN'];
+
+                // Render rules (using verification_rules from task definition)
+                const rulesHtml = renderVerificationRules(
+                    taskRunData.verification_rules, 
+                    taskRunData.verification_evidence,
+                    taskRunData.verification_result
+                );
+                document.getElementById('verification-modal-rules').innerHTML = rulesHtml;
+
+                // Evidence
+                document.getElementById('verification-modal-evidence').textContent = 
+                    taskRunData.verification_evidence || 'No evidence available';
+
+                // Show modal
+                document.getElementById('verification-modal').classList.remove('hidden');
+
+            } catch (error) {
+                console.error('Failed to show verification details:', error);
+                alert('Failed to show verification details');
+            }
+        }
+
+        function closeVerificationModal() {
+            document.getElementById('verification-modal').classList.add('hidden');
         }
 
         function getStatusBadge(status) {
