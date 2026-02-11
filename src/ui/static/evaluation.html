@@ -413,13 +413,16 @@
                             </div>
                         </td>
                         <td class="px-3 py-2 text-sm">
-                            ${statusDisplay}${verificationBadge}
+                            ${statusDisplay}
+                        </td>
+                        <td class="px-3 py-2 text-sm">
+                            ${verificationBadge}
                         </td>
                         <td class="px-3 py-2 text-sm text-center">${seqDisplay}</td>
                         <td class="px-3 py-2 text-sm text-center text-gray-600">${task.steps_taken || task.metrics?.steps_taken || '-'}</td>
                         <td class="px-3 py-2 text-sm text-center">
                             <a href="/task-run/${task.id}" 
-                               class="text-blue-600 hover:text-blue-800 hover:underline">
+                            class="text-blue-600 hover:text-blue-800 hover:underline">
                                 View →
                             </a>
                         </td>
@@ -446,6 +449,7 @@
                             <tr>
                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">Task</th>
                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">Status</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">Verification</th>
                                 <th class="px-3 py-2 text-center text-xs font-medium text-gray-600 uppercase">SEQ</th>
                                 <th class="px-3 py-2 text-center text-xs font-medium text-gray-600 uppercase">Steps</th>
                                 <th class="px-3 py-2 text-center text-xs font-medium text-gray-600 uppercase">Actions</th>
