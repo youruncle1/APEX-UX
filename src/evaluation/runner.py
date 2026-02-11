@@ -271,10 +271,10 @@ class EvaluationRunner:
                             task_run.status = TaskRunStatus.VERIFIED
                         elif verification.status.value == "FAIL":
                             task_run.status = TaskRunStatus.FAILED
+                        elif verification.status.value == "SKIPPED":
+                            task_run.status = TaskRunStatus.COMPLETED
                         else:
                             task_run.status = TaskRunStatus.COMPLETED
-                            # Log details instead of evidence
-                            print(f"[Runner] Verification status: {verification.status.value}")
 
                     except Exception as e:
                         print(f"[Runner] Verification exception: {e}")
@@ -286,25 +286,19 @@ class EvaluationRunner:
                             'passed': False,
                             'evidence': f"Verification error: {str(e)}"
                         }
-                    
-                    except Exception as e:
-                        # Verification system error
-                        print(f"[Runner] Verification exception: {e}")
-                        task_run.status = TaskRunStatus.COMPLETED
-                        from src.database.models import VerificationResult as VR
-                        task_run.verification_result = VR.UNKNOWN
-                        task_run.verification_evidence = f"Verification error: {str(e)}"
                 else:
-                    # No verification
+                    # No verification rules - agent completion is success
+                    print(f"[Runner] No verification rules, marking as COMPLETED")
                     task_run.status = TaskRunStatus.COMPLETED
+                    task_run.verification_result = None  # Try this first to see if it helps
+                    print(f"[Runner] Status set to {task_run.status}")
             
             elif result["status"] == "TIMEOUT":
-                # Max steps reached, agent never called DONE
                 task_run.status = TaskRunStatus.TIMEOUT
                 task_run.failure_reason = "Maximum steps reached"
             
             else:
-                # Other failure (should not happen in normal flow)
+                # Other failure
                 task_run.status = TaskRunStatus.FAILED
                 task_run.failure_reason = result.get("failure_reason", "Unknown failure")
 

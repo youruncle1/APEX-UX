@@ -192,14 +192,6 @@
                         <h3 class="font-semibold text-gray-900 mb-3">Verification Rules</h3>
                         <div id="verification-modal-rules" class="space-y-2"></div>
                     </div>
-
-                    <!-- Evidence Display -->
-                    <div>
-                        <h3 class="font-semibold text-gray-900 mb-2">Evidence</h3>
-                        <div class="bg-blue-50 rounded-lg p-4 text-sm text-gray-700 border-l-4 border-blue-500" id="verification-modal-evidence">
-                            -
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Modal Footer -->
@@ -746,9 +738,6 @@
                 }
                 document.getElementById('verification-modal-rules').innerHTML = rulesHtml;
 
-                // Evidence
-                document.getElementById('verification-modal-evidence').textContent = 
-                    taskRunData.verification_evidence || 'No evidence available';
 
                 // Show modal
                 document.getElementById('verification-modal').classList.remove('hidden');

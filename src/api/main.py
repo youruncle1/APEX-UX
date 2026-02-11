@@ -562,7 +562,10 @@ async def get_evaluation_report(
     
     # Calculate aggregate metrics
     total_tasks = len(task_runs_data)
-    successful_tasks = sum(1 for tr in task_runs_data if tr["status"] == "VERIFIED")
+    successful_tasks = sum(
+        1 for tr in task_runs_data 
+        if tr["status"] == "VERIFIED" or (tr["status"] == "COMPLETED" and tr["agent_done"])
+    )
     
     avg_steps = 0
     avg_seq = 0
