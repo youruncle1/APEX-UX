@@ -263,19 +263,29 @@ class EvaluationRunner:
                     try:
                         verification = await controller.browser.verify(task_def.verification_rules)
                         
-                        # Store verification details
                         from src.database.models import VerificationResult as VR
                         task_run.verification_result = VR(verification.status.value)
-                        task_run.verification_evidence = verification.evidence
+                        task_run.verification_details = verification.details
                         
                         if verification.status.value == "PASS":
                             task_run.status = TaskRunStatus.VERIFIED
                         elif verification.status.value == "FAIL":
                             task_run.status = TaskRunStatus.FAILED
-                        else:  # ERROR, UNKNOWN, SKIPPED
-                            # Keep as COMPLETED but flag verification issue
+                        else:
                             task_run.status = TaskRunStatus.COMPLETED
-                            print(f"[Runner] Verification error: {verification.evidence}")
+                            # Log details instead of evidence
+                            print(f"[Runner] Verification status: {verification.status.value}")
+
+                    except Exception as e:
+                        print(f"[Runner] Verification exception: {e}")
+                        task_run.status = TaskRunStatus.COMPLETED
+                        from src.database.models import VerificationResult as VR
+                        task_run.verification_result = VR.UNKNOWN
+                        task_run.verification_details = {
+                            'type': 'error',
+                            'passed': False,
+                            'evidence': f"Verification error: {str(e)}"
+                        }
                     
                     except Exception as e:
                         # Verification system error

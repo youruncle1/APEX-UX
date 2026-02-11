@@ -154,8 +154,8 @@ class TaskRunDetail(BaseModel):
     status: str
     agent_done: bool
     verification_result: Optional[str]
-    verification_evidence: Optional[str]
-    verification_rules: Optional[dict] = None  
+    verification_rules: Optional[dict] = None
+    verification_details: Optional[dict] = None  
     started_at: Optional[datetime]
     finished_at: Optional[datetime]
     metrics: Optional[dict]
@@ -804,15 +804,14 @@ async def get_task_run_detail(
         status=task_run.status.value,
         agent_done=task_run.agent_done,
         verification_result=task_run.verification_result.value if task_run.verification_result else None,
-        verification_evidence=task_run.verification_evidence,
-        verification_rules=task_run.task_definition.verification_rules,  
+        verification_rules=task_run.task_definition.verification_rules,
+        verification_details=task_run.verification_details, 
         started_at=task_run.started_at,
         finished_at=task_run.finished_at,
         metrics=metrics_dict,
         actions=actions_data,
         outcome_mismatches=task_run.final_outcome_mismatches
     )
-
 
 # ============================================================================
 # API ROUTES - SCREENSHOTS

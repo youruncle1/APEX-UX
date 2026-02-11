@@ -212,7 +212,7 @@
         </div>
     </div>
 
-    <!-- NEW: Verification Modal -->
+    <!-- Verification Modal -->
     <div id="verification-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50" onclick="if(event.target.id==='verification-modal') closeVerificationModal()">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg max-w-2xl w-full shadow-2xl" onclick="event.stopPropagation()">
@@ -316,7 +316,6 @@
             document.getElementById('metric-success-rate').textContent = 
                 `${(metrics_summary.success_rate * 100).toFixed(0)}%`;
             
-            // NEW: Tasks passed count
             const totalTasks = task_runs.length;
             const verifiedTasks = task_runs.filter(t => t.verification_result === 'PASS').length;
             document.getElementById('metric-tasks-passed').textContent = `${verifiedTasks}/${totalTasks}`;
@@ -369,11 +368,9 @@
                 // Build status display
                 let statusDisplay = '';
                 
-                // Step 1: Completion status (from agent perspective)
                 if (task.agent_done) {
                     statusDisplay = '<span class="text-green-600 font-medium">✓ Completed</span>';
                 } else {
-                    // Agent never called DONE
                     if (task.status === 'TIMEOUT') {
                         statusDisplay = '<span class="text-amber-600 font-medium">⏱ Timeout</span>';
                     } else {
@@ -381,7 +378,7 @@
                     }
                 }
                 
-                // Step 2: Verification badge (from system perspective)
+                // Verification badge
                 let verificationBadge = '';
                 if (task.agent_done && task.verification_result) {
                     if (task.verification_result === 'PASS') {
@@ -466,18 +463,15 @@
                 return;
             }
 
-            // Set persona name and score
             document.getElementById('sus-persona-name').textContent = clone.clone_id;
             document.getElementById('sus-score').textContent = clone.sus_score.toFixed(1);
 
-            // Set interpretation badge
             const interpretation = getSUSInterpretation(clone.sus_score);
             const badge = document.getElementById('sus-badge');
             badge.textContent = interpretation.label;
             badge.style.backgroundColor = interpretation.color;
             badge.style.color = 'white';
 
-            // Render questions using sus_ratings (array of ratings)
             const questions = document.getElementById('sus-questions');
             questions.innerHTML = SUS_QUESTIONS.map((q, i) => `
                 <div class="mb-6">
@@ -498,10 +492,8 @@
                 </div>
             `).join('');
 
-            // Set reasoning
             document.getElementById('sus-reason').textContent = clone.sus_reasoning || 'No reasoning provided.';
 
-            // Show modal
             document.getElementById('sus-modal').classList.remove('hidden');
         }
 
@@ -524,12 +516,10 @@
                 return;
             }
 
-            // Set task description and score
             document.getElementById('seq-task').textContent = task.task_description;
             document.getElementById('seq-score').textContent = task.seq_score.toFixed(1);
             document.getElementById('seq-label').textContent = SEQ_LABELS[Math.round(task.seq_score) - 1];
 
-            // Render scale
             const scale = document.getElementById('seq-scale');
             scale.innerHTML = [1,2,3,4,5,6,7].map(i => `
                 <div class="flex-1 text-center p-3 rounded border-2 transition-all ${
@@ -542,10 +532,8 @@
                 </div>
             `).join('');
 
-            // Set reasoning
             document.getElementById('seq-reason').textContent = task.seq_reasoning || 'No reasoning provided.';
 
-            // Show modal
             document.getElementById('seq-modal').classList.remove('hidden');
         }
 
@@ -553,98 +541,7 @@
             document.getElementById('seq-modal').classList.add('hidden');
         }
 
-        // NEW: Verification Modal Functions (HYBRID - supports both old and new)
-        function renderVerificationRules(rules, evidence, result) {
-            if (!rules) {
-                return '<div class="text-sm text-gray-600 italic">No verification rules defined</div>';
-            }
-            
-            return renderRule(rules, evidence, result, 0);
-        }
-
-        function renderRule(rule, evidence, result, depth = 0) {
-            const indent = depth * 20;
-            const passed = result === 'PASS';
-            
-            if (!rule.type) {
-                return '<div class="text-sm text-gray-600 italic">Invalid rule format</div>';
-            }
-            
-            // Individual rules
-            if (rule.type === 'url_contains') {
-                const icon = passed ? '✓' : '✗';
-                const color = passed ? 'text-green-600' : 'text-gray-400';
-                return `
-                    <div class="flex items-start space-x-2 py-2" style="margin-left: ${indent}px">
-                        <span class="${color} font-semibold">${icon}</span>
-                        <div class="flex-1">
-                            <span class="text-sm font-medium text-gray-700">URL contains:</span>
-                            <code class="ml-2 px-2 py-0.5 bg-gray-100 rounded text-xs">${rule.value}</code>
-                            ${passed ? '<span class="ml-2 text-xs text-green-600 font-semibold">PASSED</span>' : ''}
-                        </div>
-                    </div>
-                `;
-            }
-            
-            if (rule.type === 'text_any') {
-                const icon = passed ? '✓' : '✗';
-                const color = passed ? 'text-green-600' : 'text-gray-400';
-                const texts = rule.texts || [];
-                return `
-                    <div class="flex items-start space-x-2 py-2" style="margin-left: ${indent}px">
-                        <span class="${color} font-semibold">${icon}</span>
-                        <div class="flex-1">
-                            <span class="text-sm font-medium text-gray-700">Page shows text:</span>
-                            <code class="ml-2 px-2 py-0.5 bg-gray-100 rounded text-xs">${texts.join(', ')}</code>
-                            ${passed ? '<span class="ml-2 text-xs text-green-600 font-semibold">PASSED</span>' : ''}
-                        </div>
-                    </div>
-                `;
-            }
-            
-            // Compound rules
-            if (rule.type === 'any_of') {
-                const groupName = rule.name || 'OR Group';
-                const conditions = rule.conditions || [];
-                
-                let html = `
-                    <div class="border-l-2 border-blue-300 pl-3 py-2" style="margin-left: ${indent}px">
-                        <div class="text-sm font-semibold text-blue-700 mb-2">
-                            ${groupName} <span class="text-xs font-normal text-gray-600">(any one must pass)</span>
-                        </div>
-                `;
-                
-                conditions.forEach((condition, index) => {
-                    const conditionPassed = passed && index === 0;
-                    html += renderRule(condition, evidence, conditionPassed ? 'PASS' : 'FAIL', depth + 1);
-                });
-                
-                html += '</div>';
-                return html;
-            }
-            
-            if (rule.type === 'all_of') {
-                const conditions = rule.conditions || [];
-                
-                let html = `
-                    <div class="border-l-2 border-purple-300 pl-3 py-2" style="margin-left: ${indent}px">
-                        <div class="text-sm font-semibold text-purple-700 mb-2">
-                            AND Group <span class="text-xs font-normal text-gray-600">(all must pass)</span>
-                        </div>
-                `;
-                
-                conditions.forEach((condition) => {
-                    html += renderRule(condition, evidence, result, depth + 1);
-                });
-                
-                html += '</div>';
-                return html;
-            }
-            
-            return '<div class="text-sm text-gray-600 italic">Unknown rule type</div>';
-        }
-
-        // NEW SYSTEM: Render using verification_details (accurate pass/fail per rule)
+        // Verification Modal Functions
         function renderVerificationRulesFromDetails(details, depth = 0) {
             if (!details) {
                 return '<div class="text-sm text-gray-600 italic">No verification details available</div>';
@@ -660,7 +557,7 @@
                 const color = passed ? 'text-green-600' : 'text-red-600';
                 const label = passed ? 'PASSED' : 'FAILED';
                 const labelColor = passed ? 'text-green-600' : 'text-red-600';
-                const value = details.rule.value;
+                const value = details.value;
 
                 return `
                     <div class="flex items-start space-x-2 py-2" style="margin-left: ${indent}px">
@@ -679,7 +576,7 @@
                 const color = passed ? 'text-green-600' : 'text-red-600';
                 const label = passed ? 'PASSED' : 'FAILED';
                 const labelColor = passed ? 'text-green-600' : 'text-red-600';
-                const texts = details.rule.texts || [];
+                const texts = details.texts || [];
 
                 return `
                     <div class="flex items-start space-x-2 py-2" style="margin-left: ${indent}px">
@@ -695,7 +592,7 @@
 
             // Compound rules
             if (type === 'any_of') {
-                const groupName = details.rule.name || 'OR Group';
+                const groupName = details.name || 'OR Group';
                 const children = details.children || [];
                 const groupColor = passed ? 'border-green-300' : 'border-red-300';
                 const passLabel = passed ? '<span class="ml-2 text-xs text-green-600 font-semibold">✓ PASSED</span>' : '<span class="ml-2 text-xs text-red-600 font-semibold">✗ FAILED</span>';
@@ -742,14 +639,11 @@
 
         async function showVerificationModal(taskId) {
             try {
-                // Fetch full task run details
                 const response = await fetch(`${API_BASE}/api/task-run/${taskId}`);
                 const taskRun = await response.json();
 
-                // Set modal content
                 document.getElementById('verification-modal-task').textContent = taskRun.task_description;
 
-                // Status badge
                 const statusBadges = {
                     'PASS': '<span class="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-full font-semibold">✓ Verified (PASS)</span>',
                     'FAIL': '<span class="px-3 py-1 text-sm bg-red-100 text-red-800 rounded-full font-semibold">✗ Failed</span>',
@@ -759,26 +653,12 @@
                 document.getElementById('verification-modal-status').innerHTML = 
                     statusBadges[taskRun.verification_result] || statusBadges['UNKNOWN'];
 
-                // HYBRID: Use verification_details if available, otherwise fall back to verification_rules
-                let rulesHtml;
-                if (taskRun.verification_details) {
-                    // NEW SYSTEM: Use detailed results with accurate pass/fail
-                    rulesHtml = renderVerificationRulesFromDetails(taskRun.verification_details);
-                } else {
-                    // OLD SYSTEM: Use verification_rules (fallback for old task runs)
-                    rulesHtml = renderVerificationRules(
-                        taskRun.verification_rules, 
-                        taskRun.verification_evidence,
-                        taskRun.verification_result
-                    );
-                }
+                const rulesHtml = renderVerificationRulesFromDetails(taskRun.verification_details);
                 document.getElementById('verification-modal-rules').innerHTML = rulesHtml;
 
-                // Evidence
                 document.getElementById('verification-modal-evidence').textContent = 
                     taskRun.verification_evidence || 'No evidence available';
 
-                // Show modal
                 document.getElementById('verification-modal').classList.remove('hidden');
 
             } catch (error) {
@@ -832,7 +712,6 @@
             }
         }
 
-        // Helper Functions
         function getStatusBadge(status) {
             const badges = {
                 'PENDING': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">Pending</span>',
