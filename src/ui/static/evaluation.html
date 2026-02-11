@@ -309,12 +309,17 @@
             document.getElementById('status-badge').innerHTML = getStatusBadge(evaluation.status);
 
             // Metrics
-            document.getElementById('metric-success-rate').textContent = 
-                `${(metrics_summary.success_rate * 100).toFixed(0)}%`;
-            
+            // Count successful tasks = VERIFIED + COMPLETED (agent done, no verification)
             const totalTasks = task_runs.length;
-            const verifiedTasks = task_runs.filter(t => t.verification_result === 'PASS').length;
-            document.getElementById('metric-tasks-passed').textContent = `${verifiedTasks}/${totalTasks}`;
+            const successfulTasks = task_runs.filter(t => 
+                t.verification_result === 'PASS' || 
+                (t.status === 'COMPLETED' && t.agent_done)
+            ).length;
+            const successRate = totalTasks > 0 ? successfulTasks / totalTasks : 0;
+
+            document.getElementById('metric-success-rate').textContent = 
+                `${(successRate * 100).toFixed(0)}%`;
+            document.getElementById('metric-tasks-passed').textContent = `${successfulTasks}/${totalTasks}`;
             
             document.getElementById('metric-avg-steps').textContent = 
                 metrics_summary.avg_steps_per_task.toFixed(1);
@@ -386,6 +391,10 @@
                     } else if (task.verification_result === 'SKIPPED') {
                         verificationBadge = ' <span class="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-800 rounded font-semibold">○ Skipped</span>';
                     }
+                } else if (task.agent_done && !task.verification_result) {
+                    // No verification rules were set — show purple Skipped badge (non-clickable)
+                    verificationBadge = ' <span class="ml-2 px-2 py-0.5 text-xs bg-purple-100 text-purple-800 rounded font-semibold">○ Skipped</span>';
+                
                 }
 
                 // SEQ display

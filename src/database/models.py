@@ -19,6 +19,7 @@ class TaskRunStatus(str, enum.Enum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"
     VERIFIED = "VERIFIED"
+    COMPLETED = "COMPLETED"
     FAILED = "FAILED"
     TIMEOUT = "TIMEOUT"
     ABORTED = "ABORTED"

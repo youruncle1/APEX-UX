@@ -279,6 +279,9 @@
                     'UNKNOWN': `<button onclick="showVerificationModalEnhanced()" class="px-2 py-0.5 text-xs bg-amber-100 text-amber-800 rounded font-semibold hover:bg-amber-200 transition-colors cursor-pointer">⚠ Unknown</button>`
                 };
                 metricsHtml.push(`<div><strong>Verification:</strong> ${verificationBadges[taskRunData.verification_result] || verificationBadges['UNKNOWN']}</div>`);
+            } else {
+                // No verification rules were set — show purple Skipped badge (non-clickable)
+                metricsHtml.push(`<div><strong>Verification:</strong> <span class="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 rounded font-semibold">○ Skipped</span></div>`);
             }
             
             document.getElementById('metrics-display').innerHTML = metricsHtml.join('');
@@ -754,6 +757,7 @@
 
         function getStatusBadge(status) {
             const badges = {
+                'COMPLETED': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">✓ Completed</span>',
                 'VERIFIED': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">✓ Verified</span>',
                 'FAILED': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">✗ Failed</span>',
                 'TIMEOUT': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">⏱ Timeout</span>',
