@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport"="width=device-width, initial-scale=1.0">
     <title>Evaluation Report - APEX-UX</title>
     <link rel="icon" href="/static/favicon.ico">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -550,7 +550,6 @@
             document.getElementById('seq-modal').classList.add('hidden');
         }
 
-        // Verification Modal Functions
         function renderVerificationRulesFromDetails(details, depth = 0) {
             if (!details) {
                 return '<div class="text-sm text-gray-600 italic">No verification details available</div>';
@@ -604,7 +603,9 @@
                 const groupName = details.name || 'OR Group';
                 const children = details.children || [];
                 const groupColor = passed ? 'border-green-300' : 'border-red-300';
-                const passLabel = passed ? '<span class="ml-2 text-xs text-green-600 font-semibold">✓ PASSED</span>' : '<span class="ml-2 text-xs text-red-600 font-semibold">✗ FAILED</span>';
+                const passLabel = passed 
+                    ? '<span class="ml-2 text-xs text-green-600 font-semibold">✓ GROUP PASSED</span>' 
+                    : '<span class="ml-2 text-xs text-red-600 font-semibold">✗ GROUP FAILED</span>';
 
                 let html = `
                     <div class="border-l-2 ${groupColor} pl-3 py-2" style="margin-left: ${indent}px">
@@ -625,7 +626,9 @@
             if (type === 'all_of') {
                 const children = details.children || [];
                 const groupColor = passed ? 'border-green-300' : 'border-red-300';
-                const passLabel = passed ? '<span class="ml-2 text-xs text-green-600 font-semibold">✓ PASSED</span>' : '<span class="ml-2 text-xs text-red-600 font-semibold">✗ FAILED</span>';
+                const passLabel = passed 
+                    ? '<span class="ml-2 text-xs text-green-600 font-semibold">✓ GROUP PASSED</span>' 
+                    : '<span class="ml-2 text-xs text-red-600 font-semibold">✗ GROUP FAILED</span>';
 
                 let html = `
                     <div class="border-l-2 ${groupColor} pl-3 py-2" style="margin-left: ${indent}px">
@@ -646,6 +649,9 @@
             return '<div class="text-sm text-gray-600 italic">Unknown rule type</div>';
         }
 
+        /**
+         * Show verification modal (evaluation.html version - fetches data)
+         */
         async function showVerificationModal(taskId) {
             try {
                 const response = await fetch(`${API_BASE}/api/task-run/${taskId}`);
