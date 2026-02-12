@@ -35,6 +35,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://apex:apex_dev_password@postgres:5432/apex_ux
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       PLANNER_BACKEND: ${PLANNER_BACKEND:-openai}
+      UTILITY_BACKEND: ${UTILITY_BACKEND:-openai}
       PLANNER_SERVICE_URL: ${PLANNER_SERVICE_URL:-http://host.docker.internal:8001}
       GROUNDING_SERVICE_URL: ${GROUNDING_SERVICE_URL:-http://host.docker.internal:8000}
       SCREENSHOT_STORAGE_TYPE: ${SCREENSHOT_STORAGE_TYPE:-local}

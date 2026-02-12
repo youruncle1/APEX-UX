@@ -1,18 +1,17 @@
 """
 Agent self-report collection for SEQ and SUS scores.
-
 """
 
 import os
 import json
 from typing import Dict, Any, Optional, List
-from openai import AsyncOpenAI
+from src.agents.llm_client import get_utility_client
 
 
 class SelfReportCollector:
     """Collect SEQ and SUS scores via agent self-assessment"""
     
-    # Standard SUS items (10 questions) - CONSTANTS
+    # Standard SUS items (10 questions)
     SUS_ITEMS = [
         "I think that I would like to use this website frequently.",
         "I found the website unnecessarily complex.",
@@ -26,14 +25,11 @@ class SelfReportCollector:
         "I needed to learn a lot of things before I could get going with this website."
     ]
     
-    # SEQ constants
     SEQ_QUESTION = "Overall, this task was:"
     SEQ_SCALE = "1 (Very Difficult) to 7 (Very Easy)"
-    
-    # SUS scale
     SUS_SCALE = "1 (Strongly Disagree) to 5 (Strongly Agree)"
     
-    # JSON Schema for SEQ response
+    # JSON Schemas for structured outputs (OpenAI only)
     SEQ_SCHEMA = {
         "type": "object",
         "properties": {
@@ -52,7 +48,6 @@ class SelfReportCollector:
         "additionalProperties": False
     }
     
-    # JSON Schema for SUS response
     SUS_SCHEMA = {
         "type": "object",
         "properties": {
@@ -76,30 +71,51 @@ class SelfReportCollector:
         "additionalProperties": False
     }
     
-    def __init__(self, model: str = "gpt-4o-mini", temperature: float = 0.3):
-        """
-        Initialize self-report collector.
-        
-        Args:
-            model: OpenAI model to use for self-assessment
-            temperature: Sampling temperature (lower = more consistent)
-        """
-        self._client = None
-        self.model = model
-        self.temperature = temperature
+    # JSON instructions for Qwen (appended to prompt when no structured output)
+    SEQ_JSON_INSTRUCTION = """
+
+You MUST respond with ONLY a valid JSON object. No markdown, no explanation, no extra text.
+
+Required format:
+{"rating": <number 1-7>, "reasoning": "<detailed explanation>"}
+
+Respond with ONLY the JSON object, nothing else."""
+
+    SUS_JSON_INSTRUCTION = """
+
+You MUST respond with ONLY a valid JSON object. No markdown, no explanation, no extra text.
+
+Required format:
+{"ratings": [<int>, <int>, <int>, <int>, <int>, <int>, <int>, <int>, <int>, <int>], "reasoning": "<detailed overall impression>"}
+
+Rules:
+- ratings must be an array of exactly 10 integers, each between 1 and 5
+- The ratings correspond to the 10 SUS items in order
+- Respond with ONLY the JSON object, nothing else."""
     
-    @property
-    def client(self) -> AsyncOpenAI:
-        """Lazy initialization of OpenAI client"""
+    def __init__(self, temperature: float = 0.3):
+        self.temperature = temperature
+        self._client = None
+        self._model = None
+        self._backend = None
+    
+    def _ensure_client(self):
+        """Lazy-initialize the LLM client."""
         if self._client is None:
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                raise ValueError(
-                    "OPENAI_API_KEY environment variable is not set. "
-                    "SEQ/SUS collection requires OpenAI API access."
-                )
-            self._client = AsyncOpenAI(api_key=api_key)
-        return self._client
+            self._client, self._model = get_utility_client()
+            self._backend = os.getenv("UTILITY_BACKEND", "openai").lower()
+    
+    def _is_qwen(self) -> bool:
+        return self._backend == "qwen"
+    
+    def _clean_json_response(self, content: str) -> str:
+        """Strip markdown fences and whitespace from model response."""
+        content = content.strip()
+        if content.startswith("```"):
+            lines = content.split("\n")
+            lines = [l for l in lines if not l.strip().startswith("```")]
+            content = "\n".join(lines).strip()
+        return content
     
     async def collect_seq(
         self,
@@ -110,18 +126,10 @@ class SelfReportCollector:
         """
         Collect Single Ease Question (SEQ) score.
         
-        Args:
-            task_description: The task that was attempted
-            memory_state: Final memory state with action_history, 
-                         action_summary, outcome_mismatches
-            persona_context: The persona the agent embodied
-        
         Returns:
-            Dict with:
-                - rating: float (1-7)
-                - reasoning: str (detailed explanation)
-            Or None if collection fails
+            Dict with rating (float 1-7) and reasoning (str), or None on failure.
         """
+        self._ensure_client()
         
         system_prompt = f"""You are reflecting on a website usability task you just completed.
 
@@ -151,25 +159,36 @@ Be honest, detailed, and specific in your assessment."""
 
         user_prompt = self._build_seq_user_prompt(task_description, memory_state)
         
+        # Append JSON instruction for Qwen
+        if self._is_qwen():
+            user_prompt += self.SEQ_JSON_INSTRUCTION
+        
         try:
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[
+            kwargs = {
+                "model": self._model,
+                "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                response_format={
+                "temperature": self.temperature,
+                "max_tokens": 512,
+            }
+            
+            # Only OpenAI supports structured outputs
+            if not self._is_qwen():
+                kwargs["response_format"] = {
                     "type": "json_schema",
                     "json_schema": {
                         "name": "seq_response",
                         "strict": True,
                         "schema": self.SEQ_SCHEMA
                     }
-                },
-                temperature=self.temperature
-            )
+                }
+            
+            response = await self._client.chat.completions.create(**kwargs)
             
             content = response.choices[0].message.content
+            content = self._clean_json_response(content)
             result = json.loads(content)
             
             print(f"[SEQ] Rating: {result['rating']}/7")
@@ -215,7 +234,11 @@ Be honest, detailed, and specific in your assessment."""
             for i, mismatch in enumerate(outcome_mismatches):
                 prompt_parts.append(f"{i+1}. {mismatch}")
         
-        prompt_parts.append(f"\n# YOUR ASSESSMENT\nBased on your experience completing this task, how easy or difficult was it? Rate from 1 (very difficult) to 7 (very easy) and provide detailed reasoning.")
+        prompt_parts.append(
+            f"\n# YOUR ASSESSMENT\n"
+            f"Based on your experience completing this task, how easy or difficult was it? "
+            f"Rate from 1 (very difficult) to 7 (very easy) and provide detailed reasoning."
+        )
         
         return "\n".join(prompt_parts)
     
@@ -227,17 +250,11 @@ Be honest, detailed, and specific in your assessment."""
         """
         Collect System Usability Scale (SUS) score.
         
-        Args:
-            persona_context: The persona the agent embodied
-            task_summaries: List of dicts with task details
-        
         Returns:
-            Dict with:
-                - sus_score: float (0-100, calculated from ratings)
-                - ratings: list[int] (10 ratings, 1-5 each)
-                - reasoning: str (overall impression)
-            Or None if collection fails
+            Dict with sus_score (float 0-100), ratings (list[int]), reasoning (str),
+            or None on failure.
         """
+        self._ensure_client()
         
         system_prompt = f"""You are reflecting on your overall experience using a website.
 
@@ -258,36 +275,51 @@ Be honest and consider your complete experience across all tasks. Provide detail
 
         user_prompt = self._build_sus_user_prompt(task_summaries)
         
+        # Append JSON instruction for Qwen
+        if self._is_qwen():
+            user_prompt += self.SUS_JSON_INSTRUCTION
+        
         try:
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[
+            kwargs = {
+                "model": self._model,
+                "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                response_format={
+                "temperature": self.temperature,
+                "max_tokens": 1024,
+            }
+            
+            if not self._is_qwen():
+                kwargs["response_format"] = {
                     "type": "json_schema",
                     "json_schema": {
                         "name": "sus_response",
                         "strict": True,
                         "schema": self.SUS_SCHEMA
                     }
-                },
-                temperature=self.temperature
-            )
+                }
+            
+            response = await self._client.chat.completions.create(**kwargs)
             
             content = response.choices[0].message.content
+            content = self._clean_json_response(content)
             result = json.loads(content)
             
-            # Calculate SUS score
-            sus_score = self._calculate_sus_score(result["ratings"])
+            # Validate ratings
+            ratings = result["ratings"]
+            if len(ratings) != 10 or not all(1 <= r <= 5 for r in ratings):
+                print(f"[SUS] Invalid ratings: {ratings}")
+                return None
+            
+            sus_score = self._calculate_sus_score(ratings)
             
             print(f"[SUS] Score: {sus_score:.1f}/100")
             print(f"[SUS] Reasoning: {result['reasoning'][:100]}...")
             
             return {
                 "sus_score": sus_score,
-                "ratings": result["ratings"],  # Just array of 10 integers
+                "ratings": ratings,
                 "reasoning": result["reasoning"]
             }
         
@@ -333,39 +365,32 @@ Be honest and consider your complete experience across all tasks. Provide detail
     def _calculate_sus_score(self, ratings: List[int]) -> float:
         """
         Calculate SUS score using standard formula.
-        
-        For odd-numbered items (1,3,5,7,9): contribution = (rating - 1)
-        For even-numbered items (2,4,6,8,10): contribution = (5 - rating)
-        SUS score = sum of contributions * 2.5
+        Odd items (1,3,5,7,9): contribution = (rating - 1)
+        Even items (2,4,6,8,10): contribution = (5 - rating)
+        SUS score = sum * 2.5
         """
-        
         total = 0
         for i, rating in enumerate(ratings):
-            item_num = i + 1  # 1-indexed
-            if item_num % 2 == 1:  # Odd items (positive)
+            item_num = i + 1
+            if item_num % 2 == 1:
                 total += (rating - 1)
-            else:  # Even items (negative, reverse scored)
+            else:
                 total += (5 - rating)
         
-        sus_score = total * 2.5
-        return round(sus_score, 1)
+        return round(total * 2.5, 1)
     
     @classmethod
     def get_sus_question(cls, item_number: int) -> str:
-        """Get SUS question text by item number (1-10)"""
         return cls.SUS_ITEMS[item_number - 1]
     
     @classmethod
     def get_seq_question(cls) -> str:
-        """Get SEQ question text"""
         return cls.SEQ_QUESTION
     
     @classmethod
     def get_seq_scale(cls) -> str:
-        """Get SEQ scale description"""
         return cls.SEQ_SCALE
     
     @classmethod
     def get_sus_scale(cls) -> str:
-        """Get SUS scale description"""
         return cls.SUS_SCALE
