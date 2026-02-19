@@ -2,16 +2,6 @@
 
 """
 Shared LLM client factory.
-
-Centralizes backend selection so planner, SEQ/SUS, and summarization
-all respect the same configuration pattern.
-
-Environment variables:
-    PLANNER_BACKEND: "openai" or "qwen" — controls the planner (vision model)
-    UTILITY_BACKEND: "openai" or "qwen" — controls SEQ, SUS, summarization (text-only)
-                     Defaults to "openai" if not set.
-    OPENAI_API_KEY: Required when any backend is "openai"
-    PLANNER_SERVICE_URL: llama-server URL when backend is "qwen" (default: http://localhost:8001)
 """
 
 import os
@@ -24,14 +14,7 @@ def get_planner_client(
     model: Optional[str] = None
 ) -> tuple[AsyncOpenAI, str]:
     """
-    Get OpenAI client and model name for the planner (vision).
-
-    Args:
-        backend: Override for backend selection
-        model: Override for model name
-
-    Returns:
-        (client, model_name) tuple
+    Get OpenAI client and model name for the planner.
     """
     backend = (backend or os.getenv("PLANNER_BACKEND", "openai")).lower()
     return _build_client(backend, model, default_openai_model="gpt-4o")
@@ -43,16 +26,6 @@ def get_utility_client(
 ) -> tuple[AsyncOpenAI, str]:
     """
     Get OpenAI client and model name for utility tasks (SEQ, SUS, summarization).
-
-    These are text-only tasks. When backend is "qwen", they use the same
-    llama-server instance as the planner.
-
-    Args:
-        backend: Override for backend selection
-        model: Override for model name
-
-    Returns:
-        (client, model_name) tuple
     """
     backend = (backend or os.getenv("UTILITY_BACKEND", "openai")).lower()
     return _build_client(backend, model, default_openai_model="gpt-4o-mini")
