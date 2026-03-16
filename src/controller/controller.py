@@ -1,14 +1,12 @@
-# src/controller/controller.py
-
 import os
 from typing import Optional
 from datetime import datetime
 from uuid import UUID
 
-from src.agents.planner import PlannerAgent
-from src.agents.grounder import GroundingAgent
+from src.agents.logic.planner import PlannerAgent
+from src.agents.logic.grounder import GroundingAgent
 from src.browser_connector.connector import BrowserConnector
-from src.browser_connector.actions import Action, ActionType
+from src.browser_connector.models.data_models import Action, ActionType
 from src.storage import create_screenshot_storage
 from .memory import MemoryManager
 
