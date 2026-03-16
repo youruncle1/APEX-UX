@@ -1,17 +1,6 @@
-from dataclasses import dataclass
 from typing import Optional, Dict, Any, Tuple
-from enum import Enum
 
-class VerificationStatus(str, Enum):
-    PASS = "PASS"
-    FAIL = "FAIL"
-    SKIPPED = "SKIPPED"
-    UNKNOWN = "UNKNOWN"
-
-@dataclass
-class VerificationResult:
-    status: VerificationStatus
-    details: Optional[dict] = None
+from src.browser_connector.models.data_models import VerificationResult, VerificationStatus
 
 class Verifier:
     """Handles task verification based on rules"""
