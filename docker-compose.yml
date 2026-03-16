@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15
+    image: postgres:17.9
     environment:
       POSTGRES_USER: apex
       POSTGRES_PASSWORD: apex_dev_password
