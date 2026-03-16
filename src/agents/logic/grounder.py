@@ -3,7 +3,7 @@ from typing import Optional
 
 import aiohttp
 
-from src.agents.grounder.data_models import BoundingBox
+from src.agents.models.data_models import BoundingBox
 
 
 class GroundingAgent:

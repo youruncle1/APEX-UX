@@ -2,7 +2,7 @@ import os
 import json
 from typing import Optional
 
-from src.agents.planner.data_models import PlannerAction
+from src.agents.models.data_models import PlannerAction
 from src.agents.llm_client import get_planner_client
 from src.agents.prompts import (
     PLANNER_ACTION_SCHEMA,
