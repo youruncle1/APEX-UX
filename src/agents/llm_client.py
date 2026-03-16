@@ -1,9 +1,3 @@
-# src/agents/llm_client.py
-
-"""
-Shared LLM client factory.
-"""
-
 import os
 from typing import Optional
 from openai import AsyncOpenAI

@@ -1,3 +1,60 @@
+from typing import Any
+
+# ============================================================================
+# PLANNER STRUCTURED OUTPUT SCHEMA (OpenAI JSON schema mode)
+# ============================================================================
+
+PLANNER_ACTION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "action_type": {
+            "type": "string",
+            "enum": [
+                "CLICK", "TYPE", "SCROLL_UP", "SCROLL_DOWN",
+                "HOVER", "DRAG_AND_DROP", "PRESS_KEY",
+                "BACK", "FORWARD", "DONE"
+            ]
+        },
+        "target_description": {
+            "type": "string",
+            "description": "Natural language description of the target element. Use empty string if not needed."
+        },
+        "input_value": {
+            "type": "string",
+            "description": "Text to type or key to press. Use empty string if not needed."
+        },
+        "reasoning": {
+            "type": "string",
+            "description": "Short explanation of why you chose this action"
+        },
+        "outcome_mismatch": {
+            "type": "string",
+            "description": "If the previous action didn't produce the expected result, describe what went wrong. Use empty string if none."
+        }
+    },
+    "required": ["action_type", "reasoning", "target_description", "input_value", "outcome_mismatch"],
+    "additionalProperties": False
+}
+
+# Appended to prompts when backend doesn't support structured outputs (Qwen)
+PLANNER_QWEN_JSON_INSTRUCTION = """
+
+You MUST respond with ONLY a valid JSON object. No markdown, no explanation, no extra text.
+
+Required format:
+{"action_type": "ACTION", "target_description": "...", "input_value": "...", "reasoning": "...", "outcome_mismatch": "..."}
+
+Rules:
+- action_type must be one of: CLICK, TYPE, SCROLL_UP, SCROLL_DOWN, HOVER, DRAG_AND_DROP, PRESS_KEY, BACK, FORWARD, DONE
+- All 5 fields are required. Use empty string "" for unused fields.
+- reasoning cannot be empty.
+- Respond with ONLY the JSON object, nothing else."""
+
+
+# ============================================================================
+# SYSTEM / USER PROMPT TEMPLATES
+# ============================================================================
+
 SYSTEM_PROMPT_TEMPLATE = """You are an autonomous AI agent conducting website usability evaluation by simulating real user behavior.
 
 # YOUR ROLE
@@ -88,12 +145,12 @@ Examples of outcome mismatches:
   - "Typed email but cursor didn't appear in field - field may not be focused, need to check"
   - "Scrolled down but reached page bottom without finding search results, what now?"
   - "Clicked menu icon but dropdown didn't appear, this confused me, it might be broken and I need to try another way"
-  - "I already tried this same action for the same reason and nothing changed — repeating it won’t help, I need a different approach"
+  - "I already tried this same action for the same reason and nothing changed — repeating it won't help, I need a different approach"
 
 # ADAPTATION AND LEARNING
 - Maintain awareness of your action history, goals, and outcomes
 - Do not repeat actions with the same intent if they already failed or made no progress
-- Before acting, check whether your current goal is the same as your most recent action’s goal
+- Before acting, check whether your current goal is the same as your most recent action's goal
 - If you notice repetition, hesitation, or looping behavior, log it as an outcome mismatch
 - Learn from outcome mismatches to refine your strategy
 - Balance persistence with adaptability
@@ -121,10 +178,6 @@ The screenshot above shows what's currently visible in the viewport. This is you
 
 {prompt_question}"""
 
-
-# ============================================================================
-# History section templates
-# ============================================================================
 
 HISTORY_WITH_SUMMARY_TEMPLATE = """# PREVIOUS ACTIONS (SUMMARY)
 {action_summary}
