@@ -10,10 +10,10 @@ from src.database.models import (
     TaskDefinition, TaskRun, TaskRunStatus, TaskRunMetrics,
     ActionRecord
 )
-from src.agents.grounder import GroundingAgent
+from src.agents.logic.grounder import GroundingAgent
 from src.browser_connector.connector import BrowserConnector
 from src.controller.controller import TwoAgentController
-from src.evaluation.metrics import MetricsCalculator
+from src.evaluation.logic.metrics import MetricsCalculator
 from src.evaluation.self_report import SelfReportCollector
 
 
