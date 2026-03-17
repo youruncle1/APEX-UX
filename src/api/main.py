@@ -1,13 +1,11 @@
-from datetime import datetime
 from uuid import UUID
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.evaluation.api.router import router as evaluation_router
-from src.storage import create_screenshot_storage
 
 # ============================================================================
 # APPLICATION SETUP
@@ -36,43 +34,44 @@ app.include_router(evaluation_router)
 # FRONTEND ROUTES
 # ============================================================================
 
-@app.get("/")
+pages_router = APIRouter(tags=["pages"])
+
+
+@pages_router.get("/", include_in_schema=False)
 async def dashboard():
     return FileResponse("src/ui/static/index.html")
 
 
-@app.get("/evaluation/{evaluation_id}")
+@pages_router.get("/evaluation/{evaluation_id}", include_in_schema=False)
 async def evaluation_report_page(evaluation_id: UUID):
     return FileResponse("src/ui/static/evaluation.html")
 
 
-@app.get("/task-run/{task_run_id}")
+@pages_router.get("/task-run/{task_run_id}", include_in_schema=False)
 async def task_run_replay_page(task_run_id: UUID):
     return FileResponse("src/ui/static/task-run.html")
 
 
-@app.get("/create")
+@pages_router.get("/create", include_in_schema=False)
 async def create_evaluation_page():
     return FileResponse("src/ui/static/create.html")
 
 
-@app.get("/edit/{evaluation_id}")
+@pages_router.get("/edit/{evaluation_id}", include_in_schema=False)
 async def edit_evaluation_page(evaluation_id: UUID):
     return FileResponse("src/ui/static/edit.html")
+
+
+app.include_router(pages_router)
 
 
 # ============================================================================
 # HEALTH CHECK
 # ============================================================================
 
-@app.get("/api/health")
+@app.get("/health", tags=["health"])
 async def health_check():
-    storage_info = await create_screenshot_storage().get_storage_info()
-    return {
-        "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
-        "storage": storage_info
-    }
+    return {"status": "ok"}
 
 
 # ============================================================================

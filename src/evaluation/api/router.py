@@ -21,7 +21,7 @@ from src.evaluation.models.api_models import (
 )
 from src.storage import create_screenshot_storage
 
-router = APIRouter()
+router = APIRouter(prefix="/api", tags=["evaluations"])
 
 # Screenshot storage
 screenshot_storage = create_screenshot_storage()
@@ -130,7 +130,7 @@ async def run_evaluation_background(evaluation_id: UUID):
 # EVALUATION ROUTES
 # ============================================================================
 
-@router.get("/api/evaluations", response_model=List[EvaluationSummary])
+@router.get("/evaluations", response_model=List[EvaluationSummary])
 async def list_evaluations(db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Evaluation)
@@ -160,7 +160,7 @@ async def list_evaluations(db: AsyncSession = Depends(get_db)):
     return summaries
 
 
-@router.post("/api/evaluations", response_model=dict)
+@router.post("/evaluations", response_model=dict)
 async def create_evaluation(
     data: EvaluationCreate,
     db: AsyncSession = Depends(get_db)
@@ -204,7 +204,7 @@ async def create_evaluation(
     }
 
 
-@router.post("/api/evaluations/{evaluation_id}/start")
+@router.post("/evaluations/{evaluation_id}/start")
 async def start_evaluation(
     evaluation_id: UUID,
     db: AsyncSession = Depends(get_db)
@@ -233,7 +233,7 @@ async def start_evaluation(
     }
 
 
-@router.post("/api/evaluations/{evaluation_id}/abort")
+@router.post("/evaluations/{evaluation_id}/abort")
 async def abort_evaluation(
     evaluation_id: UUID,
     db: AsyncSession = Depends(get_db)
@@ -267,7 +267,7 @@ async def abort_evaluation(
     }
 
 
-@router.get("/api/evaluation/{evaluation_id}", response_model=EvaluationReport)
+@router.get("/evaluation/{evaluation_id}", response_model=EvaluationReport)
 async def get_evaluation_report(
     evaluation_id: UUID,
     db: AsyncSession = Depends(get_db)
@@ -415,7 +415,7 @@ async def get_evaluation_report(
     }
 
 
-@router.get("/api/evaluation/{evaluation_id}/editable")
+@router.get("/evaluation/{evaluation_id}/editable")
 async def get_editable_evaluation(
     evaluation_id: UUID,
     db: AsyncSession = Depends(get_db)
@@ -453,7 +453,7 @@ async def get_editable_evaluation(
     }
 
 
-@router.put("/api/evaluations/{evaluation_id}")
+@router.put("/evaluations/{evaluation_id}")
 async def update_evaluation(
     evaluation_id: UUID,
     data: EvaluationCreate,
@@ -510,7 +510,7 @@ async def update_evaluation(
     }
 
 
-@router.delete("/api/evaluation/{evaluation_id}")
+@router.delete("/evaluation/{evaluation_id}")
 async def delete_evaluation(
     evaluation_id: UUID,
     db: AsyncSession = Depends(get_db)
@@ -541,7 +541,7 @@ async def delete_evaluation(
 # TASK RUN ROUTES
 # ============================================================================
 
-@router.get("/api/task-run/{task_run_id}", response_model=TaskRunDetail)
+@router.get("/task-run/{task_run_id}", response_model=TaskRunDetail)
 async def get_task_run_detail(
     task_run_id: UUID,
     db: AsyncSession = Depends(get_db)
@@ -610,7 +610,7 @@ async def get_task_run_detail(
 # SCREENSHOT ROUTES
 # ============================================================================
 
-@router.get("/api/screenshot")
+@router.get("/screenshot")
 async def get_screenshot(url: str):
     try:
         base64_data = await screenshot_storage.get(url)
