@@ -50,12 +50,16 @@ class Verifier:
         elif rule_type == "text_any":
             texts = rule.get("texts", [])
             found = None
-            
+
+            import re
+            normalized_page = re.sub(r'\s+', ' ', page_text).lower()
+
             for text in texts:
-                if text.lower() in page_text.lower():
+                normalized_text = re.sub(r'\s+', ' ', text).lower()
+                if normalized_text in normalized_page:
                     found = text
                     break
-            
+
             passed = found is not None
             
             details = {
