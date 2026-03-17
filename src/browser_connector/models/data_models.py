@@ -13,6 +13,17 @@ class ActionType(str, Enum):
     BACK = "BACK"
     FORWARD = "FORWARD"
     DONE = "DONE"
+    
+class VerificationStatus(str, Enum):
+    PASS = "PASS"
+    FAIL = "FAIL"
+    SKIPPED = "SKIPPED"
+    UNKNOWN = "UNKNOWN"
+
+@dataclass
+class VerificationResult:
+    status: VerificationStatus
+    details: Optional[dict] = None
 
 @dataclass
 class Action:

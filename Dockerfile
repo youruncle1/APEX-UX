@@ -16,4 +16,7 @@ RUN pip install --no-cache-dir playwright && \
 
 COPY . .
 
-CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8002"]
+ARG APP_PORT=8002
+ENV APP_PORT=${APP_PORT}
+
+CMD uvicorn src.api.main:app --host 0.0.0.0 --port ${APP_PORT}

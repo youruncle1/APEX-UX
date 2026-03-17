@@ -2,8 +2,8 @@ import base64
 import os
 from typing import Optional
 from playwright.async_api import async_playwright, Browser, Page, Playwright
-from .actions import Action, ActionType, ExecutionResult
-from .verification import Verifier, VerificationResult
+from src.browser_connector.models.data_models import Action, ActionType, ExecutionResult, VerificationResult
+from src.browser_connector.logic.verification import Verifier
 
 class BrowserConnector:
     def __init__(
@@ -81,7 +81,6 @@ class BrowserConnector:
             if action.action_type == ActionType.CLICK:
                 await self.page.mouse.click(action.x, action.y)
                 
-                # NEW: Wait for UI to stabilize (dropdowns, modals, animations)
                 await self._wait_for_stabilization(ActionType.CLICK)
                 
                 return ExecutionResult(
@@ -90,13 +89,11 @@ class BrowserConnector:
                 )
             
             elif action.action_type == ActionType.TYPE:
-                # TYPE action: Click to focus, then type
                 await self.page.mouse.click(action.x, action.y)
                 await self.page.wait_for_timeout(100)  # Focus delay
                 
                 await self.page.keyboard.type(action.text)
                 
-                # NEW: Wait for input feedback to render
                 await self._wait_for_stabilization(ActionType.TYPE)
                 
                 return ExecutionResult(
@@ -107,7 +104,7 @@ class BrowserConnector:
             elif action.action_type == ActionType.SCROLL_DOWN:
                 scroll_amount = self.viewport_height
                 await self.page.mouse.wheel(0, scroll_amount)
-                await self.page.wait_for_timeout(200)  # Wait for scroll to complete
+                await self.page.wait_for_timeout(200)
                 return ExecutionResult(
                     success=True,
                     feedback=f"Scrolled down {scroll_amount}px"
@@ -116,7 +113,7 @@ class BrowserConnector:
             elif action.action_type == ActionType.SCROLL_UP:
                 scroll_amount = self.viewport_height
                 await self.page.mouse.wheel(0, -scroll_amount)
-                await self.page.wait_for_timeout(200)  # Wait for scroll to complete
+                await self.page.wait_for_timeout(200)
                 return ExecutionResult(
                     success=True,
                     feedback=f"Scrolled up {scroll_amount}px"
@@ -125,7 +122,6 @@ class BrowserConnector:
             elif action.action_type == ActionType.HOVER:
                 await self.page.mouse.move(action.x, action.y)
                 
-                # NEW: Wait for hover effects (tooltips, menus)
                 await self._wait_for_stabilization(ActionType.HOVER)
                 
                 return ExecutionResult(
@@ -138,7 +134,7 @@ class BrowserConnector:
                 await self.page.mouse.down()
                 await self.page.mouse.move(action.x2, action.y2)
                 await self.page.mouse.up()
-                await self.page.wait_for_timeout(200)  # Wait for drop animation
+                await self.page.wait_for_timeout(200)
                 return ExecutionResult(
                     success=True,
                     feedback=f"Dragged from ({action.x}, {action.y}) to ({action.x2}, {action.y2})"
@@ -147,7 +143,6 @@ class BrowserConnector:
             elif action.action_type == ActionType.PRESS_KEY:
                 await self.page.keyboard.press(action.key)
                 
-                # NEW: Wait for key action to complete (might navigate)
                 await self._wait_for_stabilization(ActionType.PRESS_KEY)
                 
                 return ExecutionResult(
