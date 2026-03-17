@@ -1,15 +1,15 @@
 from uuid import UUID
 from typing import Optional, Literal
 from datetime import datetime
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.connection import AsyncSessionLocal
 from src.database.models import (
     Evaluation, EvaluationStatus, EvaluationClone,
-    TaskDefinition, TaskRun, TaskRunStatus, TaskRunMetrics,
-    ActionRecord
+    TaskDefinition, TaskRun, TaskRunStatus,
+    VerificationResult as VR,
 )
+from src.database.repositories import EvaluationRepository, TaskRunRepository
 from src.agents.logic.grounder import GroundingAgent
 from src.browser_connector.connector import BrowserConnector
 from src.controller.controller import TwoAgentController
@@ -57,15 +57,16 @@ class EvaluationRunner:
         self.error_policy = error_policy
         self.metrics_calculator = MetricsCalculator()
         self.self_report_collector = SelfReportCollector()
-    
+
     async def run(self, evaluation_id: UUID):
         """
         Run a complete evaluation.
         """
 
         async with AsyncSessionLocal() as session:
-            # Load evaluation
-            evaluation = await self._load_evaluation(session, evaluation_id)
+            eval_repo = EvaluationRepository(session)
+
+            evaluation = await eval_repo.get_with_relations(evaluation_id)
             if not evaluation:
                 raise ValueError(f"Evaluation {evaluation_id} not found")
 
@@ -73,13 +74,10 @@ class EvaluationRunner:
             print(f"[Runner] Tasks: {len(evaluation.tasks)}, Clones: {len(evaluation.clones)}")
             print(f"[Runner] Error policy: {self.error_policy}")
 
-            # Update status to running
-            evaluation.status = EvaluationStatus.RUNNING
-            await session.commit()
+            await eval_repo.update_status(evaluation, EvaluationStatus.RUNNING)
 
             evaluation_failed = False
             try:
-                # Run for each clone
                 for clone in evaluation.clones:
                     try:
                         await self._run_clone(session, evaluation, clone)
@@ -87,32 +85,36 @@ class EvaluationRunner:
                         print(f"[Runner] Clone {clone.clone_id} failed: {e}")
                         if self.error_policy == "fail_fast":
                             raise
-                        
+
                         evaluation_failed = True
 
-                # Mark evaluation as completed
                 if evaluation_failed:
-                    evaluation.status = EvaluationStatus.COMPLETED  
+                    evaluation.status = EvaluationStatus.COMPLETED
                     print(f"[Runner] Evaluation completed with failures")
                 else:
                     evaluation.status = EvaluationStatus.COMPLETED
                     print(f"[Runner] Evaluation completed successfully")
 
-                evaluation.finished_at = datetime.utcnow()
-                await session.commit()
+                await eval_repo.update_status(
+                    evaluation,
+                    EvaluationStatus.COMPLETED,
+                    finished_at=datetime.utcnow(),
+                )
 
             except Exception as e:
                 print(f"[Runner] Evaluation aborted: {e}")
-                evaluation.status = EvaluationStatus.ABORTED
-                evaluation.finished_at = datetime.utcnow()
-                await session.commit()
+                await eval_repo.update_status(
+                    evaluation,
+                    EvaluationStatus.ABORTED,
+                    finished_at=datetime.utcnow(),
+                )
                 raise
-    
+
     async def _run_clone(
         self,
         session: AsyncSession,
         evaluation: Evaluation,
-        clone: EvaluationClone
+        clone: EvaluationClone,
     ):
         """
         Run all tasks for a single clone, then collect SUS score.
@@ -129,13 +131,15 @@ class EvaluationRunner:
 
         # Initialize controller
         controller = TwoAgentController(
-            persona_context=persona_context, 
+            persona_context=persona_context,
             grounder=grounder,
-            browser=browser
+            browser=browser,
         )
 
+        eval_repo = EvaluationRepository(session)
+        task_run_repo = TaskRunRepository(session)
+
         try:
-            # Run each task
             for task_def in evaluation.tasks:
                 try:
                     await self._run_task(
@@ -144,65 +148,63 @@ class EvaluationRunner:
                         task_def=task_def,
                         clone=clone,
                         controller=controller,
-                        persona_context=persona_context  # for SEQ collection
+                        persona_context=persona_context,
                     )
                 except Exception as e:
                     print(f"[Runner] Task '{task_def.description[:50]}...' failed: {e}")
                     if self.error_policy == "fail_fast":
                         raise
-                    
+
             print(f"\n[Runner] Collecting SUS for clone {clone.clone_id}...")
-            
-            # Collect task data for SUS prompt
-            await session.refresh(clone, ["task_runs"])
+
+            await eval_repo.refresh_clone_task_runs(clone)
             task_summaries = []
-            
+
             for task_run in clone.task_runs:
-                await session.refresh(task_run, ["task_definition", "metrics", "actions"])
-                
-                # Collect action history for this task from databasse
+                await eval_repo.refresh_task_run_relations(task_run)
+
                 full_action_history = [
                     {
                         "action_type": action.action_type,
-                        "reasoning": action.reasoning or ""
+                        "reasoning": action.reasoning or "",
                     }
                     for action in sorted(task_run.actions, key=lambda a: a.step_number)
                 ]
-                
+
                 task_summaries.append({
                     "description": task_run.task_definition.description,
                     "status": task_run.status.value,
                     "steps_taken": task_run.metrics.steps_taken if task_run.metrics else 0,
                     "seq_score": task_run.metrics.seq_score if task_run.metrics else None,
-                    "action_history": full_action_history, 
-                    "outcome_mismatches": task_run.final_outcome_mismatches or []
+                    "action_history": full_action_history,
+                    "outcome_mismatches": task_run.final_outcome_mismatches or [],
                 })
-            
-            # Collect SUS score
+
             try:
                 sus_result = await self.self_report_collector.collect_sus(
                     persona_context=persona_context,
-                    task_summaries=task_summaries  
+                    task_summaries=task_summaries,
                 )
-                
+
                 if sus_result:
-                    clone.sus_score = sus_result["sus_score"]
-                    clone.sus_ratings = sus_result["ratings"]
-                    clone.sus_reasoning = sus_result["reasoning"]
-                    await session.commit()
+                    await eval_repo.update_clone_sus(
+                        clone,
+                        sus_score=sus_result["sus_score"],
+                        sus_ratings=sus_result["ratings"],
+                        sus_reasoning=sus_result["reasoning"],
+                    )
                     print(f"[Runner] SUS score saved: {sus_result['sus_score']:.1f}/100")
                     print(f"[Runner] SUS ratings: {sus_result['ratings']}")
                     print(f"[Runner] SUS reasoning: {sus_result['reasoning'][:100]}...")
                 else:
                     print("[Runner] SUS collection returned None (non-fatal)")
-                    
+
             except Exception as e:
                 print(f"[Runner] SUS collection failed (non-fatal): {e}")
 
         finally:
-            # clean up browser resources
             await browser.close()
-    
+
     async def _run_task(
         self,
         session: AsyncSession,
@@ -210,7 +212,7 @@ class EvaluationRunner:
         task_def: TaskDefinition,
         clone: EvaluationClone,
         controller: TwoAgentController,
-        persona_context: str
+        persona_context: str,
     ):
         """
         Run a single task for a clone.
@@ -229,189 +231,139 @@ class EvaluationRunner:
 
         print(f"\n[Runner] Task: {task_def.description[:50]}...")
 
-        # Create TaskRun in DB
-        task_run = TaskRun(
+        task_run_repo = TaskRunRepository(session)
+
+        task_run = await task_run_repo.create(
             task_definition_id=task_def.id,
             evaluation_clone_id=clone.id,
-            status=TaskRunStatus.RUNNING,
-            started_at=datetime.utcnow()
         )
-        session.add(task_run)
-        await session.flush()  
-        await session.refresh(task_run)
 
         try:
-            # Determine start URL
             start_url = task_def.base_url_override or task_def.evaluation.base_url
 
-            # Execute task via controller
             result = await controller.execute_task(
                 task_description=task_def.description,
                 start_url=start_url,
                 evaluation_id=evaluation_id,
                 task_run_id=task_run.id,
                 max_steps=task_def.max_steps,
-                verification_rules=task_def.verification_rules
+                verification_rules=task_def.verification_rules,
             )
 
-            # Determine final status based on agent completion and verification
             task_run.agent_done = result.get("agent_done", False)
-            
+
+            status = TaskRunStatus.FAILED
+            verification_result = None
+            verification_details = None
+
             if result["status"] == "COMPLETED":
-                # Agent called DONE
                 if task_def.verification_rules:
                     try:
                         verification = await controller.browser.verify(task_def.verification_rules)
-                        
-                        from src.database.models import VerificationResult as VR
-                        task_run.verification_result = VR(verification.status.value)
-                        task_run.verification_details = verification.details
-                        
+
+                        verification_result = VR(verification.status.value)
+                        verification_details = verification.details
+
                         if verification.status.value == "PASS":
-                            task_run.status = TaskRunStatus.VERIFIED
+                            status = TaskRunStatus.VERIFIED
                         elif verification.status.value == "FAIL":
-                            task_run.status = TaskRunStatus.FAILED
+                            status = TaskRunStatus.FAILED
                         elif verification.status.value == "SKIPPED":
-                            task_run.status = TaskRunStatus.COMPLETED
+                            status = TaskRunStatus.COMPLETED
                         else:
-                            task_run.status = TaskRunStatus.COMPLETED
+                            status = TaskRunStatus.COMPLETED
 
                     except Exception as e:
                         print(f"[Runner] Verification exception: {e}")
-                        task_run.status = TaskRunStatus.COMPLETED
-                        from src.database.models import VerificationResult as VR
-                        task_run.verification_result = VR.UNKNOWN
-                        task_run.verification_details = {
-                            'type': 'error',
-                            'passed': False,
-                            'evidence': f"Verification error: {str(e)}"
+                        status = TaskRunStatus.COMPLETED
+                        verification_result = VR.UNKNOWN
+                        verification_details = {
+                            "type": "error",
+                            "passed": False,
+                            "evidence": f"Verification error: {str(e)}",
                         }
                 else:
-                    # No verification rules - agent completion is success
                     print(f"[Runner] No verification rules, marking as COMPLETED")
-                    task_run.status = TaskRunStatus.COMPLETED
-                    task_run.verification_result = None  # Try this first to see if it helps
-                    print(f"[Runner] Status set to {task_run.status}")
-            
+                    status = TaskRunStatus.COMPLETED
+                    print(f"[Runner] Status set to {status}")
+
             elif result["status"] == "TIMEOUT":
-                task_run.status = TaskRunStatus.TIMEOUT
-                task_run.failure_reason = "Maximum steps reached"
-            
-            else:
-                # Other failure
-                task_run.status = TaskRunStatus.FAILED
-                task_run.failure_reason = result.get("failure_reason", "Unknown failure")
+                status = TaskRunStatus.TIMEOUT
 
-            task_run.finished_at = datetime.utcnow()
-
-            # Save memory state
             memory_state = result.get("memory_state", {})
-            task_run.final_action_history = memory_state.get("action_history")
-            task_run.final_action_summary = memory_state.get("action_summary")
-            task_run.final_outcome_mismatches = memory_state.get("outcome_mismatches")
 
-            # METRICS CALCULATION
-            # Calculate basic metrics
+            await task_run_repo.save_result(
+                task_run=task_run,
+                status=status,
+                agent_done=result.get("agent_done", False),
+                failure_reason=result.get("failure_reason"),
+                verification_result=verification_result,
+                verification_details=verification_details,
+                final_action_history=memory_state.get("action_history"),
+                final_action_summary=memory_state.get("action_summary"),
+                final_outcome_mismatches=memory_state.get("outcome_mismatches"),
+                finished_at=datetime.utcnow(),
+            )
+
             action_records = result.get("action_records", [])
             basic_metrics = self.metrics_calculator.calculate_basic_metrics(
                 result=result,
-                action_records=action_records
+                action_records=action_records,
             )
-            
+
             print(f"[Runner] Basic metrics: steps={basic_metrics['steps_taken']}, "
                   f"failed={basic_metrics['failed_action_count']}, "
                   f"mismatches={basic_metrics['outcome_mismatch_count']}, "
                   f"backtrack={basic_metrics['backtracking_count']}")
-            
-            # Collect SEQ score
+
             seq_result = None
             try:
-                # Collect full action history from action_records
                 full_action_history = [
                     {
                         "action_type": action["action_type"],
-                        "reasoning": action.get("reasoning", "")
+                        "reasoning": action.get("reasoning", ""),
                     }
                     for action in action_records
                 ]
-                
-                # Build complete memory state for SEQ
+
                 complete_memory_state = {
-                    "action_history": full_action_history,  # ALL actions, not compressed
-                    "action_summary": None,  # No summary needed with full history
-                    "outcome_mismatches": memory_state.get("outcome_mismatches", [])
+                    "action_history": full_action_history,
+                    "action_summary": None,
+                    "outcome_mismatches": memory_state.get("outcome_mismatches", []),
                 }
-                
+
                 seq_result = await self.self_report_collector.collect_seq(
                     task_description=task_def.description,
-                    memory_state=complete_memory_state,  # Use complete history
-                    persona_context=persona_context
+                    memory_state=complete_memory_state,
+                    persona_context=persona_context,
                 )
             except Exception as e:
                 print(f"[Runner] SEQ collection failed (non-fatal): {e}")
-            
-            # Create TaskRunMetrics
-            metrics = TaskRunMetrics(
+
+            await task_run_repo.save_metrics(
                 task_run_id=task_run.id,
                 steps_taken=basic_metrics["steps_taken"],
                 failed_action_count=basic_metrics["failed_action_count"],
                 outcome_mismatch_count=basic_metrics["outcome_mismatch_count"],
                 backtracking_count=basic_metrics["backtracking_count"],
                 seq_score=seq_result["rating"] if seq_result else None,
-                seq_reasoning=seq_result["reasoning"] if seq_result else None
+                seq_reasoning=seq_result["reasoning"] if seq_result else None,
             )
-            session.add(metrics)
-            
+
             if seq_result:
                 print(f"[Runner] SEQ: {seq_result['rating']}/7 - {seq_result['reasoning'][:60]}...")
 
-            # Save action records
-            for action_data in action_records:
-                action_record = ActionRecord(
-                    task_run_id=task_run.id,
-                    step_number=action_data["step_number"],
-                    action_type=action_data["action_type"],
-                    target_description=action_data.get("target_description"),
-                    input_value=action_data.get("input_value"),
-                    reasoning=action_data.get("reasoning"),
-                    bounding_box=action_data.get("bounding_box"),
-                    click_coordinates=action_data.get("click_coordinates"),
-                    execution_success=action_data["execution_success"],
-                    execution_feedback=action_data.get("execution_feedback"),
-                    timestamp=datetime.fromisoformat(action_data["timestamp"]),
-                    screenshot=action_data.get("screenshot")
-                )
-                session.add(action_record)
+            await task_run_repo.save_action_records(
+                task_run_id=task_run.id,
+                action_records=action_records,
+            )
 
-            # Commit everything
-            await session.commit()
+            await task_run_repo.commit()
 
             print(f"[Runner] Task completed: {task_run.status.value}")
 
         except Exception as e:
             print(f"[Runner] Task execution failed: {e}")
-            task_run.status = TaskRunStatus.ABORTED
-            task_run.failure_reason = str(e)
-            task_run.finished_at = datetime.utcnow()
-            await session.commit()
+            await task_run_repo.mark_aborted(task_run, failure_reason=str(e))
+            await task_run_repo.commit()
             raise
-    
-    async def _load_evaluation(
-        self,
-        session: AsyncSession,
-        evaluation_id: UUID
-    ) -> Optional[Evaluation]:
-        """
-        Load evaluation with all relationships from database.
-        """
-
-        result = await session.execute(
-            select(Evaluation)
-            .where(Evaluation.id == evaluation_id)
-        )
-        evaluation = result.scalar_one_or_none()
-
-        if evaluation:
-            await session.refresh(evaluation, ["clones", "tasks"])
-
-        return evaluation

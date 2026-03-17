@@ -6,15 +6,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Depends
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from src.database.connection import AsyncSessionLocal
 from src.database.models import (
     Evaluation, EvaluationStatus, EvaluationClone,
     TaskDefinition, TaskRun, TaskRunMetrics,
 )
+from src.database.repositories import EvaluationRepository, TaskRunRepository
 from src.evaluation.models.api_models import (
     EvaluationCreate, EvaluationSummary, EvaluationReport,
     TaskRunDetail, ActionRecordDetail,
@@ -69,20 +68,20 @@ async def broadcast_progress(evaluation_id: UUID, message: dict):
 
 async def mark_evaluation_aborted(evaluation_id: UUID):
     async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(Evaluation).where(Evaluation.id == evaluation_id)
-        )
-        evaluation = result.scalar_one_or_none()
+        eval_repo = EvaluationRepository(session)
+        evaluation = await eval_repo.get_with_relations(evaluation_id)
 
         if evaluation:
-            evaluation.status = EvaluationStatus.ABORTED
-            evaluation.finished_at = datetime.utcnow()
-            await session.commit()
+            await eval_repo.update_status(
+                evaluation,
+                EvaluationStatus.ABORTED,
+                finished_at=datetime.utcnow(),
+            )
 
             await broadcast_progress(evaluation_id, {
                 "type": "status",
                 "status": "ABORTED",
-                "message": "Evaluation aborted by user"
+                "message": "Evaluation aborted by user",
             })
 
     if evaluation_id in evaluation_cancellation:
@@ -98,7 +97,7 @@ async def run_evaluation_background(evaluation_id: UUID):
         await broadcast_progress(evaluation_id, {
             "type": "status",
             "status": "RUNNING",
-            "message": "Evaluation started"
+            "message": "Evaluation started",
         })
 
         if evaluation_cancellation.get(evaluation_id, False):
@@ -110,7 +109,7 @@ async def run_evaluation_background(evaluation_id: UUID):
         await broadcast_progress(evaluation_id, {
             "type": "status",
             "status": "COMPLETED",
-            "message": "Evaluation completed successfully"
+            "message": "Evaluation completed successfully",
         })
 
         if evaluation_id in evaluation_cancellation:
@@ -119,7 +118,7 @@ async def run_evaluation_background(evaluation_id: UUID):
     except Exception as e:
         await broadcast_progress(evaluation_id, {
             "type": "error",
-            "message": f"Evaluation failed: {str(e)}"
+            "message": f"Evaluation failed: {str(e)}",
         })
 
         if evaluation_id in evaluation_cancellation:
@@ -132,12 +131,8 @@ async def run_evaluation_background(evaluation_id: UUID):
 
 @router.get("/evaluations", response_model=List[EvaluationSummary])
 async def list_evaluations(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Evaluation)
-        .options(selectinload(Evaluation.clones), selectinload(Evaluation.tasks))
-        .order_by(Evaluation.created_at.desc())
-    )
-    evaluations = result.scalars().all()
+    eval_repo = EvaluationRepository(db)
+    evaluations = await eval_repo.list_all()
 
     summaries = []
     for eval in evaluations:
@@ -154,7 +149,7 @@ async def list_evaluations(db: AsyncSession = Depends(get_db)):
             finished_at=eval.finished_at,
             task_count=len(eval.tasks),
             clone_count=len(eval.clones),
-            duration_seconds=duration
+            duration_seconds=duration,
         ))
 
     return summaries
@@ -163,56 +158,30 @@ async def list_evaluations(db: AsyncSession = Depends(get_db)):
 @router.post("/evaluations", response_model=dict)
 async def create_evaluation(
     data: EvaluationCreate,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    evaluation = Evaluation(
+    eval_repo = EvaluationRepository(db)
+    evaluation = await eval_repo.create(
         name=data.name,
         base_url=data.base_url,
-        status=EvaluationStatus.PENDING
+        clone_count=data.clone_count,
+        tasks_data=[t.model_dump() for t in data.tasks],
     )
-    db.add(evaluation)
-    await db.flush()
-
-    for i in range(data.clone_count):
-        clone = EvaluationClone(
-            evaluation_id=evaluation.id,
-            clone_id=f"placeholder_clone_{i+1}",
-            persona_cache={
-                "name": f"Placeholder Persona {i+1}",
-                "description": "Generic user persona"
-            }
-        )
-        db.add(clone)
-
-    for task_data in data.tasks:
-        task = TaskDefinition(
-            evaluation_id=evaluation.id,
-            description=task_data.description,
-            base_url_override=task_data.base_url_override,
-            max_steps=task_data.max_steps,
-            verification_rules=task_data.verification_rules
-        )
-        db.add(task)
-
-    await db.commit()
-    await db.refresh(evaluation)
 
     return {
         "evaluation_id": str(evaluation.id),
         "status": "created",
-        "message": f"Evaluation created with {data.clone_count} clones and {len(data.tasks)} tasks"
+        "message": f"Evaluation created with {data.clone_count} clones and {len(data.tasks)} tasks",
     }
 
 
 @router.post("/evaluations/{evaluation_id}/start")
 async def start_evaluation(
     evaluation_id: UUID,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Evaluation).where(Evaluation.id == evaluation_id)
-    )
-    evaluation = result.scalar_one_or_none()
+    eval_repo = EvaluationRepository(db)
+    evaluation = await eval_repo.get_with_relations(evaluation_id)
 
     if not evaluation:
         raise HTTPException(status_code=404, detail="Evaluation not found")
@@ -220,7 +189,7 @@ async def start_evaluation(
     if evaluation.status != EvaluationStatus.PENDING:
         raise HTTPException(
             status_code=400,
-            detail=f"Evaluation already {evaluation.status.value}"
+            detail=f"Evaluation already {evaluation.status.value}",
         )
 
     evaluation_cancellation[evaluation_id] = False
@@ -229,19 +198,17 @@ async def start_evaluation(
     return {
         "evaluation_id": str(evaluation_id),
         "status": "started",
-        "message": "Evaluation started in background. Connect to WebSocket for progress."
+        "message": "Evaluation started in background. Connect to WebSocket for progress.",
     }
 
 
 @router.post("/evaluations/{evaluation_id}/abort")
 async def abort_evaluation(
     evaluation_id: UUID,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Evaluation).where(Evaluation.id == evaluation_id)
-    )
-    evaluation = result.scalar_one_or_none()
+    eval_repo = EvaluationRepository(db)
+    evaluation = await eval_repo.get_with_relations(evaluation_id)
 
     if not evaluation:
         raise HTTPException(status_code=404, detail="Evaluation not found")
@@ -249,7 +216,7 @@ async def abort_evaluation(
     if evaluation.status != EvaluationStatus.RUNNING:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot abort evaluation with status {evaluation.status.value}"
+            detail=f"Cannot abort evaluation with status {evaluation.status.value}",
         )
 
     evaluation_cancellation[evaluation_id] = True
@@ -257,30 +224,23 @@ async def abort_evaluation(
     await broadcast_progress(evaluation_id, {
         "type": "status",
         "status": "ABORTING",
-        "message": "Abort requested - will stop after current task..."
+        "message": "Abort requested - will stop after current task...",
     })
 
     return {
         "evaluation_id": str(evaluation_id),
         "status": "aborting",
-        "message": "Abort requested. Evaluation will stop after current task completes."
+        "message": "Abort requested. Evaluation will stop after current task completes.",
     }
 
 
 @router.get("/evaluation/{evaluation_id}", response_model=EvaluationReport)
 async def get_evaluation_report(
     evaluation_id: UUID,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Evaluation)
-        .where(Evaluation.id == evaluation_id)
-        .options(
-            selectinload(Evaluation.clones).selectinload(EvaluationClone.task_runs),
-            selectinload(Evaluation.tasks)
-        )
-    )
-    evaluation = result.scalar_one_or_none()
+    eval_repo = EvaluationRepository(db)
+    evaluation = await eval_repo.get_with_clones_and_tasks(evaluation_id)
 
     if not evaluation:
         raise HTTPException(status_code=404, detail="Evaluation not found")
@@ -298,7 +258,7 @@ async def get_evaluation_report(
         finished_at=evaluation.finished_at,
         task_count=len(evaluation.tasks),
         clone_count=len(evaluation.clones),
-        duration_seconds=duration
+        duration_seconds=duration,
     )
 
     SUS_ITEMS = [
@@ -311,7 +271,7 @@ async def get_evaluation_report(
         "I would imagine that most people would learn to use this website very quickly.",
         "I found the website very cumbersome to use.",
         "I felt very confident using the website.",
-        "I needed to learn a lot of things before I could get going with this website."
+        "I needed to learn a lot of things before I could get going with this website.",
     ]
 
     clones_data = []
@@ -323,7 +283,7 @@ async def get_evaluation_report(
             "sus_score": clone.sus_score,
             "sus_ratings": clone.sus_ratings,
             "sus_reasoning": clone.sus_reasoning,
-            "sus_response": None
+            "sus_response": None,
         }
 
         if clone.sus_score is not None and clone.sus_ratings:
@@ -333,13 +293,13 @@ async def get_evaluation_report(
                     "item_number": i + 1,
                     "question": SUS_ITEMS[i],
                     "rating": rating,
-                    "scale": "1 (Strongly Disagree) to 5 (Strongly Agree)"
+                    "scale": "1 (Strongly Disagree) to 5 (Strongly Agree)",
                 })
 
             clone_dict["sus_response"] = {
                 "score": clone.sus_score,
                 "responses": enriched_responses,
-                "reasoning": clone.sus_reasoning
+                "reasoning": clone.sus_reasoning,
             }
 
         clones_data.append(clone_dict)
@@ -349,17 +309,8 @@ async def get_evaluation_report(
 
     for clone in evaluation.clones:
         for task_run in clone.task_runs:
-            metrics_result = await db.execute(
-                select(TaskRunMetrics)
-                .where(TaskRunMetrics.task_run_id == task_run.id)
-            )
-            metrics = metrics_result.scalar_one_or_none()
-
-            task_def_result = await db.execute(
-                select(TaskDefinition)
-                .where(TaskDefinition.id == task_run.task_definition_id)
-            )
-            task_def = task_def_result.scalar_one_or_none()
+            metrics = await eval_repo.get_task_run_metrics(task_run.id)
+            task_def = await eval_repo.get_task_definition(task_run.task_definition_id)
 
             steps_taken = metrics.steps_taken if metrics else 0
             seq_score = metrics.seq_score if metrics else None
@@ -374,7 +325,7 @@ async def get_evaluation_report(
                 "seq_score": seq_score,
                 "seq_reasoning": seq_reasoning,
                 "verification_result": task_run.verification_result.value if task_run.verification_result else None,
-                "agent_done": task_run.agent_done
+                "agent_done": task_run.agent_done,
             })
 
             if metrics:
@@ -404,28 +355,24 @@ async def get_evaluation_report(
         "success_rate": round(successful_tasks / total_tasks, 2) if total_tasks > 0 else 0,
         "avg_steps_per_task": round(avg_steps, 1),
         "avg_seq_score": round(avg_seq, 1),
-        "avg_sus_score": round(avg_sus, 1)
+        "avg_sus_score": round(avg_sus, 1),
     }
 
     return {
         "evaluation": eval_summary,
         "clones": clones_data,
         "task_runs": task_runs_data,
-        "metrics_summary": metrics_summary
+        "metrics_summary": metrics_summary,
     }
 
 
 @router.get("/evaluation/{evaluation_id}/editable")
 async def get_editable_evaluation(
     evaluation_id: UUID,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Evaluation)
-        .where(Evaluation.id == evaluation_id)
-        .options(selectinload(Evaluation.tasks), selectinload(Evaluation.clones))
-    )
-    evaluation = result.scalar_one_or_none()
+    eval_repo = EvaluationRepository(db)
+    evaluation = await eval_repo.get_with_tasks_and_clones(evaluation_id)
 
     if not evaluation:
         raise HTTPException(status_code=404, detail="Evaluation not found")
@@ -433,7 +380,7 @@ async def get_editable_evaluation(
     if evaluation.status != EvaluationStatus.PENDING:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot edit evaluation with status {evaluation.status.value}"
+            detail=f"Cannot edit evaluation with status {evaluation.status.value}",
         )
 
     return {
@@ -446,10 +393,10 @@ async def get_editable_evaluation(
                 "description": task.description,
                 "max_steps": task.max_steps,
                 "base_url_override": task.base_url_override,
-                "verification_rules": task.verification_rules
+                "verification_rules": task.verification_rules,
             }
             for task in evaluation.tasks
-        ]
+        ],
     }
 
 
@@ -457,12 +404,10 @@ async def get_editable_evaluation(
 async def update_evaluation(
     evaluation_id: UUID,
     data: EvaluationCreate,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Evaluation).where(Evaluation.id == evaluation_id)
-    )
-    evaluation = result.scalar_one_or_none()
+    eval_repo = EvaluationRepository(db)
+    evaluation = await eval_repo.get_with_relations(evaluation_id)
 
     if not evaluation:
         raise HTTPException(status_code=404, detail="Evaluation not found")
@@ -470,55 +415,31 @@ async def update_evaluation(
     if evaluation.status != EvaluationStatus.PENDING:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot edit evaluation with status {evaluation.status.value}"
+            detail=f"Cannot edit evaluation with status {evaluation.status.value}",
         )
 
-    evaluation.name = data.name
-    evaluation.base_url = data.base_url
-
-    await db.execute(
-        delete(TaskDefinition).where(TaskDefinition.evaluation_id == evaluation_id)
+    await eval_repo.update(
+        evaluation=evaluation,
+        name=data.name,
+        base_url=data.base_url,
+        clone_count=data.clone_count,
+        tasks_data=[t.model_dump() for t in data.tasks],
     )
-    await db.execute(
-        delete(EvaluationClone).where(EvaluationClone.evaluation_id == evaluation_id)
-    )
-
-    for i in range(data.clone_count):
-        clone = EvaluationClone(
-            evaluation_id=evaluation.id,
-            clone_id=f"placeholder_clone_{i+1}",
-            persona_cache={"name": f"Placeholder Persona {i+1}", "description": "Generic user"}
-        )
-        db.add(clone)
-
-    for task_data in data.tasks:
-        task = TaskDefinition(
-            evaluation_id=evaluation.id,
-            description=task_data.description,
-            base_url_override=task_data.base_url_override,
-            max_steps=task_data.max_steps,
-            verification_rules=task_data.verification_rules
-        )
-        db.add(task)
-
-    await db.commit()
 
     return {
         "evaluation_id": str(evaluation.id),
         "status": "updated",
-        "message": "Evaluation updated successfully"
+        "message": "Evaluation updated successfully",
     }
 
 
 @router.delete("/evaluation/{evaluation_id}")
 async def delete_evaluation(
     evaluation_id: UUID,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Evaluation).where(Evaluation.id == evaluation_id)
-    )
-    evaluation = result.scalar_one_or_none()
+    eval_repo = EvaluationRepository(db)
+    evaluation = await eval_repo.get_with_relations(evaluation_id)
 
     if not evaluation:
         raise HTTPException(status_code=404, detail="Evaluation not found")
@@ -528,12 +449,11 @@ async def delete_evaluation(
     except Exception as e:
         print(f"[API] Failed to delete screenshots: {e}")
 
-    await db.delete(evaluation)
-    await db.commit()
+    await eval_repo.delete(evaluation)
 
     return {
         "evaluation_id": str(evaluation_id),
-        "status": "deleted"
+        "status": "deleted",
     }
 
 
@@ -544,19 +464,10 @@ async def delete_evaluation(
 @router.get("/task-run/{task_run_id}", response_model=TaskRunDetail)
 async def get_task_run_detail(
     task_run_id: UUID,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(TaskRun)
-        .where(TaskRun.id == task_run_id)
-        .options(
-            selectinload(TaskRun.task_definition),
-            selectinload(TaskRun.clone),
-            selectinload(TaskRun.metrics),
-            selectinload(TaskRun.actions)
-        )
-    )
-    task_run = result.scalar_one_or_none()
+    task_run_repo = TaskRunRepository(db)
+    task_run = await task_run_repo.get_with_relations(task_run_id)
 
     if not task_run:
         raise HTTPException(status_code=404, detail="Task run not found")
@@ -569,7 +480,7 @@ async def get_task_run_detail(
             "outcome_mismatch_count": task_run.metrics.outcome_mismatch_count,
             "backtracking_count": task_run.metrics.backtracking_count,
             "seq_score": task_run.metrics.seq_score,
-            "seq_reasoning": task_run.metrics.seq_reasoning
+            "seq_reasoning": task_run.metrics.seq_reasoning,
         }
 
     actions_data = []
@@ -586,7 +497,7 @@ async def get_task_run_detail(
             execution_success=action.execution_success,
             execution_feedback=action.execution_feedback,
             timestamp=action.timestamp,
-            screenshot_url=action.screenshot
+            screenshot_url=action.screenshot,
         ))
 
     return TaskRunDetail(
@@ -602,7 +513,7 @@ async def get_task_run_detail(
         finished_at=task_run.finished_at,
         metrics=metrics_dict,
         actions=actions_data,
-        outcome_mismatches=task_run.final_outcome_mismatches
+        outcome_mismatches=task_run.final_outcome_mismatches,
     )
 
 
@@ -616,7 +527,7 @@ async def get_screenshot(url: str):
         base64_data = await screenshot_storage.get(url)
         return JSONResponse({
             "data": base64_data,
-            "format": "base64_png"
+            "format": "base64_png",
         })
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Screenshot not found")
@@ -631,7 +542,7 @@ async def get_screenshot(url: str):
 @router.websocket("/ws/evaluation/{evaluation_id}")
 async def evaluation_progress_websocket(
     websocket: WebSocket,
-    evaluation_id: UUID
+    evaluation_id: UUID,
 ):
     await websocket.accept()
 
