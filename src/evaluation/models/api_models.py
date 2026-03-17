@@ -68,6 +68,7 @@ class EvaluationReport(BaseModel):
     evaluation: EvaluationSummary
     clones: List[dict]
     task_runs: List[TaskRunSummary]
+    task_definitions: List[dict] = []
     metrics_summary: dict
 
 

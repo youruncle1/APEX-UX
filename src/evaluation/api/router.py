@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.connection import AsyncSessionLocal
+from src.database.repositories import EvaluationRepository
 from src.evaluation.api.websocket import active_connections
 from src.evaluation.models.api_models import (
     EvaluationCreate, EvaluationSummary, EvaluationReport,
@@ -45,6 +46,18 @@ async def create_evaluation(
     db: AsyncSession = Depends(get_db),
 ):
     return await EvaluationService(db).create_evaluation(data)
+
+
+@router.post("/evaluations/{evaluation_id}/copy", response_model=dict)
+async def copy_evaluation(
+    evaluation_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    repo = EvaluationRepository(db)
+    new_eval = await repo.copy(evaluation_id)
+    if not new_eval:
+        raise HTTPException(status_code=404, detail="Evaluation not found")
+    return {"evaluation_id": str(new_eval.id), "status": "copied"}
 
 
 @router.post("/evaluations/{evaluation_id}/start")

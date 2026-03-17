@@ -94,6 +94,41 @@ class EvaluationRepository:
         await self.session.refresh(evaluation)
         return evaluation
 
+    async def copy(self, evaluation_id: UUID) -> Optional[Evaluation]:
+        source = await self.get_with_tasks_and_clones(evaluation_id)
+        if not source:
+            return None
+
+        new_name = f"{source.name} (Copy)" if source.name else "(Copy)"
+
+        new_eval = Evaluation(
+            name=new_name,
+            base_url=source.base_url,
+            status=EvaluationStatus.PENDING,
+        )
+        self.session.add(new_eval)
+        await self.session.flush()
+
+        for clone in source.clones:
+            self.session.add(EvaluationClone(
+                evaluation_id=new_eval.id,
+                clone_id=clone.clone_id,
+                persona_cache=clone.persona_cache,
+            ))
+
+        for task in source.tasks:
+            self.session.add(TaskDefinition(
+                evaluation_id=new_eval.id,
+                description=task.description,
+                base_url_override=task.base_url_override,
+                max_steps=task.max_steps,
+                verification_rules=task.verification_rules,
+            ))
+
+        await self.session.commit()
+        await self.session.refresh(new_eval)
+        return new_eval
+
     async def update(
         self,
         evaluation: Evaluation,
