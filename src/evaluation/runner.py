@@ -2,6 +2,7 @@ from uuid import UUID
 from typing import Optional, Literal
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete
 
 from src.database.connection import AsyncSessionLocal
 from src.database.models import (
@@ -15,6 +16,8 @@ from src.browser_connector.connector import BrowserConnector
 from src.controller.controller import TwoAgentController
 from src.evaluation.logic.metrics import MetricsCalculator
 from src.evaluation.self_report import SelfReportCollector
+from src.evaluation.api.websocket import evaluation_cancellation, broadcast_progress
+from src.storage import create_screenshot_storage
 
 
 # Placeholder persona
@@ -27,41 +30,22 @@ When encountering issues, you try alternative approaches rather than giving up i
 class EvaluationRunner:
     """
     Main orchestrator for running evaluations.
-
-    Responsibilities:
-    - Load evaluation configuration from database
-    - Initialize and manage evaluation session lifecycle
-    - Coordinate execution across clones and tasks
-    - Calculate metrics and collect SEQ scores
-    - Manage database transactions for storing results
-    - Handle error policies during execution
-
-    Does NOT handle:
-    - SUS collection (future - after all tasks per clone)
-    - Report generation (future EvaluationModule)
-    - Screenshot storage (Controller responsibility)
     """
 
     def __init__(
         self,
         error_policy: Literal["fail_fast", "continue_on_error"] = "continue_on_error"
     ):
-        """
-        Initialize the evaluation runner.
-
-        Args:
-            error_policy: How to handle task failures
-                - "fail_fast": Stop entire evaluation on first task failure
-                - "continue_on_error": Continue with remaining tasks if one fails
-        """
         self.error_policy = error_policy
         self.metrics_calculator = MetricsCalculator()
         self.self_report_collector = SelfReportCollector()
+        self.screenshot_storage = create_screenshot_storage()
+
+    def _is_cancelled(self, evaluation_id: UUID) -> bool:
+        return evaluation_cancellation.get(evaluation_id, False)
 
     async def run(self, evaluation_id: UUID):
-        """
-        Run a complete evaluation.
-        """
+        """Run a complete evaluation."""
 
         async with AsyncSessionLocal() as session:
             eval_repo = EvaluationRepository(session)
@@ -79,30 +63,35 @@ class EvaluationRunner:
             evaluation_failed = False
             try:
                 for clone in evaluation.clones:
+                    # Check cancellation between clones
+                    if self._is_cancelled(evaluation_id):
+                        print(f"[Runner] Abort requested before clone {clone.clone_id}, stopping.")
+                        await self._abort_and_cleanup(evaluation_id, session, eval_repo)
+                        return
+
                     try:
-                        await self._run_clone(session, evaluation, clone)
+                        await self._run_clone(session, evaluation, clone, evaluation_id)
                     except Exception as e:
                         print(f"[Runner] Clone {clone.clone_id} failed: {e}")
                         if self.error_policy == "fail_fast":
                             raise
-
                         evaluation_failed = True
 
-                if evaluation_failed:
-                    evaluation.status = EvaluationStatus.COMPLETED
-                    print(f"[Runner] Evaluation completed with failures")
-                else:
-                    evaluation.status = EvaluationStatus.COMPLETED
-                    print(f"[Runner] Evaluation completed successfully")
+                    # Check cancellation after each clone completes
+                    if self._is_cancelled(evaluation_id):
+                        print(f"[Runner] Abort requested after clone {clone.clone_id}, stopping.")
+                        await self._abort_and_cleanup(evaluation_id, session, eval_repo)
+                        return
 
                 await eval_repo.update_status(
                     evaluation,
                     EvaluationStatus.COMPLETED,
                     finished_at=datetime.utcnow(),
                 )
+                print(f"[Runner] Evaluation completed {'with failures' if evaluation_failed else 'successfully'}")
 
             except Exception as e:
-                print(f"[Runner] Evaluation aborted: {e}")
+                print(f"[Runner] Evaluation aborted due to exception: {e}")
                 await eval_repo.update_status(
                     evaluation,
                     EvaluationStatus.ABORTED,
@@ -110,26 +99,87 @@ class EvaluationRunner:
                 )
                 raise
 
+    async def _abort_and_cleanup(
+        self,
+        evaluation_id: UUID,
+        session: AsyncSession,
+        eval_repo: EvaluationRepository,
+    ):
+        """
+        Clean up all task run data created during this evaluation run,
+        delete screenshots, reset clone SUS data, and return evaluation to PENDING.
+        """
+        print(f"[Runner] Aborting and cleaning up evaluation {evaluation_id}")
+
+        # Delete all task runs for this evaluation (cascades to ActionRecord + TaskRunMetrics)
+        # We need the task run IDs first to know which ones belong to this evaluation
+        result = await session.execute(
+            select(TaskRun)
+            .join(TaskDefinition, TaskRun.task_definition_id == TaskDefinition.id)
+            .where(TaskDefinition.evaluation_id == evaluation_id)
+        )
+        task_runs = result.scalars().all()
+
+        for task_run in task_runs:
+            await session.delete(task_run)
+
+        # Reset SUS data on all clones
+        result = await session.execute(
+            select(EvaluationClone).where(EvaluationClone.evaluation_id == evaluation_id)
+        )
+        clones = result.scalars().all()
+        for clone in clones:
+            clone.sus_score = None
+            clone.sus_ratings = None
+            clone.sus_reasoning = None
+
+        # Delete screenshots
+        try:
+            await self.screenshot_storage.delete_evaluation(str(evaluation_id))
+            print(f"[Runner] Screenshots deleted for evaluation {evaluation_id}")
+        except Exception as e:
+            print(f"[Runner] Failed to delete screenshots (non-fatal): {e}")
+
+        # Reset evaluation to PENDING
+        result = await session.execute(
+            select(Evaluation).where(Evaluation.id == evaluation_id)
+        )
+        evaluation = result.scalar_one_or_none()
+        if evaluation:
+            evaluation.status = EvaluationStatus.PENDING
+            evaluation.finished_at = None
+
+        await session.commit()
+
+        # Broadcast reset to clients
+        await broadcast_progress(evaluation_id, {
+            "type": "status",
+            "status": "ABORTED_RESET",
+            "message": "Evaluation aborted. All data cleared, returned to Pending.",
+        })
+
+        # Clean up cancellation flag
+        if evaluation_id in evaluation_cancellation:
+            del evaluation_cancellation[evaluation_id]
+
+        print(f"[Runner] Cleanup complete, evaluation reset to PENDING")
+
     async def _run_clone(
         self,
         session: AsyncSession,
         evaluation: Evaluation,
         clone: EvaluationClone,
+        evaluation_id: UUID,
     ):
-        """
-        Run all tasks for a single clone, then collect SUS score.
-        """
+        """Run all tasks for a single clone, then collect SUS score."""
 
         print(f"\n[Runner] Running clone: {clone.clone_id}")
 
-        # Get persona context (placeholder)
         persona_context = PLACEHOLDER_PERSONA
 
-        # Initialize agents
         grounder = GroundingAgent()
         browser = BrowserConnector(headless=True)
 
-        # Initialize controller
         controller = TwoAgentController(
             persona_context=persona_context,
             grounder=grounder,
@@ -141,6 +191,11 @@ class EvaluationRunner:
 
         try:
             for task_def in evaluation.tasks:
+                # Check cancellation between tasks
+                if self._is_cancelled(evaluation_id):
+                    print(f"[Runner] Abort requested before task '{task_def.description[:40]}...', stopping.")
+                    return  # Caller (_run_clone) returns, run() will handle cleanup
+
                 try:
                     await self._run_task(
                         session=session,
@@ -155,6 +210,12 @@ class EvaluationRunner:
                     if self.error_policy == "fail_fast":
                         raise
 
+                # Check cancellation after each task completes
+                if self._is_cancelled(evaluation_id):
+                    print(f"[Runner] Abort requested after task '{task_def.description[:40]}...', stopping.")
+                    return  # Caller will handle cleanup
+
+            # Only collect SUS if we completed all tasks without abort
             print(f"\n[Runner] Collecting SUS for clone {clone.clone_id}...")
 
             await eval_repo.refresh_clone_task_runs(clone)
@@ -194,8 +255,6 @@ class EvaluationRunner:
                         sus_reasoning=sus_result["reasoning"],
                     )
                     print(f"[Runner] SUS score saved: {sus_result['sus_score']:.1f}/100")
-                    print(f"[Runner] SUS ratings: {sus_result['ratings']}")
-                    print(f"[Runner] SUS reasoning: {sus_result['reasoning'][:100]}...")
                 else:
                     print("[Runner] SUS collection returned None (non-fatal)")
 
@@ -214,20 +273,7 @@ class EvaluationRunner:
         controller: TwoAgentController,
         persona_context: str,
     ):
-        """
-        Run a single task for a clone.
-
-        Creates TaskRun record, executes using controller,
-        calculates metrics, collects SEQ score, saves to database.
-
-        Args:
-            session: Database session
-            evaluation_id: Evaluation UUID (for screenshot storage)
-            task_def: Task definition to execute
-            clone: Clone executing the task
-            controller: Controller instance
-            persona_context: Persona description (for SEQ collection)
-        """
+        """Run a single task for a clone."""
 
         print(f"\n[Runner] Task: {task_def.description[:50]}...")
 
@@ -260,7 +306,6 @@ class EvaluationRunner:
                 if task_def.verification_rules:
                     try:
                         verification = await controller.browser.verify(task_def.verification_rules)
-
                         verification_result = VR(verification.status.value)
                         verification_details = verification.details
 
@@ -283,9 +328,7 @@ class EvaluationRunner:
                             "evidence": f"Verification error: {str(e)}",
                         }
                 else:
-                    print(f"[Runner] No verification rules, marking as COMPLETED")
                     status = TaskRunStatus.COMPLETED
-                    print(f"[Runner] Status set to {status}")
 
             elif result["status"] == "TIMEOUT":
                 status = TaskRunStatus.TIMEOUT

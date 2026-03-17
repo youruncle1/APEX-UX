@@ -21,11 +21,12 @@
         </div>
     </header>
 
-    <!-- Action Buttons Bar (for PENDING evaluations) -->
-    <div id="action-bar" class="hidden bg-white border-b border-gray-200 shadow-sm">
+    <!-- Action Buttons Bar -->
+    <!-- PENDING state -->
+    <div id="action-bar-pending" class="hidden bg-white border-b border-gray-200 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8">
             <div class="flex items-center space-x-3">
-                <button onclick="startEvaluationFromReport()" 
+                <button onclick="startEvaluationFromReport()"
                         class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 font-medium">
                     ▶ Start Evaluation
                 </button>
@@ -33,10 +34,23 @@
                    class="px-4 py-2 text-sm bg-amber-600 text-white rounded hover:bg-amber-700 font-medium inline-block">
                     ✎ Edit
                 </a>
-                <button onclick="deleteEvaluationFromReport()" 
+                <button onclick="deleteEvaluationFromReport()"
                         class="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 font-medium">
                     🗑 Delete
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- RUNNING state -->
+    <div id="action-bar-running" class="hidden bg-white border-b border-gray-200 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8">
+            <div class="flex items-center space-x-3">
+                <button id="abort-btn" onclick="abortEvaluationFromReport()"
+                        class="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 font-medium">
+                    ✕ Abort Evaluation
+                </button>
+                <span class="text-sm text-gray-500">Evaluation is running. Aborting will discard all results and return to Pending.</span>
             </div>
         </div>
     </div>
@@ -78,17 +92,17 @@
                 </div>
             </div>
 
-            <!-- Persona Results -->
+            <!-- Persona Results / Task Definitions -->
             <div class="bg-white shadow rounded-lg p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">🤖 Persona Results</h2>
+                <h2 class="text-lg font-semibold text-gray-900 mb-4" id="personas-section-title">🤖 Persona Results</h2>
                 <div id="personas-container" class="space-y-4">
-                    <!-- Persona cards will be inserted here -->
+                    <!-- Persona cards or task definitions will be inserted here -->
                 </div>
             </div>
 
-            <!-- Running Progress (if status is RUNNING) -->
+            <!-- Running Progress -->
             <div id="progress-section" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-6">
-                <h2 class="text-lg font-semibold text-blue-900 mb-4">⏳ Evaluation in Progress</h2>
+                <h2 class="text-lg font-semibold text-blue-900 mb-4" id="progress-title">⏳ Evaluation in Progress</h2>
                 <div id="progress-messages" class="space-y-2 text-sm text-blue-800">
                     <!-- Progress messages will be inserted here -->
                 </div>
@@ -100,20 +114,14 @@
     <div id="sus-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto" onclick="if(event.target.id==='sus-modal') closeSUSModal()">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl" onclick="event.stopPropagation()">
-                <!-- Modal Header -->
                 <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-4 flex justify-between items-center">
                     <div>
                         <h2 class="text-2xl font-bold">System Usability Scale (SUS)</h2>
                         <p class="text-sm opacity-90 mt-1" id="sus-persona-name">-</p>
                     </div>
-                    <button onclick="closeSUSModal()" class="text-white hover:text-gray-200 text-3xl leading-none">
-                        &times;
-                    </button>
+                    <button onclick="closeSUSModal()" class="text-white hover:text-gray-200 text-3xl leading-none">&times;</button>
                 </div>
-
-                <!-- Modal Body -->
                 <div class="overflow-y-auto max-h-[calc(90vh-140px)]">
-                    <!-- Score Header -->
                     <div class="bg-gradient-to-r from-indigo-50 to-purple-50 px-6 py-6 border-b">
                         <div class="flex items-center gap-6">
                             <div class="w-24 h-24 rounded-full bg-white shadow-lg flex flex-col items-center justify-center">
@@ -123,33 +131,18 @@
                             <div class="flex-1">
                                 <div class="text-sm font-medium text-gray-600 mb-2">Interpretation</div>
                                 <div id="sus-badge" class="inline-block px-4 py-2 rounded-full text-sm font-semibold"></div>
-                                <div class="mt-3 text-sm text-gray-600">
-                                    Based on 10 standardized usability questions
-                                </div>
+                                <div class="mt-3 text-sm text-gray-600">Based on 10 standardized usability questions</div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Questions List -->
-                    <div class="px-6 py-4" id="sus-questions">
-                        <!-- Questions will be inserted here -->
-                    </div>
-
-                    <!-- Overall Reasoning -->
+                    <div class="px-6 py-4" id="sus-questions"></div>
                     <div class="bg-gray-50 px-6 py-4 border-t">
                         <h3 class="font-semibold text-gray-900 mb-2">Agent's Overall Impression</h3>
-                        <div class="bg-white rounded-lg p-4 text-sm text-gray-700 border-l-4 border-indigo-500" id="sus-reason">
-                            <!-- Reasoning will be inserted here -->
-                        </div>
+                        <div class="bg-white rounded-lg p-4 text-sm text-gray-700 border-l-4 border-indigo-500" id="sus-reason"></div>
                     </div>
                 </div>
-
-                <!-- Modal Footer -->
                 <div class="bg-gray-100 px-6 py-3 flex justify-end border-t">
-                    <button onclick="closeSUSModal()" 
-                            class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm font-medium">
-                        Close
-                    </button>
+                    <button onclick="closeSUSModal()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm font-medium">Close</button>
                 </div>
             </div>
         </div>
@@ -159,20 +152,14 @@
     <div id="seq-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50" onclick="if(event.target.id==='seq-modal') closeSEQModal()">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg max-w-2xl w-full shadow-2xl" onclick="event.stopPropagation()">
-                <!-- Modal Header -->
                 <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 flex justify-between items-center rounded-t-lg">
                     <div>
                         <h2 class="text-xl font-bold">Task Ease Rating (SEQ)</h2>
                         <p class="text-sm opacity-90 mt-1" id="seq-task">-</p>
                     </div>
-                    <button onclick="closeSEQModal()" class="text-white hover:text-gray-200 text-3xl leading-none">
-                        &times;
-                    </button>
+                    <button onclick="closeSEQModal()" class="text-white hover:text-gray-200 text-3xl leading-none">&times;</button>
                 </div>
-
-                <!-- Modal Body -->
                 <div class="px-6 py-6">
-                    <!-- Score Display -->
                     <div class="flex items-center gap-6 mb-6">
                         <div class="w-20 h-20 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex flex-col items-center justify-center shadow-md">
                             <div class="text-3xl font-bold text-blue-600" id="seq-score">-</div>
@@ -183,30 +170,17 @@
                             <div class="text-2xl font-semibold text-gray-900" id="seq-label">-</div>
                         </div>
                     </div>
-
-                    <!-- Scale Visual -->
                     <div class="bg-gray-50 rounded-lg p-4 mb-6">
                         <div class="text-xs text-center text-gray-600 mb-3 font-medium">1 (Very Difficult) to 7 (Very Easy)</div>
-                        <div class="flex gap-2" id="seq-scale">
-                            <!-- Scale will be rendered here -->
-                        </div>
+                        <div class="flex gap-2" id="seq-scale"></div>
                     </div>
-
-                    <!-- Reasoning -->
                     <div>
                         <h3 class="font-semibold text-gray-900 mb-2">Agent's Reasoning</h3>
-                        <div class="bg-blue-50 rounded-lg p-4 text-sm text-gray-700 border-l-4 border-blue-500" id="seq-reason">
-                            <!-- Reasoning will be inserted here -->
-                        </div>
+                        <div class="bg-blue-50 rounded-lg p-4 text-sm text-gray-700 border-l-4 border-blue-500" id="seq-reason"></div>
                     </div>
                 </div>
-
-                <!-- Modal Footer -->
                 <div class="bg-gray-100 px-6 py-3 flex justify-end border-t rounded-b-lg">
-                    <button onclick="closeSEQModal()" 
-                            class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm font-medium">
-                        Close
-                    </button>
+                    <button onclick="closeSEQModal()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm font-medium">Close</button>
                 </div>
             </div>
         </div>
@@ -258,13 +232,9 @@
             "I needed to learn a lot of things before I could get going with this system"
         ];
 
-        const SEQ_LABELS = ['Very Difficult', 'Difficult', 'Somewhat Difficult', 'Neutral', 
+        const SEQ_LABELS = ['Very Difficult', 'Difficult', 'Somewhat Difficult', 'Neutral',
                            'Somewhat Easy', 'Easy', 'Very Easy'];
 
-        let reportData = null;
-        let fullTaskRunsData = [];
-
-        // Load report on page load
         document.addEventListener('DOMContentLoaded', () => {
             loadReport();
         });
@@ -279,14 +249,13 @@
 
                 renderReport(report);
 
-                // If PENDING, show action buttons
                 if (report.evaluation.status === 'PENDING') {
-                    document.getElementById('action-bar').classList.remove('hidden');
+                    document.getElementById('action-bar-pending').classList.remove('hidden');
                     document.getElementById('edit-link').href = `/edit/${evaluationId}`;
                 }
 
-                // If running, show progress section
                 if (report.evaluation.status === 'RUNNING') {
+                    document.getElementById('action-bar-running').classList.remove('hidden');
                     document.getElementById('progress-section').classList.remove('hidden');
                     connectWebSocket();
                 }
@@ -299,58 +268,114 @@
         }
 
         function renderReport(report) {
-            const { evaluation, clones, task_runs, metrics_summary } = report;
-
-            // Store task runs for verification modal
-            fullTaskRunsData = task_runs;
+            const { evaluation, clones, task_runs, task_definitions, metrics_summary } = report;
 
             // Header
             document.getElementById('eval-title').textContent = evaluation.name || 'Evaluation Report';
             document.getElementById('status-badge').innerHTML = getStatusBadge(evaluation.status);
 
+            if (evaluation.status === 'PENDING') {
+                // Show task definitions instead of results
+                renderPendingView(clones, task_definitions || []);
+                // Zero out metrics (nothing ran)
+                document.getElementById('metric-success-rate').textContent = '-';
+                document.getElementById('metric-tasks-passed').textContent = '-';
+                document.getElementById('metric-avg-steps').textContent = '-';
+                document.getElementById('metric-seq').textContent = '-';
+                document.getElementById('metric-sus').textContent = '-';
+                return;
+            }
+
             // Metrics
-            // Count successful tasks = VERIFIED + COMPLETED (agent done, no verification)
             const totalTasks = task_runs.length;
-            const successfulTasks = task_runs.filter(t => 
-                t.verification_result === 'PASS' || 
+            const successfulTasks = task_runs.filter(t =>
+                t.verification_result === 'PASS' ||
                 (t.status === 'COMPLETED' && t.agent_done)
             ).length;
             const successRate = totalTasks > 0 ? successfulTasks / totalTasks : 0;
 
-            document.getElementById('metric-success-rate').textContent = 
-                `${(successRate * 100).toFixed(0)}%`;
+            document.getElementById('metric-success-rate').textContent = `${(successRate * 100).toFixed(0)}%`;
             document.getElementById('metric-tasks-passed').textContent = `${successfulTasks}/${totalTasks}`;
-            
-            document.getElementById('metric-avg-steps').textContent = 
-                metrics_summary.avg_steps_per_task.toFixed(1);
-            document.getElementById('metric-seq').textContent = 
-                `${metrics_summary.avg_seq_score.toFixed(1)}/7`;
-            document.getElementById('metric-sus').textContent = 
-                `${metrics_summary.avg_sus_score.toFixed(0)}/100`;
+            document.getElementById('metric-avg-steps').textContent = metrics_summary.avg_steps_per_task.toFixed(1);
+            document.getElementById('metric-seq').textContent = `${metrics_summary.avg_seq_score.toFixed(1)}/7`;
+            document.getElementById('metric-sus').textContent = `${metrics_summary.avg_sus_score.toFixed(0)}/100`;
 
             // Group task runs by clone
             const tasksByClone = {};
             clones.forEach(clone => {
-                tasksByClone[clone.clone_id] = {
-                    clone: clone,
-                    tasks: []
-                };
+                tasksByClone[clone.clone_id] = { clone, tasks: [] };
             });
-
             task_runs.forEach(task_run => {
                 if (tasksByClone[task_run.clone_id]) {
                     tasksByClone[task_run.clone_id].tasks.push(task_run);
                 }
             });
 
-            // Render personas
+            document.getElementById('personas-section-title').textContent = '🤖 Persona Results';
             const personasContainer = document.getElementById('personas-container');
             personasContainer.innerHTML = '';
-
             Object.values(tasksByClone).forEach(({ clone, tasks }) => {
-                const personaCard = createPersonaCard(clone, tasks);
-                personasContainer.appendChild(personaCard);
+                personasContainer.appendChild(createPersonaCard(clone, tasks));
             });
+        }
+
+        function renderPendingView(clones, taskDefinitions) {
+            document.getElementById('personas-section-title').textContent = '📋 Evaluation Plan';
+            const container = document.getElementById('personas-container');
+            container.innerHTML = '';
+
+            if (taskDefinitions.length === 0) {
+                container.innerHTML = '<p class="text-sm text-gray-500">No tasks defined.</p>';
+                return;
+            }
+
+            // Tasks table
+            const tasksCard = document.createElement('div');
+            tasksCard.className = 'border border-gray-200 rounded-lg p-4 mb-4';
+            tasksCard.innerHTML = `
+                <h3 class="text-sm font-semibold text-gray-700 mb-3">Tasks (${taskDefinitions.length})</h3>
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">#</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">Description</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-600 uppercase">Max Steps</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">URL Override</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-600 uppercase">Verification</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        ${taskDefinitions.map((task, i) => `
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-3 py-2 text-gray-500">${i + 1}</td>
+                                <td class="px-3 py-2">${task.description}</td>
+                                <td class="px-3 py-2 text-center">${task.max_steps}</td>
+                                <td class="px-3 py-2 text-gray-500 text-xs">${task.base_url_override || '—'}</td>
+                                <td class="px-3 py-2 text-center">
+                                    ${task.verification_rules
+                                        ? '<span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">✓ Set</span>'
+                                        : '<span class="px-2 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">None</span>'}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            container.appendChild(tasksCard);
+
+            // Clones/personas section
+            const clonesCard = document.createElement('div');
+            clonesCard.className = 'border border-gray-200 rounded-lg p-4';
+            clonesCard.innerHTML = `
+                <h3 class="text-sm font-semibold text-gray-700 mb-3">Personas (${clones.length})</h3>
+                <div class="flex flex-wrap gap-2">
+                    ${clones.map(c => `
+                        <span class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full">👤 ${c.clone_id}</span>
+                    `).join('')}
+                </div>
+                <p class="text-xs text-gray-400 mt-2">Each persona will complete all ${taskDefinitions.length} task(s) above.</p>
+            `;
+            container.appendChild(clonesCard);
         }
 
         function createPersonaCard(clone, tasks) {
@@ -366,9 +391,7 @@
                 : '<span class="text-sm text-gray-400">SUS pending</span>';
 
             const tasksHtml = tasks.map(task => {
-                // Build status display
                 let statusDisplay = '';
-                
                 if (task.agent_done) {
                     statusDisplay = '<span class="text-green-600 font-medium">✓ Completed</span>';
                 } else {
@@ -378,8 +401,7 @@
                         statusDisplay = '<span class="text-red-600 font-medium">✗ Failed</span>';
                     }
                 }
-                
-                // Verification badge
+
                 let verificationBadge = '';
                 if (task.agent_done && task.verification_result) {
                     if (task.verification_result === 'PASS') {
@@ -392,13 +414,10 @@
                         verificationBadge = ' <span class="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-800 rounded font-semibold">○ Skipped</span>';
                     }
                 } else if (task.agent_done && !task.verification_result) {
-                    // No verification rules were set — show purple Skipped badge (non-clickable)
                     verificationBadge = ' <span class="ml-2 px-2 py-0.5 text-xs bg-purple-100 text-purple-800 rounded font-semibold">○ Skipped</span>';
-                
                 }
 
-                // SEQ display
-                const seqDisplay = task.seq_score 
+                const seqDisplay = task.seq_score
                     ? `<button onclick='showSEQModal(${JSON.stringify(task).replace(/'/g, "&apos;")})' 
                                class="text-blue-600 hover:text-blue-800 hover:underline font-medium">
                             ${task.seq_score.toFixed(1)}/7
@@ -408,23 +427,14 @@
                 return `
                     <tr class="hover:bg-gray-50">
                         <td class="px-3 py-2 text-sm">
-                            <div class="max-w-xs truncate" title="${task.task_description}">
-                                ${task.task_description}
-                            </div>
+                            <div class="max-w-xs truncate" title="${task.task_description}">${task.task_description}</div>
                         </td>
-                        <td class="px-3 py-2 text-sm">
-                            ${statusDisplay}
-                        </td>
-                        <td class="px-3 py-2 text-sm">
-                            ${verificationBadge}
-                        </td>
+                        <td class="px-3 py-2 text-sm">${statusDisplay}</td>
+                        <td class="px-3 py-2 text-sm">${verificationBadge}</td>
                         <td class="px-3 py-2 text-sm text-center">${seqDisplay}</td>
-                        <td class="px-3 py-2 text-sm text-center text-gray-600">${task.steps_taken || task.metrics?.steps_taken || '-'}</td>
+                        <td class="px-3 py-2 text-sm text-center text-gray-600">${task.steps_taken || '-'}</td>
                         <td class="px-3 py-2 text-sm text-center">
-                            <a href="/task-run/${task.id}" 
-                            class="text-blue-600 hover:text-blue-800 hover:underline">
-                                View →
-                            </a>
+                            <a href="/task-run/${task.id}" class="text-blue-600 hover:text-blue-800 hover:underline">View →</a>
                         </td>
                     </tr>
                 `;
@@ -435,13 +445,10 @@
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900">👤 ${clone.clone_id}</h3>
                         <p class="text-sm text-gray-500 mt-1">
-                            ${tasks.length} task${tasks.length !== 1 ? 's' : ''} | 
-                            SUS: ${susDisplay}
+                            ${tasks.length} task${tasks.length !== 1 ? 's' : ''} | SUS: ${susDisplay}
                         </p>
                     </div>
-                    <div>
-                        ${susButton}
-                    </div>
+                    <div>${susButton}</div>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full">
@@ -455,32 +462,143 @@
                                 <th class="px-3 py-2 text-center text-xs font-medium text-gray-600 uppercase">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            ${tasksHtml}
-                        </tbody>
+                        <tbody class="divide-y divide-gray-100">${tasksHtml}</tbody>
                     </table>
                 </div>
             `;
-
             return card;
         }
 
-        // SUS Modal Functions
-        function showSUSModal(clone) {
-            if (!clone.sus_score) {
-                alert('SUS data not available');
+        // ============================================================================
+        // ACTION BUTTONS
+        // ============================================================================
+
+        async function startEvaluationFromReport() {
+            if (!confirm('Start this evaluation? This may take several minutes.')) return;
+            try {
+                const response = await fetch(`${API_BASE}/api/evaluations/${evaluationId}/start`, { method: 'POST' });
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    const error = await response.json();
+                    alert(`Failed to start: ${error.detail}`);
+                }
+            } catch (error) {
+                alert('Failed to start evaluation. Please try again.');
+            }
+        }
+
+        async function abortEvaluationFromReport() {
+            if (!confirm('Abort this evaluation? All results will be deleted and it will return to Pending.')) return;
+
+            const btn = document.getElementById('abort-btn');
+            btn.disabled = true;
+            btn.textContent = 'Aborting...';
+            btn.classList.replace('bg-red-600', 'bg-gray-400');
+            btn.classList.replace('hover:bg-red-700', 'cursor-not-allowed');
+
+            try {
+                const response = await fetch(`${API_BASE}/api/evaluations/${evaluationId}/abort`, { method: 'POST' });
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert(`Failed to abort: ${error.detail}`);
+                    btn.disabled = false;
+                    btn.textContent = '✕ Abort Evaluation';
+                    btn.classList.replace('bg-gray-400', 'bg-red-600');
+                    btn.classList.replace('cursor-not-allowed', 'hover:bg-red-700');
+                }
+                // Success: WebSocket ABORTING message will update the UI
+            } catch (error) {
+                alert('Failed to abort evaluation. Please try again.');
+            }
+        }
+
+        async function deleteEvaluationFromReport() {
+            if (!confirm('Delete this evaluation? This cannot be undone.')) return;
+            try {
+                const response = await fetch(`${API_BASE}/api/evaluation/${evaluationId}`, { method: 'DELETE' });
+                if (response.ok) {
+                    window.location.href = '/';
+                } else {
+                    const error = await response.json();
+                    alert(`Failed to delete: ${error.detail}`);
+                }
+            } catch (error) {
+                alert('Failed to delete evaluation. Please try again.');
+            }
+        }
+
+        // ============================================================================
+        // WEBSOCKET
+        // ============================================================================
+
+        function connectWebSocket() {
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}/ws/evaluation/${evaluationId}`;
+            websocket = new WebSocket(wsUrl);
+
+            websocket.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                handleProgressMessage(message);
+            };
+
+            websocket.onclose = () => {
+                console.log('WebSocket closed');
+            };
+        }
+
+        function handleProgressMessage(message) {
+            const progressContainer = document.getElementById('progress-messages');
+            const timestamp = new Date().toLocaleTimeString();
+            const progressTitle = document.getElementById('progress-title');
+
+            if (message.type === 'status' && message.status === 'ABORTING') {
+                // Update progress section to show aborting state
+                progressTitle.textContent = '⏳ Aborting... (finishing current task)';
+                progressTitle.classList.replace('text-blue-900', 'text-amber-800');
+                document.getElementById('progress-section').classList.replace('bg-blue-50', 'bg-amber-50');
+                document.getElementById('progress-section').classList.replace('border-blue-200', 'border-amber-200');
+            }
+
+            if (message.type === 'status' && message.status === 'ABORTED_RESET') {
+                // Cleanup done — reload so page shows PENDING state
+                setTimeout(() => window.location.reload(), 1000);
                 return;
             }
 
+            if (message.type === 'status' && message.status === 'COMPLETED') {
+                setTimeout(() => window.location.reload(), 2000);
+                return;
+            }
+
+            // Append message to progress log
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'flex items-start space-x-2';
+            let icon = '•';
+            if (message.type === 'status') icon = '📊';
+            if (message.type === 'error') icon = '❌';
+            messageDiv.innerHTML = `
+                <span class="text-xs text-gray-500">[${timestamp}]</span>
+                <span>${icon}</span>
+                <span>${message.message || JSON.stringify(message)}</span>
+            `;
+            progressContainer.appendChild(messageDiv);
+            progressContainer.scrollTop = progressContainer.scrollHeight;
+        }
+
+        // ============================================================================
+        // MODALS
+        // ============================================================================
+
+        function showSUSModal(clone) {
+            if (!clone.sus_score) { alert('SUS data not available'); return; }
             document.getElementById('sus-persona-name').textContent = clone.clone_id;
             document.getElementById('sus-score').textContent = clone.sus_score.toFixed(1);
-
             const interpretation = getSUSInterpretation(clone.sus_score);
             const badge = document.getElementById('sus-badge');
             badge.textContent = interpretation.label;
             badge.style.backgroundColor = interpretation.color;
             badge.style.color = 'white';
-
             const questions = document.getElementById('sus-questions');
             questions.innerHTML = SUS_QUESTIONS.map((q, i) => `
                 <div class="mb-6">
@@ -488,27 +606,22 @@
                     <div class="flex items-center gap-2">
                         ${[1, 2, 3, 4, 5].map(n => `
                             <div class="flex-1 text-center py-3 rounded border-2 transition-all ${
-                                clone.sus_ratings && clone.sus_ratings[i] === n 
-                                    ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white border-indigo-600 transform scale-110 shadow-md' 
+                                clone.sus_ratings && clone.sus_ratings[i] === n
+                                    ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white border-indigo-600 transform scale-110 shadow-md'
                                     : 'border-gray-300 text-gray-600'
                             }">${n}</div>
                         `).join('')}
                     </div>
                     <div class="flex justify-between text-xs text-gray-500 px-1">
-                        <span>Strongly Disagree</span>
-                        <span>Strongly Agree</span>
+                        <span>Strongly Disagree</span><span>Strongly Agree</span>
                     </div>
                 </div>
             `).join('');
-
             document.getElementById('sus-reason').textContent = clone.sus_reasoning || 'No reasoning provided.';
-
             document.getElementById('sus-modal').classList.remove('hidden');
         }
 
-        function closeSUSModal() {
-            document.getElementById('sus-modal').classList.add('hidden');
-        }
+        function closeSUSModal() { document.getElementById('sus-modal').classList.add('hidden'); }
 
         function getSUSInterpretation(score) {
             if (score >= 80) return { label: 'Excellent', color: '#10b981' };
@@ -518,211 +631,97 @@
             return { label: 'Awful', color: '#dc2626' };
         }
 
-        // SEQ Modal Functions
         function showSEQModal(task) {
-            if (!task.seq_score) {
-                alert('SEQ data not available for this task');
-                return;
-            }
-
+            if (!task.seq_score) { alert('SEQ data not available for this task'); return; }
             document.getElementById('seq-task').textContent = task.task_description;
             document.getElementById('seq-score').textContent = task.seq_score.toFixed(1);
             document.getElementById('seq-label').textContent = SEQ_LABELS[Math.round(task.seq_score) - 1];
-
             const scale = document.getElementById('seq-scale');
             scale.innerHTML = [1,2,3,4,5,6,7].map(i => `
                 <div class="flex-1 text-center p-3 rounded border-2 transition-all ${
-                    Math.round(task.seq_score) === i 
-                        ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white border-blue-600 font-bold transform scale-105 shadow-md' 
+                    Math.round(task.seq_score) === i
+                        ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white border-blue-600 font-bold transform scale-105 shadow-md'
                         : 'bg-white border-gray-300 text-gray-700'
                 }">
                     <div class="text-lg font-bold">${i}</div>
                     <div class="text-xs mt-1">${SEQ_LABELS[i-1]}</div>
                 </div>
             `).join('');
-
             document.getElementById('seq-reason').textContent = task.seq_reasoning || 'No reasoning provided.';
-
             document.getElementById('seq-modal').classList.remove('hidden');
         }
 
-        function closeSEQModal() {
-            document.getElementById('seq-modal').classList.add('hidden');
-        }
+        function closeSEQModal() { document.getElementById('seq-modal').classList.add('hidden'); }
 
         function renderVerificationRulesFromDetails(details, depth = 0) {
-            if (!details) {
-                return '<div class="text-sm text-gray-600 italic">No verification details available</div>';
-            }
-
+            if (!details) return '<div class="text-sm text-gray-600 italic">No verification details available</div>';
             const indent = depth * 20;
             const type = details.type;
             const passed = details.passed;
 
-            // Individual rules
             if (type === 'url_contains') {
                 const icon = passed ? '✓' : '✗';
                 const color = passed ? 'text-green-600' : 'text-red-600';
-                const label = passed ? 'PASSED' : 'FAILED';
                 const labelColor = passed ? 'text-green-600' : 'text-red-600';
-                const value = details.value;
-
-                return `
-                    <div class="flex items-start space-x-2 py-2" style="margin-left: ${indent}px">
-                        <span class="${color} font-semibold text-lg">${icon}</span>
-                        <div class="flex-1">
-                            <span class="text-sm font-medium text-gray-700">URL contains:</span>
-                            <code class="ml-2 px-2 py-0.5 bg-gray-100 rounded text-xs">${value}</code>
-                            <span class="ml-2 text-xs ${labelColor} font-semibold">${label}</span>
-                        </div>
+                return `<div class="flex items-start space-x-2 py-2" style="margin-left: ${indent}px">
+                    <span class="${color} font-semibold text-lg">${icon}</span>
+                    <div class="flex-1">
+                        <span class="text-sm font-medium text-gray-700">URL contains:</span>
+                        <code class="ml-2 px-2 py-0.5 bg-gray-100 rounded text-xs">${details.value}</code>
+                        <span class="ml-2 text-xs ${labelColor} font-semibold">${passed ? 'PASSED' : 'FAILED'}</span>
                     </div>
-                `;
+                </div>`;
             }
-
             if (type === 'text_any') {
                 const icon = passed ? '✓' : '✗';
                 const color = passed ? 'text-green-600' : 'text-red-600';
-                const label = passed ? 'PASSED' : 'FAILED';
                 const labelColor = passed ? 'text-green-600' : 'text-red-600';
-                const texts = details.texts || [];
-
-                return `
-                    <div class="flex items-start space-x-2 py-2" style="margin-left: ${indent}px">
-                        <span class="${color} font-semibold text-lg">${icon}</span>
-                        <div class="flex-1">
-                            <span class="text-sm font-medium text-gray-700">Page shows text:</span>
-                            <code class="ml-2 px-2 py-0.5 bg-gray-100 rounded text-xs">${texts.join(', ')}</code>
-                            <span class="ml-2 text-xs ${labelColor} font-semibold">${label}</span>
-                        </div>
+                return `<div class="flex items-start space-x-2 py-2" style="margin-left: ${indent}px">
+                    <span class="${color} font-semibold text-lg">${icon}</span>
+                    <div class="flex-1">
+                        <span class="text-sm font-medium text-gray-700">Page shows text:</span>
+                        <code class="ml-2 px-2 py-0.5 bg-gray-100 rounded text-xs">${(details.texts || []).join(', ')}</code>
+                        <span class="ml-2 text-xs ${labelColor} font-semibold">${passed ? 'PASSED' : 'FAILED'}</span>
                     </div>
-                `;
+                </div>`;
             }
-
-            // Compound rules
-            if (type === 'any_of') {
-                const groupName = details.name || 'OR Group';
-                const children = details.children || [];
+            if (type === 'any_of' || type === 'all_of') {
+                const groupName = type === 'any_of' ? (details.name || 'OR Group') : 'AND Group';
+                const desc = type === 'any_of' ? '(any one must pass)' : '(all must pass)';
                 const groupColor = passed ? 'border-green-300' : 'border-red-300';
-                const passLabel = passed 
-                    ? '<span class="ml-2 text-xs text-green-600 font-semibold">✓ GROUP PASSED</span>' 
+                const passLabel = passed
+                    ? '<span class="ml-2 text-xs text-green-600 font-semibold">✓ GROUP PASSED</span>'
                     : '<span class="ml-2 text-xs text-red-600 font-semibold">✗ GROUP FAILED</span>';
-
-                let html = `
-                    <div class="border-l-2 ${groupColor} pl-3 py-2" style="margin-left: ${indent}px">
-                        <div class="text-sm font-semibold text-blue-700 mb-2">
-                            ${groupName} <span class="text-xs font-normal text-gray-600">(any one must pass)</span>
-                            ${passLabel}
-                        </div>
-                `;
-
-                children.forEach(child => {
-                    html += renderVerificationRulesFromDetails(child, depth + 1);
-                });
-
+                const titleColor = type === 'any_of' ? 'text-blue-700' : 'text-purple-700';
+                let html = `<div class="border-l-2 ${groupColor} pl-3 py-2" style="margin-left: ${indent}px">
+                    <div class="text-sm font-semibold ${titleColor} mb-2">${groupName} <span class="text-xs font-normal text-gray-600">${desc}</span>${passLabel}</div>`;
+                (details.children || []).forEach(child => { html += renderVerificationRulesFromDetails(child, depth + 1); });
                 html += '</div>';
                 return html;
             }
-
-            if (type === 'all_of') {
-                const children = details.children || [];
-                const groupColor = passed ? 'border-green-300' : 'border-red-300';
-                const passLabel = passed 
-                    ? '<span class="ml-2 text-xs text-green-600 font-semibold">✓ GROUP PASSED</span>' 
-                    : '<span class="ml-2 text-xs text-red-600 font-semibold">✗ GROUP FAILED</span>';
-
-                let html = `
-                    <div class="border-l-2 ${groupColor} pl-3 py-2" style="margin-left: ${indent}px">
-                        <div class="text-sm font-semibold text-purple-700 mb-2">
-                            AND Group <span class="text-xs font-normal text-gray-600">(all must pass)</span>
-                            ${passLabel}
-                        </div>
-                `;
-
-                children.forEach(child => {
-                    html += renderVerificationRulesFromDetails(child, depth + 1);
-                });
-
-                html += '</div>';
-                return html;
-            }
-
             return '<div class="text-sm text-gray-600 italic">Unknown rule type</div>';
         }
 
-        /**
-         * Show verification modal (evaluation.html version - fetches data)
-         */
         async function showVerificationModal(taskId) {
             try {
                 const response = await fetch(`${API_BASE}/api/task-run/${taskId}`);
                 const taskRun = await response.json();
-
                 document.getElementById('verification-modal-task').textContent = taskRun.task_description;
-
                 const statusBadges = {
                     'PASS': '<span class="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-full font-semibold">✓ Verified (PASS)</span>',
                     'FAIL': '<span class="px-3 py-1 text-sm bg-red-100 text-red-800 rounded-full font-semibold">✗ Failed</span>',
                     'SKIPPED': '<span class="px-3 py-1 text-sm bg-gray-100 text-gray-800 rounded-full font-semibold">○ Skipped</span>',
                     'UNKNOWN': '<span class="px-3 py-1 text-sm bg-amber-100 text-amber-800 rounded-full font-semibold">⚠ Unknown</span>'
                 };
-                document.getElementById('verification-modal-status').innerHTML = 
-                    statusBadges[taskRun.verification_result] || statusBadges['UNKNOWN'];
-
-                const rulesHtml = renderVerificationRulesFromDetails(taskRun.verification_details);
-                document.getElementById('verification-modal-rules').innerHTML = rulesHtml;
-
+                document.getElementById('verification-modal-status').innerHTML = statusBadges[taskRun.verification_result] || statusBadges['UNKNOWN'];
+                document.getElementById('verification-modal-rules').innerHTML = renderVerificationRulesFromDetails(taskRun.verification_details);
                 document.getElementById('verification-modal').classList.remove('hidden');
-
             } catch (error) {
-                console.error('Failed to show verification details:', error);
                 alert('Failed to show verification details');
             }
         }
 
-        function closeVerificationModal() {
-            document.getElementById('verification-modal').classList.add('hidden');
-        }
-
-        // Action Button Functions
-        async function startEvaluationFromReport() {
-            if (!confirm('Start this evaluation? This may take several minutes.')) return;
-            
-            try {
-                const response = await fetch(`${API_BASE}/api/evaluations/${evaluationId}/start`, {
-                    method: 'POST'
-                });
-                
-                if (response.ok) {
-                    window.location.reload();
-                } else {
-                    const error = await response.json();
-                    alert(`Failed to start: ${error.detail}`);
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Failed to start evaluation. Please try again.');
-            }
-        }
-
-        async function deleteEvaluationFromReport() {
-            if (!confirm('Delete this evaluation? This cannot be undone.')) return;
-            
-            try {
-                const response = await fetch(`${API_BASE}/api/evaluation/${evaluationId}`, {
-                    method: 'DELETE'
-                });
-                
-                if (response.ok) {
-                    window.location.href = '/';
-                } else {
-                    const error = await response.json();
-                    alert(`Failed to delete: ${error.detail}`);
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Failed to delete evaluation. Please try again.');
-            }
-        }
+        function closeVerificationModal() { document.getElementById('verification-modal').classList.add('hidden'); }
 
         function getStatusBadge(status) {
             const badges = {
@@ -732,57 +731,6 @@
                 'ABORTED': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">✗ Aborted</span>'
             };
             return badges[status] || '';
-        }
-
-        // WebSocket for Progress Updates
-        function connectWebSocket() {
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${wsProtocol}//${window.location.host}/ws/evaluation/${evaluationId}`;
-
-            websocket = new WebSocket(wsUrl);
-
-            websocket.onopen = () => {
-                console.log('WebSocket connected');
-            };
-
-            websocket.onmessage = (event) => {
-                const message = JSON.parse(event.data);
-                handleProgressMessage(message);
-            };
-
-            websocket.onerror = (error) => {
-                console.error('WebSocket error:', error);
-            };
-
-            websocket.onclose = () => {
-                console.log('WebSocket closed');
-                setTimeout(loadReport, 1000);
-            };
-        }
-
-        function handleProgressMessage(message) {
-            const progressContainer = document.getElementById('progress-messages');
-            const timestamp = new Date().toLocaleTimeString();
-
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'flex items-start space-x-2';
-            
-            let icon = '•';
-            if (message.type === 'status') icon = '📊';
-            if (message.type === 'error') icon = '❌';
-
-            messageDiv.innerHTML = `
-                <span class="text-xs text-gray-500">[${timestamp}]</span>
-                <span>${icon}</span>
-                <span>${message.message || JSON.stringify(message)}</span>
-            `;
-
-            progressContainer.appendChild(messageDiv);
-            progressContainer.scrollTop = progressContainer.scrollHeight;
-
-            if (message.type === 'status' && message.status === 'COMPLETED') {
-                setTimeout(loadReport, 2000);
-            }
         }
     </script>
 </body>

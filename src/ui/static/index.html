@@ -201,7 +201,7 @@
         }
 
         async function abortEvaluation(evaluationId) {
-            if (!confirm('Abort this evaluation? Current task will complete before stopping.')) {
+            if (!confirm('Abort this evaluation? All results will be deleted and it will return to Pending.')) {
                 return;
             }
 
@@ -211,9 +211,7 @@
                 });
 
                 if (response.ok) {
-                    const result = await response.json();
-                    alert(result.message);
-                    window.location.reload();
+                    window.location.href = `/evaluation/${evaluationId}`;
                 } else {
                     const error = await response.json();
                     alert(`Failed to abort: ${error.detail}`);

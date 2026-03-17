@@ -170,10 +170,22 @@ class EvaluationService:
             "avg_sus_score": round(avg_sus, 1),
         }
 
+        # Include task definitions for PENDING evaluations (no runs yet)
+        task_definitions = []
+        for task_def in evaluation.tasks:
+            task_definitions.append({
+                "id": str(task_def.id),
+                "description": task_def.description,
+                "max_steps": task_def.max_steps,
+                "base_url_override": task_def.base_url_override,
+                "verification_rules": task_def.verification_rules,
+            })
+
         return {
             "evaluation": eval_summary,
             "clones": clones_data,
             "task_runs": task_runs_data,
+            "task_definitions": task_definitions,
             "metrics_summary": metrics_summary,
         }
 
@@ -270,46 +282,25 @@ class EvaluationService:
         if evaluation.status != EvaluationStatus.RUNNING:
             raise ValueError(f"Cannot abort evaluation with status {evaluation.status.value}")
 
+        # Set the cancellation flag — runner checks this between tasks
         evaluation_cancellation[evaluation_id] = True
 
         await broadcast_progress(evaluation_id, {
             "type": "status",
             "status": "ABORTING",
-            "message": "Abort requested - will stop after current task...",
+            "message": "Aborting... (finishing current task)",
         })
 
         return {
             "evaluation_id": str(evaluation_id),
             "status": "aborting",
-            "message": "Abort requested. Evaluation will stop after current task completes.",
+            "message": "Abort requested. Evaluation will stop after the current task completes.",
         }
 
 
 # ============================================================================
 # BACKGROUND TASK HELPERS
 # ============================================================================
-
-async def mark_evaluation_aborted(evaluation_id: UUID):
-    async with AsyncSessionLocal() as session:
-        eval_repo = EvaluationRepository(session)
-        evaluation = await eval_repo.get_with_relations(evaluation_id)
-
-        if evaluation:
-            await eval_repo.update_status(
-                evaluation,
-                EvaluationStatus.ABORTED,
-                finished_at=datetime.utcnow(),
-            )
-
-            await broadcast_progress(evaluation_id, {
-                "type": "status",
-                "status": "ABORTED",
-                "message": "Evaluation aborted by user",
-            })
-
-    if evaluation_id in evaluation_cancellation:
-        del evaluation_cancellation[evaluation_id]
-
 
 async def run_evaluation_background(evaluation_id: UUID):
     from src.evaluation.runner import EvaluationRunner
@@ -323,20 +314,16 @@ async def run_evaluation_background(evaluation_id: UUID):
             "message": "Evaluation started",
         })
 
-        if evaluation_cancellation.get(evaluation_id, False):
-            await mark_evaluation_aborted(evaluation_id)
-            return
-
         await runner.run(evaluation_id)
 
-        await broadcast_progress(evaluation_id, {
-            "type": "status",
-            "status": "COMPLETED",
-            "message": "Evaluation completed successfully",
-        })
-
-        if evaluation_id in evaluation_cancellation:
-            del evaluation_cancellation[evaluation_id]
+        # Check if we ended via abort/cleanup (runner broadcasts ABORTED_RESET itself)
+        # or via normal completion
+        if not evaluation_cancellation.get(evaluation_id, False):
+            await broadcast_progress(evaluation_id, {
+                "type": "status",
+                "status": "COMPLETED",
+                "message": "Evaluation completed successfully",
+            })
 
     except Exception as e:
         await broadcast_progress(evaluation_id, {
@@ -344,5 +331,6 @@ async def run_evaluation_background(evaluation_id: UUID):
             "message": f"Evaluation failed: {str(e)}",
         })
 
+    finally:
         if evaluation_id in evaluation_cancellation:
             del evaluation_cancellation[evaluation_id]
