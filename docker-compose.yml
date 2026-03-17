@@ -55,7 +55,7 @@ services:
       # S3_PUBLIC_URL_BASE: ${S3_PUBLIC_URL_BASE}
     volumes:
       - ./src:/app/src
-      - ./storage:/app/storage
+      - screenshot_data:/app/storage/screenshots
     command: uvicorn src.api.main:app --host 0.0.0.0 --port ${APP_PORT:-8002} --reload
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -63,3 +63,4 @@ services:
 
 volumes:
   postgres_data:
+  screenshot_data:
