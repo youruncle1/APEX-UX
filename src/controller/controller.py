@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, Callable
 from datetime import datetime
 from uuid import UUID
 
@@ -9,6 +9,12 @@ from src.browser_connector.connector import BrowserConnector
 from src.browser_connector.models.data_models import Action, ActionType
 from src.storage import create_screenshot_storage
 from .memory import MemoryManager
+
+
+class TaskAbortedError(Exception):
+    """Raised when a task is aborted mid-execution via cancellation."""
+    pass
+
 
 class TwoAgentController:
     """
@@ -21,7 +27,8 @@ class TwoAgentController:
         grounder: GroundingAgent,
         browser: BrowserConnector,
         compression_threshold: int = 5,
-        planner_backend: Optional[str] = None
+        planner_backend: Optional[str] = None,
+        is_cancelled: Optional[Callable[[], bool]] = None,
     ):
         """
         Initialize controller with persona context.
@@ -32,6 +39,7 @@ class TwoAgentController:
             browser: Browser connector instance
             compression_threshold: History compression threshold
             planner_backend: Override for planner backend ("openai" or "qwen")
+            is_cancelled: Optional callback that returns True if the run should abort
         """
         # Initialize planner with backend selection
         self.planner = PlannerAgent(
@@ -42,7 +50,13 @@ class TwoAgentController:
         self.browser = browser
         self.compression_threshold = compression_threshold
         self.screenshot_storage = create_screenshot_storage()
+        self._is_cancelled = is_cancelled or (lambda: False)
     
+    def _check_cancelled(self):
+        """Check cancellation flag and raise if cancelled."""
+        if self._is_cancelled():
+            raise TaskAbortedError("Task aborted by user")
+
     async def execute_task(
         self,
         task_description: str,
@@ -56,12 +70,15 @@ class TwoAgentController:
         Execute a complete task run.
         
         Returns a dict with:
-        - status: "VERIFIED" | "FAILED" | "TIMEOUT"
+        - status: "VERIFIED" | "FAILED" | "TIMEOUT" | "ABORTED"
         - steps_taken: int
         - action_records: list[dict]
         - memory_state: dict
         - agent_done: bool
         - verification_result: dict (if rules provided)
+        
+        Raises:
+            TaskAbortedError: If is_cancelled() returns True during execution.
         """
         
         # Initialize browser
@@ -75,6 +92,9 @@ class TwoAgentController:
         
         # Main interaction loop
         for step in range(1, max_steps + 1):
+            # --- CANCELLATION CHECK at top of every step ---
+            self._check_cancelled()
+
             print(f"\n[Controller] Step {step}/{max_steps}")
             
             # Capture screenshot (base64)
@@ -95,12 +115,14 @@ class TwoAgentController:
             # Plan next action
             planner_action = None
             for retry in range(3):  # Max 3 retries for invalid output
+                self._check_cancelled()  # Check before each LLM call
+
                 planner_action = await self.planner.plan(
                     task_description=task_description,  
                     screenshot_base64=screenshot_base64,
                     action_history=memory.action_history,
                     action_summary=memory.action_summary,
-                    outcome_mismatches=memory.get_outcome_mismatches_for_planner()  # FIX: Use method
+                    outcome_mismatches=memory.get_outcome_mismatches_for_planner()
                 )
                 
                 if planner_action:
@@ -160,6 +182,8 @@ class TwoAgentController:
                 if not planner_action.target_description:
                     print(f"[Controller] Warning: {planner_action.action_type} needs target_description but none provided")
                 
+                self._check_cancelled()  # Check before grounding call
+
                 bbox = await self.grounder.ground(
                     screenshot_base64=screenshot_base64,
                     target_description=planner_action.target_description or ""

@@ -13,7 +13,7 @@ from src.database.models import (
 from src.database.repositories import EvaluationRepository, TaskRunRepository
 from src.agents.logic.grounder import GroundingAgent
 from src.browser_connector.connector import BrowserConnector
-from src.controller.controller import TwoAgentController
+from src.controller.controller import TwoAgentController, TaskAbortedError
 from src.evaluation.logic.metrics import MetricsCalculator
 from src.evaluation.self_report import SelfReportCollector
 from src.evaluation.api.websocket import evaluation_cancellation, broadcast_progress
@@ -71,6 +71,10 @@ class EvaluationRunner:
 
                     try:
                         await self._run_clone(session, evaluation, clone, evaluation_id)
+                    except TaskAbortedError:
+                        print(f"[Runner] Clone {clone.clone_id} aborted mid-task.")
+                        await self._abort_and_cleanup(evaluation_id, session, eval_repo)
+                        return
                     except Exception as e:
                         print(f"[Runner] Clone {clone.clone_id} failed: {e}")
                         if self.error_policy == "fail_fast":
@@ -112,7 +116,6 @@ class EvaluationRunner:
         print(f"[Runner] Aborting and cleaning up evaluation {evaluation_id}")
 
         # Delete all task runs for this evaluation (cascades to ActionRecord + TaskRunMetrics)
-        # We need the task run IDs first to know which ones belong to this evaluation
         result = await session.execute(
             select(TaskRun)
             .join(TaskDefinition, TaskRun.task_definition_id == TaskDefinition.id)
@@ -184,6 +187,7 @@ class EvaluationRunner:
             persona_context=persona_context,
             grounder=grounder,
             browser=browser,
+            is_cancelled=lambda: self._is_cancelled(evaluation_id),
         )
 
         eval_repo = EvaluationRepository(session)
@@ -194,8 +198,9 @@ class EvaluationRunner:
                 # Check cancellation between tasks
                 if self._is_cancelled(evaluation_id):
                     print(f"[Runner] Abort requested before task '{task_def.description[:40]}...', stopping.")
-                    return  # Caller (_run_clone) returns, run() will handle cleanup
+                    return  # Caller will handle cleanup
 
+                # TaskAbortedError from execute_task propagates up naturally
                 try:
                     await self._run_task(
                         session=session,
@@ -205,6 +210,9 @@ class EvaluationRunner:
                         controller=controller,
                         persona_context=persona_context,
                     )
+                except TaskAbortedError:
+                    print(f"[Runner] Task '{task_def.description[:50]}...' aborted mid-step.")
+                    raise  # Re-raise so _run_clone → run() can handle cleanup
                 except Exception as e:
                     print(f"[Runner] Task '{task_def.description[:50]}...' failed: {e}")
                     if self.error_policy == "fail_fast":
@@ -287,6 +295,7 @@ class EvaluationRunner:
         try:
             start_url = task_def.base_url_override or task_def.evaluation.base_url
 
+            # TaskAbortedError will propagate from here if cancelled mid-step
             result = await controller.execute_task(
                 task_description=task_def.description,
                 start_url=start_url,
@@ -405,6 +414,11 @@ class EvaluationRunner:
 
             print(f"[Runner] Task completed: {task_run.status.value}")
 
+        except TaskAbortedError:
+            # Mark this task run as aborted, then re-raise for the runner to handle cleanup
+            await task_run_repo.mark_aborted(task_run, failure_reason="Aborted by user")
+            await task_run_repo.commit()
+            raise
         except Exception as e:
             print(f"[Runner] Task execution failed: {e}")
             await task_run_repo.mark_aborted(task_run, failure_reason=str(e))
