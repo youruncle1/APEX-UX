@@ -1,21 +1,23 @@
 services:
   postgres:
+    container_name: apex-postgres
     image: postgres:17.9
     environment:
-      POSTGRES_USER: apex
-      POSTGRES_PASSWORD: apex_dev_password
-      POSTGRES_DB: apex_ux
+      POSTGRES_USER: ${DB_USER:-apex}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-apex_dev_password}
+      POSTGRES_DB: ${DB_NAME:-apex_ux}
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U apex -d apex_ux"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-apex} -d ${DB_NAME:-apex_ux}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   adminer:
+    container_name: apex-adminer
     image: adminer:latest
     ports:
       - "${ADMINER_PORT:-8080}:8080"
@@ -25,6 +27,7 @@ services:
       ADMINER_DEFAULT_SERVER: postgres
 
   apex-app:
+    container_name: apex-app
     build:
       context: .
       args:
@@ -36,22 +39,39 @@ services:
         condition: service_healthy
     environment:
       APP_PORT: ${APP_PORT:-8002}
-      DATABASE_URL: postgresql+asyncpg://apex:apex_dev_password@postgres:5432/apex_ux
+
+      DB_HOST: postgres
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-apex_ux}
+      DB_USER: ${DB_USER:-apex}
+      DB_PASSWORD: ${DB_PASSWORD:-apex_dev_password}
+
+      # AI backends
+      PLANNER_BACKEND: ${PLANNER_BACKEND:-qwen}
+      UTILITY_BACKEND: ${UTILITY_BACKEND:-qwen}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      PLANNER_BACKEND: ${PLANNER_BACKEND:-openai}
-      UTILITY_BACKEND: ${UTILITY_BACKEND:-openai}
       PLANNER_SERVICE_URL: ${PLANNER_SERVICE_URL:-http://host.docker.internal:8001}
+
+      # Grounding
       GROUNDING_SERVICE_URL: ${GROUNDING_SERVICE_URL:-http://host.docker.internal:8000}
+
+      # Browser
+      HEADLESS: ${HEADLESS:-true}
+
+      # Screenshot storage
       SCREENSHOT_STORAGE_TYPE: ${SCREENSHOT_STORAGE_TYPE:-local}
       LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-storage/screenshots}
-      PYTHONDONTWRITEBYTECODE: 1
-      PYTHONUNBUFFERED: 1
-      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL}
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
-      S3_SECRET_KEY: ${S3_SECRET_KEY}
-      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-}
       S3_REGION: ${S3_REGION:-eu-central-1}
-      S3_PUBLIC_URL_BASE: ${S3_PUBLIC_URL_BASE}
+      S3_PUBLIC_URL_BASE: ${S3_PUBLIC_URL_BASE:-}
+
+      # Python
+      #PYTHONDONTWRITEBYTECODE: 1
+      #PYTHONUNBUFFERED: 1
+
     volumes:
       - ./src:/app/src
       - screenshot_data:/app/storage/screenshots

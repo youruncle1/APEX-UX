@@ -1,4 +1,3 @@
-import os
 import json
 from typing import Optional
 
@@ -14,6 +13,7 @@ from src.agents.prompts import (
     FIRST_STEP_TEMPLATE,
     OUTCOME_MISMATCHES_TEMPLATE,
 )
+from src.config import get_settings
 
 
 class PlannerAgent:
@@ -33,10 +33,13 @@ class PlannerAgent:
         model: Optional[str] = None,
         temperature: float = 0.7,
     ):
-        self.backend = (backend or os.getenv("PLANNER_BACKEND", "openai")).lower()
+        settings = get_settings()
+        self.backend = (backend or settings.planner_backend).lower()
 
         if self.backend not in ("openai", "qwen"):
-            raise ValueError(f"Unknown planner backend: {self.backend}. Use 'openai' or 'qwen'")
+            raise ValueError(
+                f"Unknown planner backend: {self.backend!r}. Use 'openai' or 'qwen'."
+            )
 
         self.system_prompt = SYSTEM_PROMPT_TEMPLATE.format(persona_context=persona_context)
         self.temperature = temperature

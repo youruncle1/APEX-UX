@@ -1,9 +1,9 @@
-import os
 from typing import Optional
 
 import aiohttp
 
 from src.agents.models.data_models import BoundingBox
+from src.config import get_settings
 
 
 class GroundingAgent:
@@ -15,7 +15,7 @@ class GroundingAgent:
     def __init__(self, viewport_width: int = 1280, viewport_height: int = 720):
         self.viewport_width = viewport_width
         self.viewport_height = viewport_height
-        self.service_url = os.getenv("GROUNDING_SERVICE_URL", "http://localhost:8000")
+        self.service_url = get_settings().grounding_service_url
         self.timeout = aiohttp.ClientTimeout(total=60)
 
     async def ground(

@@ -2,8 +2,12 @@ import asyncio
 import sys
 import os
 import argparse
+from dotenv import load_dotenv
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+load_dotenv()
+os.environ["DATABASE_URL"] = os.environ["DATABASE_URL"].replace("@postgres:", "@localhost:")
 
 from src.database.connection import init_db, drop_db
 

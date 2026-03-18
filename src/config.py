@@ -1,0 +1,138 @@
+# Inspired by Lakmoos's backend config.py
+import functools
+from typing import Optional
+
+import pydantic
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    # Database
+    db_host: str = "localhost"
+    db_port: int = 5432
+    db_name: str = "apex_ux"
+    db_user: str = "apex"
+    db_password: Optional[pydantic.SecretStr] = None
+
+    # if present, overrides other db variables and uses url.
+    database_url: Optional[str] = None
+
+    @pydantic.model_validator(mode="after")
+    def get_database_url(self) -> "Settings":
+        if self.database_url:
+            return self
+
+        if self.db_password is None:
+            return self
+
+        pwd = self.db_password.get_secret_value()
+        object.__setattr__(
+            self,
+            "database_url",
+            f"postgresql+asyncpg://{self.db_user}:{pwd}@{self.db_host}:{self.db_port}/{self.db_name}",
+        )
+        return self
+
+    # Application server
+    app_host: str = "0.0.0.0"
+    app_port: int = 5000
+
+    # AI backends
+    # Which LLM backend to use for the planner agent: "openai" | "qwen"
+    planner_backend: str = "openai"
+
+    # Which LLM backend to use for utility tasks (SEQ, SUS, memory compression):
+    # "openai" | "qwen"
+    utility_backend: str = "openai"
+
+    # OpenAI API key - required when either backend is "openai"
+    openai_api_key: Optional[pydantic.SecretStr] = None
+
+    # URL of the self-hosted llama-server (used when backend = "qwen")
+    planner_service_url: str = "http://localhost:8001"
+
+    # Grounding service
+    grounding_service_url: str = "http://localhost:8000"
+
+    # Browser
+    headless: bool = True
+
+    # Screenshot storage
+    # "local" or "s3"
+    screenshot_storage_type: str = "local"
+
+    # Local storage
+    local_storage_path: str = "storage/screenshots"
+
+    # S3-compatible storage
+    s3_endpoint_url: Optional[str] = None
+    s3_access_key: Optional[pydantic.SecretStr] = None
+    s3_secret_key: Optional[pydantic.SecretStr] = None
+    s3_bucket_name: Optional[str] = None
+    s3_region: str = "eu-central-1"
+    s3_public_url_base: Optional[str] = None
+
+    # pydantic-settings config
+    model_config = SettingsConfigDict(
+        extra="ignore",
+        env_file=(".env", "env.prod"),
+        env_file_encoding="utf-8",
+        frozen=True,  # Immutable after construction
+    )
+
+
+@functools.lru_cache()
+def get_settings() -> Settings:
+    return Settings()  # type: ignore[call-arg]
+
+
+def require_openai_api_key(settings: Settings) -> str:
+    """
+    Return the OpenAI API key as a plain string, or raise if it is absent /
+    looks like a placeholder.
+    """
+    secret = settings.openai_api_key
+    value = secret.get_secret_value().strip() if secret is not None else ""
+    if value and value.lower() not in {"", "your_openai_api_key", "<your-api-key>", "na"}:
+        return value
+    raise ValueError(
+        "OPENAI_API_KEY must be set to a real key when using the OpenAI backend. "
+        "Add it to your .env file or pass it as an environment variable."
+    )
+
+
+def require_database_url(settings: Settings) -> str:
+    """
+    Return the database URL as a plain string, or raise if it could not be
+    assembled (missing password and no DATABASE_URL override).
+    """
+    if settings.database_url:
+        return settings.database_url
+    raise ValueError(
+        "Database URL could not be determined. "
+        "Either set DATABASE_URL directly, or provide DB_PASSWORD (plus optionally "
+        "DB_HOST, DB_PORT, DB_USER, DB_NAME) in your environment / .env file."
+    )
+
+
+def require_s3_config(settings: Settings) -> dict:
+    """
+    Validate and return S3 configuration as a plain dict, or raise if any
+    required field is missing.
+    """
+    missing = []
+    for field in ("s3_endpoint_url", "s3_access_key", "s3_secret_key", "s3_bucket_name"):
+        if getattr(settings, field) is None:
+            missing.append(field.upper())
+    if missing:
+        raise ValueError(
+            f"S3 storage requires the following env vars: {', '.join(missing)}"
+        )
+    return {
+        "endpoint_url": settings.s3_endpoint_url,
+        "access_key": settings.s3_access_key.get_secret_value(),  # type: ignore[union-attr]
+        "secret_key": settings.s3_secret_key.get_secret_value(),  # type: ignore[union-attr]
+        "bucket_name": settings.s3_bucket_name,
+        "region": settings.s3_region,
+        "public_url_base": settings.s3_public_url_base,
+    }
