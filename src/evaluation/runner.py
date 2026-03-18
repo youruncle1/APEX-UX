@@ -58,7 +58,7 @@ class EvaluationRunner:
             print(f"[Runner] Tasks: {len(evaluation.tasks)}, Clones: {len(evaluation.clones)}")
             print(f"[Runner] Error policy: {self.error_policy}")
 
-            await eval_repo.update_status(evaluation, EvaluationStatus.RUNNING)
+            await eval_repo.update_status(evaluation, EvaluationStatus.RUNNING, started_at=datetime.utcnow(),)
 
             evaluation_failed = False
             try:

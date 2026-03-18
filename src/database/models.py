@@ -38,6 +38,7 @@ class Evaluation(Base):
     base_url = Column(String, nullable=False)
     status = Column(SQLEnum(EvaluationStatus), default=EvaluationStatus.PENDING)
     created_at = Column(DateTime, default=datetime.now)
+    started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
     
     # Relationships

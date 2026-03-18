@@ -175,9 +175,12 @@ class EvaluationRepository:
         self,
         evaluation: Evaluation,
         status: EvaluationStatus,
+        started_at: Optional[datetime] = None,
         finished_at: Optional[datetime] = None,
     ) -> None:
         evaluation.status = status
+        if started_at is not None:
+            evaluation.started_at = started_at
         if finished_at is not None:
             evaluation.finished_at = finished_at
         await self.session.commit()

@@ -33,8 +33,8 @@ class EvaluationService:
         summaries = []
         for eval in evaluations:
             duration = None
-            if eval.finished_at and eval.created_at:
-                duration = int((eval.finished_at - eval.created_at).total_seconds())
+            if eval.finished_at and eval.started_at:
+                duration = int((eval.finished_at - eval.started_at).total_seconds())
 
             summaries.append(EvaluationSummary(
                 id=eval.id,
@@ -71,8 +71,8 @@ class EvaluationService:
             return None
 
         duration = None
-        if evaluation.finished_at and evaluation.created_at:
-            duration = int((evaluation.finished_at - evaluation.created_at).total_seconds())
+        if evaluation.finished_at and evaluation.started_at:
+            duration = int((evaluation.finished_at - evaluation.started_at).total_seconds())
 
         eval_summary = EvaluationSummary(
             id=evaluation.id,
