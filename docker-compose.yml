@@ -46,13 +46,12 @@ services:
       LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-storage/screenshots}
       PYTHONDONTWRITEBYTECODE: 1
       PYTHONUNBUFFERED: 1
-      # Uncomment when S3 ready:
-      # S3_ENDPOINT_URL: ${S3_ENDPOINT_URL}
-      # S3_ACCESS_KEY: ${S3_ACCESS_KEY}
-      # S3_SECRET_KEY: ${S3_SECRET_KEY}
-      # S3_BUCKET_NAME: ${S3_BUCKET_NAME}
-      # S3_REGION: ${S3_REGION:-eu-central-1}
-      # S3_PUBLIC_URL_BASE: ${S3_PUBLIC_URL_BASE}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+      S3_REGION: ${S3_REGION:-eu-central-1}
+      S3_PUBLIC_URL_BASE: ${S3_PUBLIC_URL_BASE}
     volumes:
       - ./src:/app/src
       - screenshot_data:/app/storage/screenshots
