@@ -214,6 +214,7 @@
         let taskRunData = null;
         let currentStepIndex = 0;
         let outcomeMismatchesMap = {};  // Map step number to mismatch text
+        const screenshotCache = {};
 
         document.addEventListener('DOMContentLoaded', () => {
             loadTaskRun();
@@ -387,7 +388,7 @@
 
         async function loadScreenshot(screenshotUrl, boundingBox, clickCoordinates) {
             if (!screenshotUrl) {
-                document.getElementById('screenshot-loading').innerHTML = 
+                document.getElementById('screenshot-loading').innerHTML =
                     '<p class="text-gray-500">No screenshot available</p>';
                 return;
             }
@@ -395,16 +396,35 @@
             document.getElementById('screenshot-loading').classList.remove('hidden');
 
             try {
-                const response = await fetch(`${API_BASE}/api/screenshot?url=${encodeURIComponent(screenshotUrl)}`);
-                const data = await response.json();
-
-                drawScreenshot(data.data, boundingBox, clickCoordinates);
-
+                const base64Data = await fetchScreenshot(screenshotUrl);
+                drawScreenshot(base64Data, boundingBox, clickCoordinates);
                 document.getElementById('screenshot-loading').classList.add('hidden');
             } catch (error) {
                 console.error('Failed to load screenshot:', error);
-                document.getElementById('screenshot-loading').innerHTML = 
+                document.getElementById('screenshot-loading').innerHTML =
                     '<p class="text-red-500">Failed to load screenshot</p>';
+            }
+
+            prefetchNextScreenshots(currentStepIndex);
+        }
+
+        async function fetchScreenshot(screenshotUrl) {
+            if (screenshotCache[screenshotUrl]) {
+                return screenshotCache[screenshotUrl];
+            }
+            const response = await fetch(`${API_BASE}/api/screenshot?url=${encodeURIComponent(screenshotUrl)}`);
+            const data = await response.json();
+            screenshotCache[screenshotUrl] = data.data;
+            return data.data;
+        }
+
+        function prefetchNextScreenshots(fromIndex) {
+            const actions = taskRunData.actions;
+            for (let i = fromIndex + 1; i <= fromIndex + 2 && i < actions.length; i++) {
+                const url = actions[i].screenshot_url;
+                if (url && !screenshotCache[url]) {
+                    fetchScreenshot(url).catch(() => {}); // fire and forget, silent on error
+                }
             }
         }
 

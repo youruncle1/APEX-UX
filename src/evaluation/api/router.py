@@ -159,10 +159,13 @@ async def get_task_run_detail(
 async def get_screenshot(url: str):
     try:
         base64_data = await screenshot_storage.get(url)
-        return JSONResponse({
-            "data": base64_data,
-            "format": "base64_png",
-        })
+        return JSONResponse(
+            {
+                "data": base64_data,
+                "format": "base64_png",
+            },
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Screenshot not found")
     except Exception as e:
