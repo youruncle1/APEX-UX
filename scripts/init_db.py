@@ -34,7 +34,7 @@ if __name__ == "__main__":
         "-y",
         "--yes",
         action="store_true",
-        help="Automatically confirm database reset (no prompt)",
+        help="Automatically confirm database reset",
     )
     args = parser.parse_args()
 
