@@ -65,6 +65,26 @@
 
         <!-- Report Content -->
         <div id="report-content" class="hidden space-y-8">
+
+            <!-- ================================================================
+                 PROGRESS BAR — shown only while evaluation is RUNNING
+                 ================================================================ -->
+            <div id="progress-bar-section" class="hidden bg-white shadow rounded-lg p-6">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-lg font-semibold text-gray-900">⏳ Evaluation Progress</h2>
+                    <span class="text-2xl font-bold text-blue-600" id="progress-percentage-label">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-5 overflow-hidden">
+                    <div id="progress-bar-fill"
+                         class="bg-blue-600 h-5 rounded-full transition-all duration-700 ease-out"
+                         style="width: 0%"></div>
+                </div>
+                <p class="text-xs text-gray-400 mt-2">
+                    Estimated from actions saved vs. total expected steps (clones × tasks × max steps).
+                    May plateau when tasks complete early.
+                </p>
+            </div>
+
             <!-- Summary Metrics -->
             <div class="bg-white shadow rounded-lg p-6">
                 <h2 class="text-lg font-semibold text-gray-900 mb-4">📊 Summary Metrics</h2>
@@ -100,7 +120,7 @@
                 </div>
             </div>
 
-            <!-- Running Progress -->
+            <!-- Running Progress Log -->
             <div id="progress-section" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-6">
                 <h2 class="text-lg font-semibold text-blue-900 mb-4" id="progress-title">⏳ Evaluation in Progress</h2>
                 <div id="progress-messages" class="space-y-2 text-sm text-blue-800">
@@ -256,6 +276,7 @@
 
                 if (report.evaluation.status === 'RUNNING') {
                     document.getElementById('action-bar-running').classList.remove('hidden');
+                    document.getElementById('progress-bar-section').classList.remove('hidden');
                     document.getElementById('progress-section').classList.remove('hidden');
                     connectWebSocket();
                 }
@@ -267,6 +288,31 @@
             }
         }
 
+        // ============================================================================
+        // PROGRESS BAR HELPERS
+        // ============================================================================
+
+        function updateProgressBar(percentage) {
+            const pct = Math.min(Math.max(parseFloat(percentage) || 0, 0), 100);
+            document.getElementById('progress-percentage-label').textContent = `${pct}%`;
+            document.getElementById('progress-bar-fill').style.width = `${pct}%`;
+
+            // Shift bar colour to green as we approach 100%
+            const fill = document.getElementById('progress-bar-fill');
+            if (pct >= 100) {
+                fill.classList.replace('bg-blue-600', 'bg-green-500');
+            } else {
+                fill.classList.remove('bg-green-500');
+                if (!fill.classList.contains('bg-blue-600')) {
+                    fill.classList.add('bg-blue-600');
+                }
+            }
+        }
+
+        // ============================================================================
+        // REPORT RENDERING
+        // ============================================================================
+
         function renderReport(report) {
             const { evaluation, clones, task_runs, task_definitions, metrics_summary } = report;
 
@@ -275,9 +321,7 @@
             document.getElementById('status-badge').innerHTML = getStatusBadge(evaluation.status);
 
             if (evaluation.status === 'PENDING') {
-                // Show task definitions instead of results
                 renderPendingView(clones, task_definitions || []);
-                // Zero out metrics (nothing ran)
                 document.getElementById('metric-success-rate').textContent = '-';
                 document.getElementById('metric-tasks-passed').textContent = '-';
                 document.getElementById('metric-avg-steps').textContent = '-';
@@ -329,7 +373,6 @@
                 return;
             }
 
-            // Tasks table
             const tasksCard = document.createElement('div');
             tasksCard.className = 'border border-gray-200 rounded-lg p-4 mb-4';
             tasksCard.innerHTML = `
@@ -363,7 +406,6 @@
             `;
             container.appendChild(tasksCard);
 
-            // Clones/personas section
             const clonesCard = document.createElement('div');
             clonesCard.className = 'border border-gray-200 rounded-lg p-4';
             clonesCard.innerHTML = `
@@ -507,7 +549,6 @@
                     btn.classList.replace('bg-gray-400', 'bg-red-600');
                     btn.classList.replace('cursor-not-allowed', 'hover:bg-red-700');
                 }
-                // Success: WebSocket ABORTING message will update the UI
             } catch (error) {
                 alert('Failed to abort evaluation. Please try again.');
             }
@@ -534,7 +575,7 @@
 
         function connectWebSocket() {
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${wsProtocol}//${window.location.host}/ws/evaluation/${evaluationId}`;
+            const wsUrl = `${wsProtocol}//${window.location.host}/api/ws/evaluation/${evaluationId}`;
             websocket = new WebSocket(wsUrl);
 
             websocket.onmessage = (event) => {
@@ -548,12 +589,19 @@
         }
 
         function handleProgressMessage(message) {
+            // ----------------------------------------------------------------
+            // Progress percentage — update the bar, don't log to the message list
+            // ----------------------------------------------------------------
+            if (message.type === 'progress') {
+                updateProgressBar(message.percentage);
+                return;
+            }
+
             const progressContainer = document.getElementById('progress-messages');
             const timestamp = new Date().toLocaleTimeString();
             const progressTitle = document.getElementById('progress-title');
 
             if (message.type === 'status' && message.status === 'ABORTING') {
-                // Update progress section to show aborting state
                 progressTitle.textContent = '⏳ Aborting... (finishing current task)';
                 progressTitle.classList.replace('text-blue-900', 'text-amber-800');
                 document.getElementById('progress-section').classList.replace('bg-blue-50', 'bg-amber-50');
@@ -561,7 +609,6 @@
             }
 
             if (message.type === 'status' && message.status === 'ABORTED_RESET') {
-                // Cleanup done — reload so page shows PENDING state
                 setTimeout(() => window.location.reload(), 1000);
                 return;
             }
@@ -571,7 +618,7 @@
                 return;
             }
 
-            // Append message to progress log
+            // Append to progress log
             const messageDiv = document.createElement('div');
             messageDiv.className = 'flex items-start space-x-2';
             let icon = '•';
