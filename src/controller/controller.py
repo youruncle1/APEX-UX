@@ -26,7 +26,7 @@ class TwoAgentController:
         persona_context: str,
         grounder: GroundingAgent,
         browser: BrowserConnector,
-        compression_threshold: int = 5,
+        compression_threshold: Optional[int] = None,
         planner_backend: Optional[str] = None,
         is_cancelled: Optional[Callable[[], bool]] = None,
     ):

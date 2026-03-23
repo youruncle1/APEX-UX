@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     # Grounding service
     grounding_service_url: str = "http://localhost:8000"
 
+    # Memory compression
+    memory_compression_threshold: int = 10
+
     # Browser
     headless: bool = True
 

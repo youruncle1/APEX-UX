@@ -7,8 +7,8 @@ from src.config import get_settings
 class MemoryManager:
     """Manages action history, summaries, and outcome mismatches."""
 
-    def __init__(self, compression_threshold: int = 5):
-        self.compression_threshold = compression_threshold
+    def __init__(self, compression_threshold: Optional[int] = None):
+        self.compression_threshold = compression_threshold if compression_threshold is not None else get_settings().memory_compression_threshold
         self.action_history: list[dict] = []
         self.action_summary: Optional[str] = None
         self.outcome_mismatches: list[dict] = []  # [{"step": int, "mismatch": str}]
@@ -43,8 +43,9 @@ class MemoryManager:
 
         self._ensure_client()
 
-        to_compress = self.action_history[:-1]
-        self.action_history = self.action_history[-1:]
+        keep_count = self.compression_threshold // 2
+        to_compress = self.action_history[:-keep_count]
+        self.action_history = self.action_history[-keep_count:]
 
         actions_text = "\n".join(
             f"Step {i + 1}: {action['action_type']} - {action['reasoning']}"
