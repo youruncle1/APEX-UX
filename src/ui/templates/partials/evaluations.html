@@ -1,0 +1,125 @@
+{% if evaluations %}
+<div id="evaluations-container">
+    <div class="flex justify-end mb-3">
+        <a href="/create" class="bg-[#0A66FF] hover:bg-[#0050cc] text-white px-5 py-[9px] text-sm font-medium rounded-md no-underline inline-flex items-center gap-1.5 transition-colors">
+            + New Evaluation
+        </a>
+    </div>
+    <div class="bg-white border border-[#E4E4EC] rounded-md overflow-hidden">
+        <table class="w-full border-collapse">
+            <thead>
+                <tr class="border-b border-[#E4E4EC]">
+                    {% for col in ['Name', 'URL', 'Status', 'Tasks', 'Clones', 'Duration', 'Created', 'Actions'] %}
+                    <th class="px-4 py-[11px] text-[11px] font-semibold tracking-[0.07em] uppercase text-[#0A66FF] text-left whitespace-nowrap">{{ col }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for ev in evaluations %}
+                <tr class="border-b border-[#E4E4EC] last:border-b-0 hover:bg-[#f3f3fa] transition-colors">
+                    <td class="px-4 py-[13px] align-middle">
+                        <a href="/evaluation/{{ ev.id }}" class="font-medium text-[#090947] no-underline hover:underline">
+                            {{ ev.name or 'Untitled' }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-[13px] align-middle">
+                        <div class="ibm-mono text-[12.5px] text-[#8A8A9A] max-w-[220px] truncate" title="{{ ev.base_url }}">
+                            {{ ev.base_url }}
+                        </div>
+                    </td>
+                    <td class="px-4 py-[13px] align-middle">
+                        {% if ev.status == 'PENDING' %}
+                        <span class="inline-block px-[10px] py-[3px] text-[11px] font-semibold tracking-[0.04em] uppercase rounded-full bg-[#F3E988] text-[#5a4a00]">Pending</span>
+                        {% elif ev.status == 'RUNNING' %}
+                        <span class="inline-block px-[10px] py-[3px] text-[11px] font-semibold tracking-[0.04em] uppercase rounded-full bg-[#0A66FF] text-white animate-pulse">Running</span>
+                        {% elif ev.status == 'COMPLETED' %}
+                        <span class="inline-block px-[10px] py-[3px] text-[11px] font-semibold tracking-[0.04em] uppercase rounded-full bg-[#24C875] text-[#0a3d22]">Completed</span>
+                        {% elif ev.status == 'ABORTED' %}
+                        <span class="inline-block px-[10px] py-[3px] text-[11px] font-semibold tracking-[0.04em] uppercase rounded-full bg-[#ffe0e0] text-[#8b0000]">Aborted</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-[13px] align-middle ibm-mono text-[12.5px] text-[#8A8A9A] whitespace-nowrap">{{ ev.task_count }}</td>
+                    <td class="px-4 py-[13px] align-middle ibm-mono text-[12.5px] text-[#8A8A9A] whitespace-nowrap">{{ ev.clone_count }}</td>
+                    <td class="px-4 py-[13px] align-middle ibm-mono text-[12.5px] text-[#8A8A9A] whitespace-nowrap">{{ ev.duration_seconds | format_duration }}</td>
+                    <td class="px-4 py-[13px] align-middle text-[13.5px] text-[#8A8A9A] whitespace-nowrap">{{ ev.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+                    <td class="px-4 py-[13px] align-middle">
+                        <div class="flex gap-1.5 items-center">
+                            {% if ev.status == 'PENDING' %}
+                            <button hx-post="/partials/evaluations/{{ ev.id }}/start"
+                                    hx-confirm="Start this evaluation? This may take several minutes."
+                                    class="text-[13px] font-medium px-3 py-1 border rounded bg-[#090947] text-white border-[#090947] cursor-pointer whitespace-nowrap hover:opacity-80 transition-opacity">
+                                Start
+                            </button>
+                            <div class="dropdown-wrap">
+                                <button onclick="toggleMenu(this)" class="bg-transparent border border-[#E4E4EC] rounded text-[#8A8A9A] leading-none px-[9px] py-[3px] cursor-pointer tracking-widest hover:border-[#090947] hover:text-[#090947] transition-colors">···</button>
+                                <div class="dropdown hidden fixed bg-white border border-[#E4E4EC] rounded-md shadow-[0_4px_16px_rgba(0,0,0,0.08)] min-w-[140px] z-50 overflow-hidden">
+                                    <a href="/evaluation/{{ ev.id }}" class="block w-full px-3.5 py-[9px] text-sm text-[#2C2C3A] no-underline hover:bg-[#F8F8FA]">View</a>
+                                    <a href="/edit/{{ ev.id }}" class="block w-full px-3.5 py-[9px] text-sm text-[#2C2C3A] no-underline hover:bg-[#F8F8FA]">Edit</a>
+                                    <button hx-post="/partials/evaluations/{{ ev.id }}/copy"
+                                            hx-target="#evaluations-container"
+                                            hx-swap="outerHTML"
+                                            class="block w-full text-left px-3.5 py-[9px] text-sm text-[#2C2C3A] bg-transparent border-0 cursor-pointer hover:bg-[#F8F8FA]">Copy</button>
+                                    <div class="h-px bg-[#E4E4EC] my-0.5"></div>
+                                    <button hx-delete="/partials/evaluations/{{ ev.id }}"
+                                            hx-confirm="Delete this evaluation? This cannot be undone."
+                                            hx-target="#evaluations-container"
+                                            hx-swap="outerHTML"
+                                            class="block w-full text-left px-3.5 py-[9px] text-sm text-[#FF4D4D] bg-transparent border-0 cursor-pointer hover:bg-[#F8F8FA]">Delete</button>
+                                </div>
+                            </div>
+
+                            {% elif ev.status == 'RUNNING' %}
+                            <a href="/evaluation/{{ ev.id }}" class="text-[13px] font-medium px-3 py-1 border rounded border-[#090947] text-[#090947] no-underline whitespace-nowrap hover:opacity-80 transition-opacity">View Progress</a>
+                            <button hx-post="/partials/evaluations/{{ ev.id }}/abort"
+                                    hx-confirm="Abort this evaluation? All results will be deleted and it will return to Pending."
+                                    class="text-[13px] font-medium px-3 py-1 border rounded border-[#FF4D4D] text-[#FF4D4D] bg-transparent cursor-pointer whitespace-nowrap hover:opacity-80 transition-opacity">
+                                Abort
+                            </button>
+                            <div class="dropdown-wrap">
+                                <button onclick="toggleMenu(this)" class="bg-transparent border border-[#E4E4EC] rounded text-[#8A8A9A] leading-none px-[9px] py-[3px] cursor-pointer tracking-widest hover:border-[#090947] hover:text-[#090947] transition-colors">···</button>
+                                <div class="dropdown hidden fixed bg-white border border-[#E4E4EC] rounded-md shadow-[0_4px_16px_rgba(0,0,0,0.08)] min-w-[140px] z-50 overflow-hidden">
+                                    <button hx-post="/partials/evaluations/{{ ev.id }}/copy"
+                                            hx-target="#evaluations-container"
+                                            hx-swap="outerHTML"
+                                            class="block w-full text-left px-3.5 py-[9px] text-sm text-[#2C2C3A] bg-transparent border-0 cursor-pointer hover:bg-[#F8F8FA]">Copy</button>
+                                    <div class="h-px bg-[#E4E4EC] my-0.5"></div>
+                                    <span class="block px-3.5 py-[9px] text-sm text-[#ccc] cursor-not-allowed select-none">Edit</span>
+                                    <span class="block px-3.5 py-[9px] text-sm text-[#ccc] cursor-not-allowed select-none">Delete</span>
+                                </div>
+                            </div>
+
+                            {% else %}
+                            <a href="/evaluation/{{ ev.id }}" class="text-[13px] font-medium px-3 py-1 border rounded border-[#090947] text-[#090947] no-underline whitespace-nowrap hover:opacity-80 transition-opacity">View Report</a>
+                            <div class="dropdown-wrap">
+                                <button onclick="toggleMenu(this)" class="bg-transparent border border-[#E4E4EC] rounded text-[#8A8A9A] leading-none px-[9px] py-[3px] cursor-pointer tracking-widest hover:border-[#090947] hover:text-[#090947] transition-colors">···</button>
+                                <div class="dropdown hidden fixed bg-white border border-[#E4E4EC] rounded-md shadow-[0_4px_16px_rgba(0,0,0,0.08)] min-w-[140px] z-50 overflow-hidden">
+                                    <button hx-post="/partials/evaluations/{{ ev.id }}/copy"
+                                            hx-target="#evaluations-container"
+                                            hx-swap="outerHTML"
+                                            class="block w-full text-left px-3.5 py-[9px] text-sm text-[#2C2C3A] bg-transparent border-0 cursor-pointer hover:bg-[#F8F8FA]">Copy</button>
+                                    <div class="h-px bg-[#E4E4EC] my-0.5"></div>
+                                    <button hx-delete="/partials/evaluations/{{ ev.id }}"
+                                            hx-confirm="Delete this evaluation? This cannot be undone."
+                                            hx-target="#evaluations-container"
+                                            hx-swap="outerHTML"
+                                            class="block w-full text-left px-3.5 py-[9px] text-sm text-[#FF4D4D] bg-transparent border-0 cursor-pointer hover:bg-[#F8F8FA]">Delete</button>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+<div id="evaluations-container" class="text-center py-16 text-[#8A8A9A]">
+    <p class="mb-4 text-[15px]">No evaluations yet.</p>
+    <a href="/create" class="bg-[#0A66FF] hover:bg-[#0050cc] text-white px-5 py-[9px] text-sm font-medium rounded-md no-underline inline-flex items-center gap-1.5 transition-colors">
+        + New Evaluation
+    </a>
+</div>
+{% endif %}

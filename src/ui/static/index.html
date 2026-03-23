@@ -3,283 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>APEX-UX Dashboard</title>
+    <title>APEX-UX</title>
     <link rel="icon" href="/static/favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+    <style>
+        .ibm-mono { font-family: 'IBM Plex Mono', monospace; }
+    </style>
 </head>
-<body class="bg-gray-50">
-    <!-- Header -->
-    <header class="bg-white shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center">
-                <h1 class="text-2xl font-bold text-gray-900">APEX-UX Dashboard</h1>
-                <a href="/create" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
-                    + New Evaluation
-                </a>
-            </div>
-        </div>
+<body class="bg-[#F8F8FA] text-[#2C2C3A] min-h-screen">
+
+    <header class="bg-white border-b border-[#E4E4EC] px-8 h-[58px] flex items-center">
+        <a href="/" class="text-[1.05rem] font-bold text-[#090947] tracking-[0.05em] uppercase no-underline">
+            APEX<span class="text-[#0A66FF]">-UX</span>
+        </a>
     </header>
 
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <!-- Loading State -->
-        <div id="loading" class="text-center py-12">
-            <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <p class="mt-4 text-gray-600">Loading evaluations...</p>
-        </div>
-
-        <!-- Empty State -->
-        <div id="empty-state" class="hidden text-center py-12">
-            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-            </svg>
-            <h3 class="mt-2 text-sm font-medium text-gray-900">No evaluations yet</h3>
-            <p class="mt-1 text-sm text-gray-500">Get started by creating a new evaluation.</p>
-            <div class="mt-6">
-                <a href="/create" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
-                    + New Evaluation
-                </a>
+    <main class="max-w-[1200px] mx-auto px-8 py-8">
+        <div hx-get="/partials/evaluations"
+             hx-trigger="load"
+             hx-swap="outerHTML"
+             hx-on::response-error="this.textContent='Failed to load evaluations. Please refresh the page.'">
+            <div class="text-center py-16 text-[#8A8A9A]">
+                <div class="w-7 h-7 border-2 border-[#E4E4EC] border-t-[#0A66FF] rounded-full animate-spin mx-auto mb-4"></div>
+                <p>Loading evaluations...</p>
             </div>
-        </div>
-
-        <!-- Evaluations List -->
-        <div id="evaluations-list" class="hidden space-y-4">
-            <!-- Evaluation cards will be inserted here -->
         </div>
     </main>
 
     <script>
-        const API_BASE = '';
-
-        document.addEventListener('DOMContentLoaded', loadEvaluations);
-
-        async function loadEvaluations() {
-            try {
-                const response = await fetch(`${API_BASE}/api/evaluations`);
-                const evaluations = await response.json();
-
-                document.getElementById('loading').classList.add('hidden');
-
-                if (evaluations.length === 0) {
-                    document.getElementById('empty-state').classList.remove('hidden');
-                } else {
-                    document.getElementById('evaluations-list').classList.remove('hidden');
-                    renderEvaluations(evaluations);
-                }
-            } catch (error) {
-                console.error('Failed to load evaluations:', error);
-                document.getElementById('loading').innerHTML = `
-                    <p class="text-red-600">Failed to load evaluations. Please refresh the page.</p>
-                `;
+        function toggleMenu(btn) {
+            const dropdown = btn.nextElementSibling;
+            const isOpen = !dropdown.classList.contains('hidden');
+            document.querySelectorAll('.dropdown').forEach(d => d.classList.add('hidden'));
+            if (!isOpen) {
+                dropdown.classList.remove('hidden');
+                const b = btn.getBoundingClientRect();
+                const d = dropdown.getBoundingClientRect();
+                dropdown.style.top  = (b.bottom + 4) + 'px';
+                dropdown.style.left = (b.right - d.width) + 'px';
             }
         }
-
-        function renderEvaluations(evaluations) {
-            const container = document.getElementById('evaluations-list');
-            container.innerHTML = '';
-
-            evaluations.forEach(evaluation => {
-                const card = createEvaluationCard(evaluation);
-                container.appendChild(card);
-            });
-        }
-
-        function createEvaluationCard(evaluation) {
-            const card = document.createElement('div');
-            card.className = 'bg-white shadow rounded-lg p-6 hover:shadow-md transition-shadow';
-
-            const statusBadge = getStatusBadge(evaluation.status);
-            const duration = evaluation.duration_seconds 
-                ? formatDuration(evaluation.duration_seconds)
-                : '-';
-
-            card.innerHTML = `
-                <div class="flex justify-between items-start">
-                    <div class="flex-1">
-                        <div class="flex items-center space-x-3">
-                            <h3 class="text-lg font-semibold text-gray-900">
-                                ${evaluation.name || 'Untitled Evaluation'}
-                            </h3>
-                            ${statusBadge}
-                        </div>
-                        <p class="mt-1 text-sm text-gray-500">
-                            ${evaluation.base_url}
-                        </p>
-                        <div class="mt-3 flex items-center space-x-4 text-sm text-gray-600">
-                            <span>📋 ${evaluation.task_count} tasks</span>
-                            <span>🤖 ${evaluation.clone_count} clones</span>
-                            <span>⏱️ ${duration}</span>
-                        </div>
-                        <p class="mt-2 text-xs text-gray-400">
-                            Created: ${formatDate(evaluation.created_at)}
-                        </p>
-                    </div>
-                    <div class="ml-4 flex flex-col space-y-2">
-                        ${getActionButtons(evaluation)}
-                    </div>
-                </div>
-            `;
-
-            return card;
-        }
-
-        function getStatusBadge(status) {
-            const badges = {
-                'PENDING': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">Pending</span>',
-                'RUNNING': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 animate-pulse">Running</span>',
-                'COMPLETED': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">✓ Completed</span>',
-                'ABORTED': '<span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">✗ Aborted</span>'
-            };
-            return badges[status] || badges['PENDING'];
-        }
-
-        function getActionButtons(evaluation) {
-            const copyBtn = `
-                <button onclick="copyEvaluation('${evaluation.id}')"
-                        class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 border border-gray-300">
-                    ⧉ Copy
-                </button>
-            `;
-
-            if (evaluation.status === 'PENDING') {
-                return `
-                    <a href="/evaluation/${evaluation.id}" 
-                       class="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 text-center">
-                        View
-                    </a>
-                    <button onclick="startEvaluation('${evaluation.id}')" 
-                            class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
-                        Start
-                    </button>
-                    <a href="/edit/${evaluation.id}"
-                       class="px-3 py-1 text-sm bg-amber-600 text-white rounded hover:bg-amber-700 text-center">
-                        Edit
-                    </a>
-                    ${copyBtn}
-                    <button onclick="deleteEvaluation('${evaluation.id}')" 
-                            class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700">
-                        Delete
-                    </button>
-                `;
-            } else if (evaluation.status === 'RUNNING') {
-                return `
-                    <a href="/evaluation/${evaluation.id}" 
-                       class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 text-center">
-                        View Progress
-                    </a>
-                    <button onclick="abortEvaluation('${evaluation.id}')" 
-                            class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700">
-                        Abort
-                    </button>
-                `;
-            } else {
-                return `
-                    <a href="/evaluation/${evaluation.id}" 
-                       class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 text-center">
-                        View Report
-                    </a>
-                    ${copyBtn}
-                    <button onclick="deleteEvaluation('${evaluation.id}')" 
-                            class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700">
-                        Delete
-                    </button>
-                `;
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.dropdown-wrap')) {
+                document.querySelectorAll('.dropdown').forEach(d => d.classList.add('hidden'));
             }
-        }
-
-        async function copyEvaluation(evaluationId) {
-            try {
-                const response = await fetch(`${API_BASE}/api/evaluations/${evaluationId}/copy`, {
-                    method: 'POST'
-                });
-                if (response.ok) {
-                    window.location.reload();
-                } else {
-                    const error = await response.json();
-                    alert(`Failed to copy: ${error.detail}`);
-                }
-            } catch (error) {
-                console.error('Failed to copy evaluation:', error);
-                alert('Failed to copy evaluation. Please try again.');
-            }
-        }
-
-        async function startEvaluation(evaluationId) {
-            if (!confirm('Start this evaluation? This may take several minutes.')) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_BASE}/api/evaluations/${evaluationId}/start`, {
-                    method: 'POST'
-                });
-
-                if (response.ok) {
-                    window.location.href = `/evaluation/${evaluationId}`;
-                } else {
-                    const error = await response.json();
-                    alert(`Failed to start: ${error.detail}`);
-                }
-            } catch (error) {
-                console.error('Failed to start evaluation:', error);
-                alert('Failed to start evaluation. Please try again.');
-            }
-        }
-
-        async function abortEvaluation(evaluationId) {
-            if (!confirm('Abort this evaluation? All results will be deleted and it will return to Pending.')) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_BASE}/api/evaluations/${evaluationId}/abort`, {
-                    method: 'POST'
-                });
-
-                if (response.ok) {
-                    window.location.href = `/evaluation/${evaluationId}`;
-                } else {
-                    const error = await response.json();
-                    alert(`Failed to abort: ${error.detail}`);
-                }
-            } catch (error) {
-                console.error('Failed to abort evaluation:', error);
-                alert('Failed to abort evaluation. Please try again.');
-            }
-        }
-
-        async function deleteEvaluation(evaluationId) {
-            if (!confirm('Delete this evaluation? This cannot be undone.')) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_BASE}/api/evaluation/${evaluationId}`, {
-                    method: 'DELETE'
-                });
-
-                if (response.ok) {
-                    window.location.reload();
-                } else {
-                    const error = await response.json();
-                    alert(`Failed to delete: ${error.detail}`);
-                }
-            } catch (error) {
-                console.error('Failed to delete evaluation:', error);
-                alert('Failed to delete evaluation. Please try again.');
-            }
-        }
-
-        function formatDuration(seconds) {
-            const mins = Math.floor(seconds / 60);
-            const secs = seconds % 60;
-            return `${mins}m ${secs}s`;
-        }
-
-        function formatDate(dateString) {
-            const date = new Date(dateString);
-            return date.toLocaleString();
-        }
+        });
     </script>
 </body>
 </html>
