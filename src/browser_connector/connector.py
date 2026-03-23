@@ -37,7 +37,7 @@ class BrowserConnector:
         
         self.page.set_default_timeout(self.timeout)
         
-        await self.page.goto(url, wait_until="domcontentloaded")
+        await self.page.goto(url, wait_until="load")
     
     async def screenshot(self) -> str:
         """Screenshot current viewport as base64 string"""
@@ -55,7 +55,7 @@ class BrowserConnector:
         if action_type == ActionType.CLICK:
             # Try network idle first, then fallback to stabilization wait
             try:
-                await self.page.wait_for_load_state("networkidle", timeout=500)
+                await self.page.wait_for_load_state("networkidle", timeout=1000)
             except:
                 # Network idle timeout, use fixed wait instead
                 await self.page.wait_for_timeout(self.stabilization_wait)
