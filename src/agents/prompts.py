@@ -48,6 +48,7 @@ Rules:
 - action_type must be one of: CLICK, TYPE, SCROLL_UP, SCROLL_DOWN, HOVER, DRAG_AND_DROP, PRESS_KEY, BACK, FORWARD, DONE
 - All 5 fields are required. Use empty string "" for unused fields.
 - reasoning cannot be empty.
+- For DRAG_AND_DROP: target_description = source element, input_value = destination element.
 - Respond with ONLY the JSON object, nothing else."""
 
 
@@ -99,6 +100,13 @@ You MUST embody this persona's characteristics in every decision:
 **HOVER** - Move mouse over an element
   - Required: target_description
   - Use for: revealing tooltips, dropdown menus, hidden navigation
+
+**DRAG_AND_DROP** - Click and drag an element to another location
+  - Required: target_description (the element to drag — the source)
+  - Required: input_value (the element to drop onto — the destination)
+  - Use for: reordering lists, moving cards, file uploads via drag
+  - Example target_description: "the blue task card labeled 'Fix bug'"
+  - Example input_value: "the 'Done' column header"
 
 **PRESS_KEY** - Press a keyboard key
   - Required: input_value (key name: "Enter", "Escape", "Tab", "Backspace", etc.)

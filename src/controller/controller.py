@@ -176,31 +176,46 @@ class TwoAgentController:
             
             # Ground if needed (CLICK, HOVER, DRAG_AND_DROP, TYPE)
             coordinates = None
+            coordinates2 = None
             bounding_box = None
-            
+
             if self._needs_grounding(planner_action.action_type):
                 if not planner_action.target_description:
                     print(f"[Controller] Warning: {planner_action.action_type} needs target_description but none provided")
-                
+
                 self._check_cancelled()  # Check before grounding call
 
                 bbox = await self.grounder.ground(
                     screenshot_base64=screenshot_base64,
                     target_description=planner_action.target_description or ""
                 )
-                
+
+                # For DRAG_AND_DROP, also ground the destination (stored in input_value)
+                if bbox and planner_action.action_type == "DRAG_AND_DROP":
+                    self._check_cancelled()
+                    bbox2 = await self.grounder.ground(
+                        screenshot_base64=screenshot_base64,
+                        target_description=planner_action.input_value or ""
+                    )
+                    if bbox2:
+                        coordinates2 = bbox2.center()
+                        print(f"[Controller] Grounder destination: {coordinates2}")
+                    else:
+                        bbox = None  # treat whole action as failed
+                        print("[Controller] Grounding failed for drag destination")
+
                 if bbox:
                     coordinates = bbox.center()
                     bounding_box = {"x1": bbox.x1, "y1": bbox.y1, "x2": bbox.x2, "y2": bbox.y2}
                     print(f"[Controller] Grounder: {coordinates}")
                 else:
                     print("[Controller] Grounding failed, skipping action")
-                
+
                     memory.add_action({
                         "action_type": planner_action.action_type,
                         "reasoning": planner_action.reasoning
                     })
-                    
+
                     # Record failed grounding
                     action_records.append({
                         "step_number": step,
@@ -215,16 +230,16 @@ class TwoAgentController:
                         "timestamp": datetime.utcnow().isoformat(),
                         "screenshot": screenshot_url
                     })
-                    
+
                     # Add outcome mismatch
                     memory.add_outcome_mismatch(
                         f"Failed to locate element: {planner_action.target_description}"
                     )
-                    
-                    continue  
+
+                    continue
             
             # Build browser action
-            browser_action = self._build_browser_action(planner_action, coordinates)
+            browser_action = self._build_browser_action(planner_action, coordinates, coordinates2)
             
             # Execute action
             result = await self.browser.execute_action(browser_action)
@@ -269,13 +284,15 @@ class TwoAgentController:
         """Check if action needs grounding - now includes TYPE"""
         return action_type in ["CLICK", "HOVER", "DRAG_AND_DROP", "TYPE"]
     
-    def _build_browser_action(self, planner_action, coordinates: Optional[tuple[int, int]]) -> Action:
+    def _build_browser_action(self, planner_action, coordinates: Optional[tuple[int, int]], coordinates2: Optional[tuple[int, int]] = None) -> Action:
         """Convert planner action to browser action"""
-        
+
         return Action(
             action_type=ActionType(planner_action.action_type),
             x=coordinates[0] if coordinates else None,
             y=coordinates[1] if coordinates else None,
+            x2=coordinates2[0] if coordinates2 else None,
+            y2=coordinates2[1] if coordinates2 else None,
             text=planner_action.input_value,
-            key=planner_action.input_value, 
+            key=planner_action.input_value,
         )
