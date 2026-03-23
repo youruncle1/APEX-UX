@@ -53,23 +53,16 @@ class BrowserConnector:
         """
         
         if action_type == ActionType.CLICK:
-            # Try network idle first, then fallback to stabilization wait
-            try:
-                await self.page.wait_for_load_state("networkidle", timeout=1000)
-            except:
-                # Network idle timeout, use fixed wait instead
-                await self.page.wait_for_timeout(self.stabilization_wait)
-        
-        elif action_type in [ActionType.TYPE, ActionType.HOVER]:
-            # wait for visual feedback to render
+            await self.page.wait_for_load_state("load")
+
+        elif action_type == ActionType.PRESS_KEY:
+            await self.page.wait_for_load_state("load")
+
+        elif action_type == ActionType.HOVER:
+            await self.page.wait_for_timeout(500)
+
+        elif action_type == ActionType.TYPE:
             await self.page.wait_for_timeout(self.stabilization_wait)
-        
-        elif action_type in [ActionType.PRESS_KEY]:
-            # Keys might navigate or submit forms
-            try:
-                await self.page.wait_for_load_state("domcontentloaded", timeout=1000)
-            except:
-                await self.page.wait_for_timeout(self.stabilization_wait)
     
     async def execute_action(self, action: Action) -> ExecutionResult:
         """Execute an action and return feedback"""
