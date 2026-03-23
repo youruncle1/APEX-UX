@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ evaluation.name or 'Evaluation Report' }} - APEX-UX</title>
+    <link rel="icon" href="/static/favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+    <style>
+        .ibm-mono { font-family: 'IBM Plex Mono', monospace; }
+    </style>
+</head>
+<body class="bg-[#F8F8FA] text-[#2C2C3A] min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-[#E4E4EC] px-8 h-[58px] flex items-center justify-between">
+        <div class="flex items-center gap-6">
+            <a href="/" class="text-[1.05rem] font-bold text-[#090947] tracking-[0.05em] uppercase no-underline">
+                APEX<span class="text-[#0A66FF]">-UX</span>
+            </a>
+            <span class="text-[#E4E4EC]">|</span>
+            <div class="flex items-center gap-3">
+                <h1 class="text-sm font-semibold text-[#090947]">{{ evaluation.name or 'Evaluation Report' }}</h1>
+                {% if evaluation.status == 'PENDING' %}
+                <span style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#F3E988;color:#5a4a00">Pending</span>
+                {% elif evaluation.status == 'RUNNING' %}
+                <span class="animate-pulse" style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#0A66FF;color:white">Running</span>
+                {% elif evaluation.status == 'COMPLETED' %}
+                <span style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#24C875;color:#0a3d22">Completed</span>
+                {% elif evaluation.status == 'ABORTED' %}
+                <span style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#ffe0e0;color:#8b0000">Aborted</span>
+                {% endif %}
+            </div>
+        </div>
+        <a href="/" class="text-sm text-[#8A8A9A] hover:text-[#090947] transition-colors">← Dashboard</a>
+    </header>
+
+    <!-- Action Bar: PENDING -->
+    {% if evaluation.status == 'PENDING' %}
+    <div class="bg-white border-b border-[#E4E4EC]">
+        <div class="max-w-[1600px] mx-auto px-8 py-3 flex items-center gap-3">
+            <button hx-post="/partials/evaluations/{{ evaluation.id }}/start"
+                    hx-confirm="Start this evaluation? This may take several minutes."
+                    class="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded border bg-[#090947] text-white border-[#090947] cursor-pointer hover:opacity-80 transition-opacity">
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg>
+                Start Evaluation
+            </button>
+            <a href="/edit/{{ evaluation.id }}"
+               class="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded border border-amber-500 text-amber-600 no-underline hover:opacity-80 transition-opacity">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                Edit
+            </a>
+            <button hx-delete="/partials/evaluation/{{ evaluation.id }}"
+                    hx-confirm="Delete this evaluation? This cannot be undone."
+                    class="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded border border-[#FF4D4D] text-[#FF4D4D] bg-transparent cursor-pointer hover:opacity-80 transition-opacity">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                Delete
+            </button>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Action Bar: RUNNING -->
+    {% if evaluation.status == 'RUNNING' %}
+    <div class="bg-white border-b border-[#E4E4EC]">
+        <div class="max-w-[1600px] mx-auto px-8 py-3 flex items-center gap-4">
+            <button hx-post="/partials/evaluations/{{ evaluation.id }}/abort"
+                    hx-confirm="Abort this evaluation? All results will be deleted and it will return to Pending."
+                    hx-on::before-request="this.innerHTML='Aborting...';this.style.opacity='0.5';this.disabled=true"
+                    class="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded border border-[#FF4D4D] text-[#FF4D4D] bg-transparent cursor-pointer hover:opacity-80 transition-opacity">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                Abort Evaluation
+            </button>
+            <span class="text-sm text-[#8A8A9A]">Evaluation is running. Aborting will discard all results and return to Pending.</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main class="max-w-[1600px] mx-auto px-8 py-8 space-y-6">
+
+        <!-- Progress Bar (RUNNING only) -->
+        {% if evaluation.status == 'RUNNING' %}
+        <div class="bg-white border border-[#E4E4EC] rounded-md p-6">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-[#0A66FF] flex items-center gap-2">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Evaluation Progress
+                </h2>
+                <span class="text-2xl font-bold text-[#0A66FF]" id="progress-percentage-label">0%</span>
+            </div>
+            <div class="w-full bg-[#E4E4EC] rounded-full h-4 overflow-hidden">
+                <div id="progress-bar-fill" class="h-4 rounded-full transition-all duration-700 ease-out" style="width:0%;background-color:#0A66FF"></div>
+            </div>
+            <p class="text-xs text-[#8A8A9A] mt-2">Estimated from actions saved vs. total expected steps (clones × tasks × max steps). May plateau when tasks complete early.</p>
+        </div>
+        {% endif %}
+
+        <!-- Summary Metrics -->
+        <div class="bg-white border border-[#E4E4EC] rounded-md p-6">
+            <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-[#0A66FF] mb-6 flex items-center gap-2">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                Summary Metrics
+            </h2>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-[#0A66FF]">{{ metrics.success_rate }}</div>
+                    <div class="text-sm text-[#8A8A9A]">Success Rate</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-[#24C875]">{{ metrics.tasks_passed }}</div>
+                    <div class="text-sm text-[#8A8A9A]">Tasks Passed</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-[#0A66FF]">{{ metrics.avg_steps }}</div>
+                    <div class="text-sm text-[#8A8A9A]">Avg Steps/Task</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-[#0A66FF]">{{ metrics.avg_seq }}</div>
+                    <div class="text-sm text-[#8A8A9A]">Avg SEQ Score</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-[#0A66FF]">{{ metrics.avg_sus }}</div>
+                    <div class="text-sm text-[#8A8A9A]">Avg SUS Score</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Personas / Plan section -->
+        <div class="bg-white border border-[#E4E4EC] rounded-md p-6">
+            {% if evaluation.status == 'PENDING' %}
+            <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-[#0A66FF] mb-4 flex items-center gap-2">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                Evaluation Plan
+            </h2>
+
+            {% if task_definitions %}
+            <div class="border border-[#E4E4EC] rounded-md p-4 mb-4">
+                <h3 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-[#8A8A9A] mb-3">Tasks ({{ task_definitions|length }})</h3>
+                <table class="w-full border-collapse text-sm">
+                    <thead>
+                        <tr class="border-b border-[#E4E4EC]">
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-[#0A66FF] uppercase">#</th>
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-[#0A66FF] uppercase">Description</th>
+                            <th class="px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-[#0A66FF] uppercase">Max Steps</th>
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-[#0A66FF] uppercase">URL Override</th>
+                            <th class="px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-[#0A66FF] uppercase">Verification</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in task_definitions %}
+                        <tr class="border-b border-[#E4E4EC] last:border-b-0 hover:bg-[#f3f3fa] transition-colors">
+                            <td class="px-3 py-2 text-[#8A8A9A]">{{ loop.index }}</td>
+                            <td class="px-3 py-2 text-[#2C2C3A]">{{ task.description }}</td>
+                            <td class="px-3 py-2 text-center text-[#8A8A9A]">{{ task.max_steps }}</td>
+                            <td class="px-3 py-2 text-xs ibm-mono text-[#8A8A9A]">{{ task.base_url_override or '—' }}</td>
+                            <td class="px-3 py-2 text-center">
+                                {% if task.verification_rules %}
+                                <span class="px-2 py-0.5 text-xs rounded font-semibold" style="background:#0A66FF1a;color:#0A66FF">Set</span>
+                                {% else %}
+                                <span class="px-2 py-0.5 text-xs rounded font-semibold border border-[#E4E4EC]" style="background:#F8F8FA;color:#8A8A9A">None</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-sm text-[#8A8A9A]">No tasks defined.</p>
+            {% endif %}
+
+            <div class="border border-[#E4E4EC] rounded-md p-4">
+                <h3 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-[#8A8A9A] mb-3">Personas ({{ clones|length }})</h3>
+                <div class="flex flex-wrap gap-2">
+                    {% for clone in clones %}
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 text-sm rounded-full border border-[#E4E4EC]" style="background:#F8F8FA;color:#2C2C3A">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        {{ clone.clone_id }}
+                    </span>
+                    {% endfor %}
+                </div>
+                <p class="text-xs text-[#8A8A9A] mt-2">Each persona will complete all {{ task_definitions|length }} task(s) above.</p>
+            </div>
+
+            {% else %}
+            <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-[#0A66FF] mb-4 flex items-center gap-2">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                Persona Results
+            </h2>
+
+            <div class="space-y-4">
+                {% for persona in personas %}
+                <div class="border border-[#E4E4EC] rounded-md p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-sm font-semibold text-[#090947] flex items-center gap-1.5">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                {{ persona.clone.clone_id }}
+                            </h3>
+                            <p class="text-sm text-[#8A8A9A] mt-1">
+                                {{ persona.tasks|length }} task{{ 's' if persona.tasks|length != 1 }} &nbsp;·&nbsp; SUS:
+                                {% if persona.clone.sus_score %}{{ persona.clone.sus_score | round | int }}/100{% else %}Pending{% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            {% if persona.clone.sus_score and persona.clone.sus_ratings %}
+                            <button onclick="showSUSModal(this)"
+                                    data-clone="{{ persona.clone | tojson }}"
+                                    class="inline-flex items-center gap-1 text-sm font-medium hover:underline" style="color:#0A66FF">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                                View SUS Details
+                            </button>
+                            {% else %}
+                            <span class="text-sm text-[#8A8A9A]">SUS pending</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full border-collapse">
+                            <thead>
+                                <tr class="border-b border-[#E4E4EC]">
+                                    <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-[#0A66FF] uppercase">Task</th>
+                                    <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-[#0A66FF] uppercase">Status</th>
+                                    <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-[#0A66FF] uppercase">Verification</th>
+                                    <th class="px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-[#0A66FF] uppercase">SEQ</th>
+                                    <th class="px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-[#0A66FF] uppercase">Steps</th>
+                                    <th class="px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-[#0A66FF] uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for task in persona.tasks %}
+                                <tr class="border-b border-[#E4E4EC] last:border-b-0 hover:bg-[#f3f3fa] transition-colors">
+                                    <td class="px-3 py-2 text-sm">
+                                        <div class="max-w-xs truncate text-[#2C2C3A]" title="{{ task.task_description }}">{{ task.task_description }}</div>
+                                    </td>
+                                    <td class="px-3 py-2 text-sm">
+                                        {% if task.agent_done %}
+                                        <span class="font-medium" style="color:#24C875">✓ Completed</span>
+                                        {% elif task.status == 'TIMEOUT' %}
+                                        <span class="font-medium flex items-center gap-1 text-amber-600">
+                                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            Timeout
+                                        </span>
+                                        {% else %}
+                                        <span class="font-medium" style="color:#FF4D4D">✗ Failed</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-3 py-2 text-sm">
+                                        {% if task.agent_done and task.verification_result %}
+                                            {% if task.verification_result == 'PASS' %}
+                                            <button hx-get="/partials/task-run/{{ task.id }}/verification"
+                                                    hx-target="#verification-modal-body"
+                                                    hx-swap="innerHTML"
+                                                    hx-on::after-request="document.getElementById('verification-modal').classList.remove('hidden')"
+                                                    class="px-2 py-0.5 text-xs rounded font-semibold cursor-pointer hover:opacity-80"
+                                                    style="background:#24C87520;color:#0a3d22">
+                                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline;vertical-align:middle"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                                Verified
+                                            </button>
+                                            {% elif task.verification_result == 'FAIL' %}
+                                            <button hx-get="/partials/task-run/{{ task.id }}/verification"
+                                                    hx-target="#verification-modal-body"
+                                                    hx-swap="innerHTML"
+                                                    hx-on::after-request="document.getElementById('verification-modal').classList.remove('hidden')"
+                                                    class="px-2 py-0.5 text-xs rounded font-semibold cursor-pointer hover:opacity-80"
+                                                    style="background:#ffe0e0;color:#8b0000">
+                                                ✗ Verification Failed
+                                            </button>
+                                            {% elif task.verification_result == 'UNKNOWN' %}
+                                            <button hx-get="/partials/task-run/{{ task.id }}/verification"
+                                                    hx-target="#verification-modal-body"
+                                                    hx-swap="innerHTML"
+                                                    hx-on::after-request="document.getElementById('verification-modal').classList.remove('hidden')"
+                                                    class="px-2 py-0.5 text-xs rounded font-semibold cursor-pointer hover:opacity-80"
+                                                    style="background:#F3E98880;color:#5a4a00">
+                                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline;vertical-align:middle"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                                                Unknown
+                                            </button>
+                                            {% else %}
+                                            <span class="px-2 py-0.5 text-xs rounded font-semibold border border-[#E4E4EC]" style="background:#F8F8FA;color:#8A8A9A">○ Skipped</span>
+                                            {% endif %}
+                                        {% elif task.agent_done %}
+                                        <span class="px-2 py-0.5 text-xs rounded font-semibold border border-[#E4E4EC]" style="background:#F8F8FA;color:#8A8A9A">○ Skipped</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-3 py-2 text-sm text-center">
+                                        {% if task.seq_score %}
+                                        <button onclick="showSEQModal(this)"
+                                                data-task="{{ task | tojson }}"
+                                                class="font-medium hover:underline" style="color:#0A66FF">
+                                            {{ task.seq_score | round(1) }}/7
+                                        </button>
+                                        {% else %}
+                                        <span style="color:#8A8A9A">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-3 py-2 text-sm text-center text-[#8A8A9A]">{{ task.steps_taken or '-' }}</td>
+                                    <td class="px-3 py-2 text-sm text-center">
+                                        <a href="/task-run/{{ task.id }}" class="hover:underline" style="color:#0A66FF">View →</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Running Progress Log -->
+        {% if evaluation.status == 'RUNNING' %}
+        <div id="progress-section" class="bg-[#F8F8FA] border border-[#E4E4EC] rounded-md p-6">
+            <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-[#0A66FF] mb-4 flex items-center gap-2" id="progress-title">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Evaluation in Progress
+            </h2>
+            <div id="progress-messages" class="space-y-2 text-sm text-[#2C2C3A]"></div>
+        </div>
+        {% endif %}
+
+    </main>
+
+    <!-- SUS Modal -->
+    <div id="sus-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto" onclick="if(event.target.id==='sus-modal') closeSUSModal()">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl" onclick="event.stopPropagation()">
+                <div class="text-white px-6 py-4 flex justify-between items-center" style="background:linear-gradient(to right,#090947,#0A66FF)">
+                    <div>
+                        <h2 class="text-2xl font-bold">System Usability Scale (SUS)</h2>
+                        <p class="text-sm opacity-90 mt-1" id="sus-persona-name">-</p>
+                    </div>
+                    <button onclick="closeSUSModal()" class="text-white hover:text-gray-200 text-3xl leading-none">&times;</button>
+                </div>
+                <div class="overflow-y-auto max-h-[calc(90vh-140px)]">
+                    <div class="px-6 py-6 border-b border-[#E4E4EC]" style="background:linear-gradient(to right,rgba(9,9,71,0.05),rgba(10,102,255,0.05))">
+                        <div class="flex items-center gap-6">
+                            <div class="w-24 h-24 rounded-full bg-white shadow-lg flex flex-col items-center justify-center border border-[#E4E4EC]">
+                                <div class="text-3xl font-bold text-[#0A66FF]" id="sus-score">-</div>
+                                <div class="text-xs text-[#8A8A9A]">/100</div>
+                            </div>
+                            <div class="flex-1">
+                                <div class="text-sm font-medium text-[#8A8A9A] mb-2">Interpretation</div>
+                                <div id="sus-badge" class="inline-block px-4 py-2 rounded-full text-sm font-semibold"></div>
+                                <div class="mt-3 text-sm text-[#8A8A9A]">Based on 10 standardized usability questions</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="px-6 py-4" id="sus-questions"></div>
+                    <div class="px-6 py-4 border-t border-[#E4E4EC]" style="background:#F8F8FA">
+                        <h3 class="font-semibold text-[#090947] mb-2">Agent's Overall Impression</h3>
+                        <div class="bg-white rounded-lg p-4 text-sm text-[#2C2C3A] border-l-4 border-[#0A66FF]" id="sus-reason"></div>
+                    </div>
+                </div>
+                <div class="px-6 py-3 flex justify-end border-t border-[#E4E4EC]" style="background:#F8F8FA">
+                    <button onclick="closeSUSModal()" class="px-4 py-2 text-sm font-medium border rounded border-[#090947] text-[#090947] bg-transparent hover:opacity-80 transition-opacity">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEQ Modal -->
+    <div id="seq-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50" onclick="if(event.target.id==='seq-modal') closeSEQModal()">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-2xl w-full shadow-2xl" onclick="event.stopPropagation()">
+                <div class="text-white px-6 py-4 flex justify-between items-center rounded-t-lg" style="background:linear-gradient(to right,#090947,#0A66FF)">
+                    <div>
+                        <h2 class="text-xl font-bold">Task Ease Rating (SEQ)</h2>
+                        <p class="text-sm opacity-90 mt-1" id="seq-task">-</p>
+                    </div>
+                    <button onclick="closeSEQModal()" class="text-white hover:text-gray-200 text-3xl leading-none">&times;</button>
+                </div>
+                <div class="px-6 py-6">
+                    <div class="flex items-center gap-6 mb-6">
+                        <div class="w-20 h-20 rounded-full flex flex-col items-center justify-center shadow-md border border-[#E4E4EC]" style="background:#F8F8FA">
+                            <div class="text-3xl font-bold text-[#0A66FF]" id="seq-score">-</div>
+                            <div class="text-xs text-[#8A8A9A]">/7</div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-[#8A8A9A] mb-1">Overall, this task was:</div>
+                            <div class="text-2xl font-semibold text-[#090947]" id="seq-label">-</div>
+                        </div>
+                    </div>
+                    <div class="rounded-lg p-4 mb-6 border border-[#E4E4EC]" style="background:#F8F8FA">
+                        <div class="text-xs text-center text-[#8A8A9A] mb-3 font-medium">1 (Very Difficult) to 7 (Very Easy)</div>
+                        <div class="flex gap-2" id="seq-scale"></div>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-[#090947] mb-2">Agent's Reasoning</h3>
+                        <div class="rounded-lg p-4 text-sm text-[#2C2C3A] border-l-4 border-[#0A66FF]" style="background:#F8F8FA" id="seq-reason"></div>
+                    </div>
+                </div>
+                <div class="px-6 py-3 flex justify-end border-t border-[#E4E4EC] rounded-b-lg" style="background:#F8F8FA">
+                    <button onclick="closeSEQModal()" class="px-4 py-2 text-sm font-medium border rounded border-[#090947] text-[#090947] bg-transparent hover:opacity-80 transition-opacity">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Verification Modal -->
+    <div id="verification-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50" onclick="if(event.target.id==='verification-modal') closeVerificationModal()">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-2xl w-full shadow-2xl" onclick="event.stopPropagation()">
+                <div class="text-white px-6 py-4 flex justify-between items-center rounded-t-lg" style="background:linear-gradient(to right,#090947,#0A66FF)">
+                    <h2 class="text-xl font-bold">Verification Details</h2>
+                    <button onclick="closeVerificationModal()" class="text-white hover:text-gray-200 text-3xl leading-none">&times;</button>
+                </div>
+                <div class="px-6 py-6" id="verification-modal-body">
+                    <!-- Populated by htmx -->
+                </div>
+                <div class="px-6 py-3 flex justify-end border-t border-[#E4E4EC] rounded-b-lg" style="background:#F8F8FA">
+                    <button onclick="closeVerificationModal()" class="px-4 py-2 text-sm font-medium border rounded border-[#090947] text-[#090947] bg-transparent hover:opacity-80 transition-opacity">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const evaluationId = '{{ evaluation.id }}';
+
+        const SUS_QUESTIONS = [
+            "I think that I would like to use this system frequently",
+            "I found the system unnecessarily complex",
+            "I thought the system was easy to use",
+            "I think that I would need the support of a technical person to be able to use this system",
+            "I found the various functions in this system were well integrated",
+            "I thought there was too much inconsistency in this system",
+            "I would imagine that most people would learn to use this system very quickly",
+            "I found the system very cumbersome to use",
+            "I felt very confident using the system",
+            "I needed to learn a lot of things before I could get going with this system"
+        ];
+
+        const SEQ_LABELS = ['Very Difficult', 'Difficult', 'Somewhat Difficult', 'Neutral',
+                            'Somewhat Easy', 'Easy', 'Very Easy'];
+
+        {% if evaluation.status == 'RUNNING' %}
+        document.addEventListener('DOMContentLoaded', connectWebSocket);
+        {% endif %}
+
+        // ============================================================================
+        // WEBSOCKET (RUNNING state only)
+        // ============================================================================
+
+        function connectWebSocket() {
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${wsProtocol}//${window.location.host}/api/ws/evaluation/${evaluationId}`);
+            ws.onmessage = (e) => handleProgressMessage(JSON.parse(e.data));
+            ws.onclose = () => console.log('WebSocket closed');
+        }
+
+        function updateProgressBar(percentage) {
+            const pct = Math.min(Math.max(parseFloat(percentage) || 0, 0), 100);
+            document.getElementById('progress-percentage-label').textContent = `${pct}%`;
+            const fill = document.getElementById('progress-bar-fill');
+            fill.style.width = `${pct}%`;
+            fill.style.backgroundColor = pct >= 100 ? '#24C875' : '#0A66FF';
+        }
+
+        function handleProgressMessage(message) {
+            if (message.type === 'progress') { updateProgressBar(message.percentage); return; }
+
+            const container = document.getElementById('progress-messages');
+            const section   = document.getElementById('progress-section');
+            const title     = document.getElementById('progress-title');
+            const ts        = new Date().toLocaleTimeString();
+
+            if (message.type === 'status' && message.status === 'ABORTING') {
+                title.textContent = 'Aborting... (finishing current task)';
+                title.style.color = '#92400E';
+                section.style.backgroundColor = '#FFF7ED';
+                section.style.borderColor = '#FDE68A';
+            }
+            if (message.type === 'status' && message.status === 'ABORTED_RESET') {
+                setTimeout(() => window.location.reload(), 1000); return;
+            }
+            if (message.type === 'status' && message.status === 'COMPLETED') {
+                setTimeout(() => window.location.reload(), 2000); return;
+            }
+
+            const icon = message.type === 'error' ? '✗' : '·';
+            const div = document.createElement('div');
+            div.className = 'flex items-start gap-2';
+            div.innerHTML = `<span class="text-xs whitespace-nowrap" style="color:#8A8A9A">[${ts}]</span><span>${icon}</span><span>${message.message || JSON.stringify(message)}</span>`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // ============================================================================
+        // MODALS
+        // ============================================================================
+
+        function showSUSModal(btn) {
+            const clone = JSON.parse(btn.dataset.clone);
+            if (!clone.sus_score) { alert('SUS data not available'); return; }
+            document.getElementById('sus-persona-name').textContent = clone.clone_id;
+            document.getElementById('sus-score').textContent = parseFloat(clone.sus_score).toFixed(1);
+            const interp = getSUSInterpretation(clone.sus_score);
+            const badge = document.getElementById('sus-badge');
+            badge.textContent = interp.label;
+            badge.style.backgroundColor = interp.color;
+            badge.style.color = 'white';
+            document.getElementById('sus-questions').innerHTML = SUS_QUESTIONS.map((q, i) => `
+                <div class="mb-6">
+                    <div class="text-sm font-medium mb-3" style="color:#2C2C3A">${i + 1}. ${q}</div>
+                    <div class="flex items-center gap-2">
+                        ${[1,2,3,4,5].map(n => {
+                            const sel = clone.sus_ratings && clone.sus_ratings[i] === n;
+                            return `<div class="flex-1 text-center py-3 rounded border-2 transition-all ${sel ? 'transform scale-110 shadow-md' : ''}"
+                                        style="${sel ? 'background:linear-gradient(to bottom right,#090947,#0A66FF);color:white;border-color:#0A66FF' : 'border-color:#E4E4EC;color:#8A8A9A'}">${n}</div>`;
+                        }).join('')}
+                    </div>
+                    <div class="flex justify-between text-xs px-1 mt-1" style="color:#8A8A9A">
+                        <span>Strongly Disagree</span><span>Strongly Agree</span>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('sus-reason').textContent = clone.sus_reasoning || 'No reasoning provided.';
+            document.getElementById('sus-modal').classList.remove('hidden');
+        }
+
+        function closeSUSModal() { document.getElementById('sus-modal').classList.add('hidden'); }
+
+        function getSUSInterpretation(score) {
+            if (score >= 80) return { label: 'Excellent', color: '#24C875' };
+            if (score >= 68) return { label: 'Good',      color: '#0A66FF' };
+            if (score >= 50) return { label: 'OK',        color: '#D97706' };
+            if (score >= 25) return { label: 'Poor',      color: '#FF4D4D' };
+            return { label: 'Awful', color: '#dc2626' };
+        }
+
+        function showSEQModal(btn) {
+            const task = JSON.parse(btn.dataset.task);
+            if (!task.seq_score) { alert('SEQ data not available for this task'); return; }
+            document.getElementById('seq-task').textContent = task.task_description;
+            document.getElementById('seq-score').textContent = parseFloat(task.seq_score).toFixed(1);
+            document.getElementById('seq-label').textContent = SEQ_LABELS[Math.round(task.seq_score) - 1];
+            document.getElementById('seq-scale').innerHTML = [1,2,3,4,5,6,7].map(i => {
+                const sel = Math.round(task.seq_score) === i;
+                return `<div class="flex-1 text-center p-3 rounded border-2 transition-all ${sel ? 'font-bold transform scale-105 shadow-md' : ''}"
+                             style="${sel ? 'background:linear-gradient(to bottom right,#090947,#0A66FF);color:white;border-color:#0A66FF' : 'background:white;border-color:#E4E4EC;color:#8A8A9A'}">
+                    <div class="text-lg font-bold">${i}</div>
+                    <div class="text-xs mt-1">${SEQ_LABELS[i-1]}</div>
+                </div>`;
+            }).join('');
+            document.getElementById('seq-reason').textContent = task.seq_reasoning || 'No reasoning provided.';
+            document.getElementById('seq-modal').classList.remove('hidden');
+        }
+
+        function closeSEQModal() { document.getElementById('seq-modal').classList.add('hidden'); }
+
+        function closeVerificationModal() {
+            document.getElementById('verification-modal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>

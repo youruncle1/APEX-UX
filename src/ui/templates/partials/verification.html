@@ -1,0 +1,19 @@
+<p class="text-sm text-[#8A8A9A] mb-4">{{ task_run.task_description }}</p>
+
+<div class="mb-6">
+    <div class="text-sm font-medium text-[#8A8A9A] mb-2">Status</div>
+    {% if task_run.verification_result == 'PASS' %}
+    <span class="px-3 py-1 text-sm rounded-full font-semibold" style="background:#24C875;color:#0a3d22">✓ Verified (PASS)</span>
+    {% elif task_run.verification_result == 'FAIL' %}
+    <span class="px-3 py-1 text-sm rounded-full font-semibold" style="background:#ffe0e0;color:#8b0000">✗ Failed</span>
+    {% elif task_run.verification_result == 'SKIPPED' %}
+    <span class="px-3 py-1 text-sm rounded-full font-semibold" style="background:#F8F8FA;border:1px solid #E4E4EC;color:#8A8A9A">○ Skipped</span>
+    {% else %}
+    <span class="px-3 py-1 text-sm rounded-full font-semibold" style="background:#F3E988;color:#5a4a00">⚠ Unknown</span>
+    {% endif %}
+</div>
+
+<div>
+    <h3 class="font-semibold text-[#090947] mb-3">Verification Rules</h3>
+    <div class="space-y-1">{{ render_verification_rules(task_run.verification_details) }}</div>
+</div>
