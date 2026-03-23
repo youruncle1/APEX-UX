@@ -3,7 +3,7 @@
 {% block title %}{{ evaluation.name or 'Evaluation Report' }}{% endblock %}
 
 {% block header_title %}
-<h1 class="text-sm font-semibold text-[#090947]">{{ evaluation.name or 'Evaluation Report' }}</h1>
+<h1 class="text-base font-semibold text-[#090947]">{{ evaluation.name or 'Evaluation Report' }}</h1>
 {% if evaluation.status == 'PENDING' %}
 <span style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#F3E988;color:#5a4a00">Pending</span>
 {% elif evaluation.status == 'RUNNING' %}
