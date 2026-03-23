@@ -36,6 +36,7 @@ class EvaluationCreate(BaseModel):
     name: Optional[str] = None
     base_url: str
     browser: str = "chromium"
+    viewport: Optional[dict] = None
     clone_count: int = 3
     tasks: List[TaskDefinitionCreate]
 

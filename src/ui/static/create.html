@@ -58,6 +58,29 @@
                             <option value="webkit">Safari (WebKit)</option>
                         </select>
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Viewport</label>
+                        <select id="eval-viewport"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                onchange="onViewportChange()">
+                            <option value="1280x720">720p HD — 1280×720 (default)</option>
+                            <option value="1920x1080">1080p Full HD — 1920×1080</option>
+                            <option value="2560x1664">MacBook Air — 2560×1664</option>
+                            <option value="2560x1440">QHD — 2560×1440</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                        <div id="viewport-warning" class="hidden mt-1 text-sm text-amber-600">
+                            Larger viewports may be slower to process by the grounding model.
+                        </div>
+                        <div id="viewport-custom" class="hidden mt-2 flex items-center gap-2">
+                            <input type="number" id="viewport-w" placeholder="Width" min="400" max="3840" value="1280"
+                                   class="w-24 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+                            <span class="text-gray-500 text-sm">×</span>
+                            <input type="number" id="viewport-h" placeholder="Height" min="300" max="2160" value="720"
+                                   class="w-24 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+                            <span class="text-gray-500 text-sm">px</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -96,6 +119,26 @@
     <script>
         const API_BASE = '';
         let taskIdCounter = 0;
+
+        function onViewportChange() {
+            const sel = document.getElementById('eval-viewport').value;
+            const isCustom = sel === 'custom';
+            const isLarge = sel !== '1280x720';
+            document.getElementById('viewport-custom').classList.toggle('hidden', !isCustom);
+            document.getElementById('viewport-warning').classList.toggle('hidden', !isLarge);
+        }
+
+        function getViewport() {
+            const sel = document.getElementById('eval-viewport').value;
+            if (sel === 'custom') {
+                return {
+                    width: parseInt(document.getElementById('viewport-w').value) || 1280,
+                    height: parseInt(document.getElementById('viewport-h').value) || 720,
+                };
+            }
+            const [w, h] = sel.split('x').map(Number);
+            return { width: w, height: h };
+        }
         let verifyRuleCounter = 0;
         // Track verification mode per task (simple or advanced)
         const verifyModes = {}; // taskId -> 'simple' | 'advanced'
@@ -736,6 +779,7 @@
             const base_url = document.getElementById('eval-url').value.trim();
             const browser = document.getElementById('eval-browser').value;
             const clone_count = parseInt(document.getElementById('clone-count').value);
+            const viewport = getViewport();
 
             console.log('Basic data:', { name, base_url, clone_count });
 
@@ -814,6 +858,7 @@
                         name,
                         base_url,
                         browser,
+                        viewport,
                         clone_count,
                         tasks
                     })

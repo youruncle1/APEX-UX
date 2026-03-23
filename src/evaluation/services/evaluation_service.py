@@ -59,6 +59,7 @@ class EvaluationService:
             name=data.name,
             base_url=data.base_url,
             browser=data.browser,
+            viewport=data.viewport,
             clone_count=data.clone_count,
             tasks_data=[t.model_dump() for t in data.tasks],
         )
@@ -208,6 +209,7 @@ class EvaluationService:
             "name": evaluation.name,
             "base_url": evaluation.base_url,
             "browser": evaluation.browser or "chromium",
+            "viewport": evaluation.viewport or {"width": 1280, "height": 720},
             "clone_count": len(evaluation.clones),
             "tasks": [
                 {
@@ -234,6 +236,7 @@ class EvaluationService:
             name=data.name,
             base_url=data.base_url,
             browser=data.browser,
+            viewport=data.viewport,
             clone_count=data.clone_count,
             tasks_data=[t.model_dump() for t in data.tasks],
         )

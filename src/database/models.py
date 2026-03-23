@@ -37,6 +37,7 @@ class Evaluation(Base):
     name = Column(String, nullable=True)
     base_url = Column(String, nullable=False)
     browser = Column(String, default="chromium")
+    viewport = Column(JSON, default=lambda: {"width": 1280, "height": 720})
     status = Column(SQLEnum(EvaluationStatus), default=EvaluationStatus.PENDING)
     created_at = Column(DateTime, default=datetime.now)
     started_at = Column(DateTime, nullable=True)

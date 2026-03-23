@@ -180,8 +180,14 @@ class EvaluationRunner:
 
         persona_context = PLACEHOLDER_PERSONA
 
-        grounder = GroundingAgent()
-        browser = BrowserConnector(headless=True, browser_type=evaluation.browser or "chromium")
+        vp = evaluation.viewport or {"width": 1280, "height": 720}
+        grounder = GroundingAgent(viewport_width=vp["width"], viewport_height=vp["height"])
+        browser = BrowserConnector(
+            headless=True,
+            browser_type=evaluation.browser or "chromium",
+            viewport_width=vp["width"],
+            viewport_height=vp["height"],
+        )
 
         controller = TwoAgentController(
             persona_context=persona_context,

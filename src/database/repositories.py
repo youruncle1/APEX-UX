@@ -61,11 +61,13 @@ class EvaluationRepository:
         clone_count: int,
         tasks_data: list[dict],
         browser: str = "chromium",
+        viewport: Optional[dict] = None,
     ) -> Evaluation:
         evaluation = Evaluation(
             name=name,
             base_url=base_url,
             browser=browser,
+            viewport=viewport or {"width": 1280, "height": 720},
             status=EvaluationStatus.PENDING,
         )
         self.session.add(evaluation)
@@ -107,6 +109,7 @@ class EvaluationRepository:
             name=new_name,
             base_url=source.base_url,
             browser=source.browser,
+            viewport=source.viewport,
             status=EvaluationStatus.PENDING,
         )
         self.session.add(new_eval)
@@ -140,10 +143,12 @@ class EvaluationRepository:
         clone_count: int,
         tasks_data: list[dict],
         browser: str = "chromium",
+        viewport: Optional[dict] = None,
     ) -> None:
         evaluation.name = name
         evaluation.base_url = base_url
         evaluation.browser = browser
+        evaluation.viewport = viewport or {"width": 1280, "height": 720}
 
         await self.session.execute(
             delete(TaskDefinition).where(TaskDefinition.evaluation_id == evaluation.id)
