@@ -247,8 +247,13 @@ async def evaluation_report_page(
 
 
 @pages_router.get("/task-run/{task_run_id}", include_in_schema=False)
-async def task_run_replay_page(task_run_id: UUID):
-    return FileResponse("src/ui/static/task-run.html")
+async def task_run_replay_page(
+    request: Request, task_run_id: UUID, db: AsyncSession = Depends(get_db)
+):
+    task_run = await TaskRunService(db).get_task_run_detail(task_run_id)
+    if not task_run:
+        raise HTTPException(status_code=404, detail="Task run not found")
+    return templates.TemplateResponse(request, "pages/task-run.html", {"task_run": task_run})
 
 
 @pages_router.get("/create", include_in_schema=False)

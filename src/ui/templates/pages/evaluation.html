@@ -365,43 +365,7 @@
         </div>
     </div>
 
-    <!-- SEQ Modal -->
-    <div id="seq-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50" onclick="if(event.target.id==='seq-modal') closeSEQModal()">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg max-w-2xl w-full shadow-2xl" onclick="event.stopPropagation()">
-                <div class="text-white px-6 py-4 flex justify-between items-center rounded-t-lg" style="background:linear-gradient(to right,#090947,#0A66FF)">
-                    <div>
-                        <h2 class="text-xl font-bold">Task Ease Rating (SEQ)</h2>
-                        <p class="text-sm opacity-90 mt-1" id="seq-task">-</p>
-                    </div>
-                    <button onclick="closeSEQModal()" class="text-white hover:text-gray-200 text-3xl leading-none">&times;</button>
-                </div>
-                <div class="px-6 py-6">
-                    <div class="flex items-center gap-6 mb-6">
-                        <div class="w-20 h-20 rounded-full flex flex-col items-center justify-center shadow-md border border-[#E4E4EC]" style="background:#F8F8FA">
-                            <div class="text-3xl font-bold text-[#0A66FF]" id="seq-score">-</div>
-                            <div class="text-xs text-[#8A8A9A]">/7</div>
-                        </div>
-                        <div class="flex-1">
-                            <div class="text-sm font-medium text-[#8A8A9A] mb-1">Overall, this task was:</div>
-                            <div class="text-2xl font-semibold text-[#090947]" id="seq-label">-</div>
-                        </div>
-                    </div>
-                    <div class="rounded-lg p-4 mb-6 border border-[#E4E4EC]" style="background:#F8F8FA">
-                        <div class="text-xs text-center text-[#8A8A9A] mb-3 font-medium">1 (Very Difficult) to 7 (Very Easy)</div>
-                        <div class="flex gap-2" id="seq-scale"></div>
-                    </div>
-                    <div>
-                        <h3 class="font-semibold text-[#090947] mb-2">Agent's Reasoning</h3>
-                        <div class="rounded-lg p-4 text-sm text-[#2C2C3A] border-l-4 border-[#0A66FF]" style="background:#F8F8FA" id="seq-reason"></div>
-                    </div>
-                </div>
-                <div class="px-6 py-3 flex justify-end border-t border-[#E4E4EC] rounded-b-lg" style="background:#F8F8FA">
-                    <button onclick="closeSEQModal()" class="px-4 py-2 text-sm font-medium border rounded border-[#090947] text-[#090947] bg-transparent hover:opacity-80 transition-opacity">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    {% include 'partials/seq_modal.html' %}
 
     <!-- Verification Modal -->
     <div id="verification-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50" onclick="if(event.target.id==='verification-modal') closeVerificationModal()">
@@ -538,10 +502,10 @@
         function showSEQModal(btn) {
             const task = JSON.parse(btn.dataset.task);
             if (!task.seq_score) { alert('SEQ data not available for this task'); return; }
-            document.getElementById('seq-task').textContent = task.task_description;
-            document.getElementById('seq-score').textContent = parseFloat(task.seq_score).toFixed(1);
-            document.getElementById('seq-label').textContent = SEQ_LABELS[Math.round(task.seq_score) - 1];
-            document.getElementById('seq-scale').innerHTML = [1,2,3,4,5,6,7].map(i => {
+            document.getElementById('seq-modal-task').textContent = task.task_description;
+            document.getElementById('seq-modal-score').textContent = parseFloat(task.seq_score).toFixed(1);
+            document.getElementById('seq-modal-label').textContent = SEQ_LABELS[Math.round(task.seq_score) - 1];
+            document.getElementById('seq-modal-scale').innerHTML = [1,2,3,4,5,6,7].map(i => {
                 const sel = Math.round(task.seq_score) === i;
                 return `<div class="flex-1 text-center p-3 rounded border-2 transition-all ${sel ? 'font-bold transform scale-105 shadow-md' : ''}"
                              style="${sel ? 'background:linear-gradient(to bottom right,#090947,#0A66FF);color:white;border-color:#0A66FF' : 'background:white;border-color:#E4E4EC;color:#8A8A9A'}">
@@ -549,7 +513,7 @@
                     <div class="text-xs mt-1">${SEQ_LABELS[i-1]}</div>
                 </div>`;
             }).join('');
-            document.getElementById('seq-reason').textContent = task.seq_reasoning || 'No reasoning provided.';
+            document.getElementById('seq-modal-reason').textContent = task.seq_reasoning || 'No reasoning provided.';
             document.getElementById('seq-modal').classList.remove('hidden');
         }
 
