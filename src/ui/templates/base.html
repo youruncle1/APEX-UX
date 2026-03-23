@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}APEX-UX{% endblock %} - APEX-UX</title>
+    <link rel="icon" href="/static/favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+    <style>
+        .ibm-mono { font-family: 'IBM Plex Mono', monospace; }
+    </style>
+</head>
+<body class="bg-[#F8F8FA] text-[#2C2C3A] min-h-screen">
+
+    <header class="bg-white border-b border-[#E4E4EC] px-8 h-[58px] flex items-center justify-between">
+        <div class="flex items-center gap-6">
+            <a href="/" class="text-[1.05rem] font-bold text-[#090947] tracking-[0.05em] uppercase no-underline">
+                APEX<span class="text-[#0A66FF]">-UX</span>
+            </a>
+            <span class="text-[#E4E4EC]">|</span>
+            <div class="flex items-center gap-3">
+                {% block header_title %}{% endblock %}
+            </div>
+        </div>
+        {% block header_back %}
+        <a href="/" class="text-sm text-[#8A8A9A] hover:text-[#090947] transition-colors">← Dashboard</a>
+        {% endblock %}
+    </header>
+
+    {% block content %}{% endblock %}
+
+</body>
+</html>

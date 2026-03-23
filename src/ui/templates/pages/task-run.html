@@ -1,44 +1,27 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ task_run.task_description }} - APEX-UX</title>
-    <link rel="icon" href="/static/favicon.ico">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
-    <style>
-        .ibm-mono { font-family: 'IBM Plex Mono', monospace; }
-    </style>
-</head>
-<body class="bg-[#F8F8FA] text-[#2C2C3A] min-h-screen">
+{% extends "base.html" %}
 
-    <!-- Header -->
-    <header class="bg-white border-b border-[#E4E4EC] px-8 h-[58px] flex items-center justify-between">
-        <div class="flex items-center gap-6">
-            <a href="/" class="text-[1.05rem] font-bold text-[#090947] tracking-[0.05em] uppercase no-underline">
-                APEX<span class="text-[#0A66FF]">-UX</span>
-            </a>
-            <span class="text-[#E4E4EC]">|</span>
-            <div class="flex items-center gap-3">
-                <h1 class="text-sm font-semibold text-[#090947] max-w-sm truncate" title="{{ task_run.task_description }}">
-                    {{ task_run.task_description }}
-                </h1>
-                {% if task_run.status == 'COMPLETED' %}
-                <span style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#24C875;color:#0a3d22">Completed</span>
-                {% elif task_run.status == 'TIMEOUT' %}
-                <span style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#FEF3C7;color:#92400E">Timeout</span>
-                {% elif task_run.status == 'RUNNING' %}
-                <span class="animate-pulse" style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#0A66FF;color:white">Running</span>
-                {% else %}
-                <span style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#ffe0e0;color:#8b0000">{{ task_run.status }}</span>
-                {% endif %}
-            </div>
-        </div>
-        <a href="javascript:history.back()" class="text-sm text-[#8A8A9A] hover:text-[#090947] transition-colors">← Back to Report</a>
-    </header>
+{% block title %}{{ task_run.task_description }}{% endblock %}
+
+{% block header_title %}
+<h1 class="text-sm font-semibold text-[#090947] max-w-sm truncate" title="{{ task_run.task_description }}">
+    {{ task_run.task_description }}
+</h1>
+{% if task_run.status == 'COMPLETED' %}
+<span style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#24C875;color:#0a3d22">Completed</span>
+{% elif task_run.status == 'TIMEOUT' %}
+<span style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#FEF3C7;color:#92400E">Timeout</span>
+{% elif task_run.status == 'RUNNING' %}
+<span class="animate-pulse" style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#0A66FF;color:white">Running</span>
+{% else %}
+<span style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#ffe0e0;color:#8b0000">{{ task_run.status }}</span>
+{% endif %}
+{% endblock %}
+
+{% block header_back %}
+<a href="javascript:history.back()" class="text-sm text-[#8A8A9A] hover:text-[#090947] transition-colors">← Back to Report</a>
+{% endblock %}
+
+{% block content %}
 
     <!-- Main Content -->
     <main class="max-w-[1600px] mx-auto px-8 py-8">
@@ -441,5 +424,4 @@
 
         function closeVerificationModal() { document.getElementById('verification-modal').classList.add('hidden'); }
     </script>
-</body>
-</html>
+{% endblock %}

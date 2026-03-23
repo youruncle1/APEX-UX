@@ -1,36 +1,17 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if mode == 'edit' %}Edit Evaluation{% else %}Create Evaluation{% endif %} - APEX-UX</title>
-    <link rel="icon" href="/static/favicon.ico">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .ibm-mono { font-family: 'IBM Plex Mono', monospace; }
-    </style>
-</head>
-<body class="bg-[#F8F8FA] text-[#2C2C3A] min-h-screen">
+{% extends "base.html" %}
 
-    <header class="bg-white border-b border-[#E4E4EC] px-8 h-[58px] flex items-center justify-between">
-        <div class="flex items-center gap-6">
-            <a href="/" class="text-[1.05rem] font-bold text-[#090947] tracking-[0.05em] uppercase no-underline">
-                APEX<span class="text-[#0A66FF]">-UX</span>
-            </a>
-            <span class="text-[#E4E4EC]">|</span>
-            <div class="flex items-center gap-3">
-                <h1 class="text-sm font-semibold text-[#090947]">
-                    {% if mode == 'edit' %}Edit Evaluation{% else %}Create New Evaluation{% endif %}
-                </h1>
-                {% if mode == 'edit' %}
-                <span style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#FFF3CD;color:#5a4a00">Editing</span>
-                {% endif %}
-            </div>
-        </div>
-        <a href="/" class="text-sm text-[#8A8A9A] hover:text-[#090947] transition-colors">← Dashboard</a>
-    </header>
+{% block title %}{% if mode == 'edit' %}Edit Evaluation{% else %}Create Evaluation{% endif %}{% endblock %}
+
+{% block header_title %}
+<h1 class="text-sm font-semibold text-[#090947]">
+    {% if mode == 'edit' %}Edit Evaluation{% else %}Create New Evaluation{% endif %}
+</h1>
+{% if mode == 'edit' %}
+<span style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#FFF3CD;color:#5a4a00">Editing</span>
+{% endif %}
+{% endblock %}
+
+{% block content %}
 
     <main class="max-w-3xl mx-auto px-8 py-8">
 
@@ -859,5 +840,4 @@
             }
         });
     </script>
-</body>
-</html>
+{% endblock %}
