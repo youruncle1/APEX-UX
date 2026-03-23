@@ -57,6 +57,7 @@ class MemoryManager:
         else:
             compress_input = f"Actions:\n{actions_text}"
 
+        # TODO: upgrade prompt - definitely pass task definition into prompt too.
         system_content = (
             "You compress action histories into concise summaries. "
             "Focus on navigation milestones and key decisions. Be brief."
