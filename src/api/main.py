@@ -257,13 +257,13 @@ async def task_run_replay_page(
 
 
 @pages_router.get("/create", include_in_schema=False)
-async def create_evaluation_page():
-    return FileResponse("src/ui/static/create.html")
+async def create_evaluation_page(request: Request):
+    return templates.TemplateResponse(request, "pages/create-edit.html", {"mode": "create", "eval_id": None})
 
 
 @pages_router.get("/edit/{evaluation_id}", include_in_schema=False)
-async def edit_evaluation_page(evaluation_id: UUID):
-    return FileResponse("src/ui/static/edit.html")
+async def edit_evaluation_page(request: Request, evaluation_id: UUID):
+    return templates.TemplateResponse(request, "pages/create-edit.html", {"mode": "edit", "eval_id": str(evaluation_id)})
 
 
 app.include_router(pages_router)
