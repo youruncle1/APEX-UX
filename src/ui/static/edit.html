@@ -57,6 +57,16 @@
                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                         <p class="mt-1 text-sm text-gray-500">Number of persona clones to simulate</p>
                     </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Browser</label>
+                        <select id="eval-browser"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="chromium">Chrome (Chromium)</option>
+                            <option value="firefox">Firefox</option>
+                            <option value="webkit">Safari (WebKit)</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -123,6 +133,7 @@
 
                 document.getElementById('eval-name').value = data.name || '';
                 document.getElementById('eval-url').value = data.base_url;
+                document.getElementById('eval-browser').value = data.browser || 'chromium';
                 document.getElementById('clone-count').value = data.clone_count;
 
                 if (data.tasks.length === 0) {
@@ -886,6 +897,7 @@
 
             const name = document.getElementById('eval-name').value.trim() || null;
             const base_url = document.getElementById('eval-url').value.trim();
+            const browser = document.getElementById('eval-browser').value;
             const clone_count = parseInt(document.getElementById('clone-count').value);
 
             if (!base_url) {
@@ -948,7 +960,7 @@
                 const response = await fetch(`${API_BASE}/api/evaluations/${evaluationId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, base_url, clone_count, tasks })
+                    body: JSON.stringify({ name, base_url, browser, clone_count, tasks })
                 });
 
                 if (response.ok) {

@@ -8,8 +8,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 RUN pip install --no-cache-dir playwright && \
-    playwright install chromium && \
-    playwright install-deps chromium && \
+    playwright install chromium firefox webkit && \
+    playwright install-deps chromium firefox webkit && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     rm -rf /root/.cache/ms-playwright/

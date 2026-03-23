@@ -181,7 +181,7 @@ class EvaluationRunner:
         persona_context = PLACEHOLDER_PERSONA
 
         grounder = GroundingAgent()
-        browser = BrowserConnector(headless=True)
+        browser = BrowserConnector(headless=True, browser_type=evaluation.browser or "chromium")
 
         controller = TwoAgentController(
             persona_context=persona_context,

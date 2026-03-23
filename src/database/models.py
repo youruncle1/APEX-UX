@@ -36,6 +36,7 @@ class Evaluation(Base):
     id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     name = Column(String, nullable=True)
     base_url = Column(String, nullable=False)
+    browser = Column(String, default="chromium")
     status = Column(SQLEnum(EvaluationStatus), default=EvaluationStatus.PENDING)
     created_at = Column(DateTime, default=datetime.now)
     started_at = Column(DateTime, nullable=True)

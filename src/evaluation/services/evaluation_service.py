@@ -58,6 +58,7 @@ class EvaluationService:
         evaluation = await self.eval_repo.create(
             name=data.name,
             base_url=data.base_url,
+            browser=data.browser,
             clone_count=data.clone_count,
             tasks_data=[t.model_dump() for t in data.tasks],
         )
@@ -206,6 +207,7 @@ class EvaluationService:
             "id": str(evaluation.id),
             "name": evaluation.name,
             "base_url": evaluation.base_url,
+            "browser": evaluation.browser or "chromium",
             "clone_count": len(evaluation.clones),
             "tasks": [
                 {
@@ -231,6 +233,7 @@ class EvaluationService:
             evaluation=evaluation,
             name=data.name,
             base_url=data.base_url,
+            browser=data.browser,
             clone_count=data.clone_count,
             tasks_data=[t.model_dump() for t in data.tasks],
         )

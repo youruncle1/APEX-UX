@@ -12,7 +12,8 @@ class BrowserConnector:
         viewport_width: int = 1280,
         viewport_height: int = 720,
         timeout: int = 10000,
-        stabilization_wait: int = 300 
+        stabilization_wait: int = 300,
+        browser_type: str = "chromium",
     ):
         self.playwright: Optional[Playwright] = None
         self.browser: Optional[Browser] = None
@@ -21,12 +22,14 @@ class BrowserConnector:
         self.viewport_height = viewport_height
         self.timeout = timeout
         self.headless = headless
-        self.stabilization_wait = stabilization_wait  
-    
+        self.stabilization_wait = stabilization_wait
+        self.browser_type = browser_type
+
     async def start(self, url: str) -> None:
         """Launch browser and navigate to initial URL"""
         self.playwright = await async_playwright().start()
-        self.browser = await self.playwright.chromium.launch(headless=self.headless)
+        browser_launcher = getattr(self.playwright, self.browser_type)
+        self.browser = await browser_launcher.launch(headless=self.headless)
         
         self.page = await self.browser.new_page(
             viewport={"width": self.viewport_width, "height": self.viewport_height}

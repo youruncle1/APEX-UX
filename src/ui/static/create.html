@@ -48,6 +48,16 @@
                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                         <p class="mt-1 text-sm text-gray-500">Number of persona clones to simulate (placeholder personas will be used)</p>
                     </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Browser</label>
+                        <select id="eval-browser"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="chromium">Chrome (Chromium)</option>
+                            <option value="firefox">Firefox</option>
+                            <option value="webkit">Safari (WebKit)</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -724,6 +734,7 @@
             // Gather form data
             const name = document.getElementById('eval-name').value.trim() || null;
             const base_url = document.getElementById('eval-url').value.trim();
+            const browser = document.getElementById('eval-browser').value;
             const clone_count = parseInt(document.getElementById('clone-count').value);
 
             console.log('Basic data:', { name, base_url, clone_count });
@@ -802,6 +813,7 @@
                     body: JSON.stringify({
                         name,
                         base_url,
+                        browser,
                         clone_count,
                         tasks
                     })
