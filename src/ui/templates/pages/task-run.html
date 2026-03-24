@@ -9,7 +9,7 @@
 {% if task_run.status == 'COMPLETED' %}
 <span class="inline-block px-[10px] py-[3px] text-[11px] font-semibold tracking-[0.04em] uppercase rounded-full bg-success-green text-success-dark">Completed</span>
 {% elif task_run.status == 'TIMEOUT' %}
-<span class="inline-block px-[10px] py-[3px] text-[11px] font-semibold tracking-[0.04em] uppercase rounded-full bg-warn-amber text-warn-amber-dark">Timeout</span>
+<span class="inline-block px-[10px] py-[3px] text-[11px] font-semibold tracking-[0.04em] uppercase rounded-full bg-warn-yellow text-warn-yellow-dark">Timeout</span>
 {% elif task_run.status == 'RUNNING' %}
 <span class="inline-block px-[10px] py-[3px] text-[11px] font-semibold tracking-[0.04em] uppercase rounded-full bg-brand-blue text-white animate-pulse">Running</span>
 {% else %}
