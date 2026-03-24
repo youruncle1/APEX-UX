@@ -132,23 +132,23 @@ async def evaluations_partial(request: Request, db: AsyncSession = Depends(get_d
     return await _evaluations_template(request, db)
 
 
-@partials_router.post("/evaluations/{evaluation_id}/start", response_class=Response)
-async def start_evaluation_partial(evaluation_id: UUID, db: AsyncSession = Depends(get_db)):
+@partials_router.post("/evaluations/{evaluation_id}/start", response_class=HTMLResponse)
+async def start_evaluation_partial(request: Request, evaluation_id: UUID, db: AsyncSession = Depends(get_db)):
     result = await EvaluationService(db).start_evaluation(evaluation_id)
     if not result:
         raise HTTPException(status_code=404, detail="Evaluation not found")
-    return Response(status_code=200, headers={"HX-Redirect": f"/evaluation/{evaluation_id}"})
+    return await _evaluations_template(request, db)
 
 
-@partials_router.post("/evaluations/{evaluation_id}/abort", response_class=Response)
-async def abort_evaluation_partial(evaluation_id: UUID, db: AsyncSession = Depends(get_db)):
+@partials_router.post("/evaluations/{evaluation_id}/abort", response_class=HTMLResponse)
+async def abort_evaluation_partial(request: Request, evaluation_id: UUID, db: AsyncSession = Depends(get_db)):
     try:
         result = await EvaluationService(db).abort_evaluation(evaluation_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     if not result:
         raise HTTPException(status_code=404, detail="Evaluation not found")
-    return Response(status_code=200, headers={"HX-Redirect": f"/evaluation/{evaluation_id}"})
+    return await _evaluations_template(request, db)
 
 
 @partials_router.post("/evaluations/{evaluation_id}/copy", response_class=HTMLResponse)
