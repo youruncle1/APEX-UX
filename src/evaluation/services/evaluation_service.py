@@ -29,7 +29,6 @@ class EvaluationService:
     def __init__(self, session: AsyncSession):
         self.session = session
         self.eval_repo = EvaluationRepository(session)
-        self.screenshot_storage = create_screenshot_storage()
 
     async def list_evaluations(self) -> List[EvaluationSummary]:
         evaluations = await self.eval_repo.list_all()
@@ -254,7 +253,7 @@ class EvaluationService:
             return None
 
         try:
-            await self.screenshot_storage.delete_evaluation(str(evaluation_id))
+            await create_screenshot_storage().delete_evaluation(str(evaluation_id))
         except Exception as e:
             print(f"[EvaluationService] Failed to delete screenshots: {e}")
 
@@ -275,6 +274,7 @@ class EvaluationService:
             raise ValueError(f"Evaluation already {evaluation.status.value}")
 
         evaluation_cancellation[evaluation_id] = False
+        await self.eval_repo.update_status(evaluation, EvaluationStatus.RUNNING, started_at=datetime.utcnow())
         asyncio.create_task(run_evaluation_background(evaluation_id))
 
         return {

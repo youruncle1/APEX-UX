@@ -31,7 +31,8 @@
 {% if evaluations %}
 <div id="evaluations-container"
      {% if has_running %}
-     hx-trigger="every 1s" hx-get="/partials/evaluations" hx-swap="outerHTML" hx-target="this"
+     hx-ext="morph" hx-get="/partials/evaluations" hx-swap="morph:outerHTML" hx-target="this"
+     hx-trigger="every {{ '3s' if has_aborting else '10s' }}"
      {% endif %}>
     <div class="flex justify-end mb-3">
         <a href="/create" class="bg-brand-blue hover:bg-brand-blue-dark text-white px-5 py-[9px] text-sm font-medium rounded-md no-underline inline-flex items-center gap-1.5 transition-colors">
