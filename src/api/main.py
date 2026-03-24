@@ -104,8 +104,48 @@ def _render_verification_rules(details, depth=0) -> Markup:
     return Markup('<div class="text-sm italic" style="color:#8A8A9A">Unknown rule type</div>')
 
 
+def _render_verification_rules_def(rules, depth=0) -> Markup:
+    """Render verification rules definition (no pass/fail status — for PENDING tasks)."""
+    if not rules:
+        return Markup('<div class="text-sm italic" style="color:#8A8A9A">No verification rules defined</div>')
+    indent = depth * 20
+    t = rules.get("type")
+
+    if t == "url_contains":
+        v = escape(rules.get("value", ""))
+        return Markup(f'<div class="flex items-start gap-2 py-2" style="margin-left:{indent}px">'
+                      f'<span style="color:#8A8A9A;font-weight:600;font-size:1.125rem">○</span>'
+                      f'<div><span class="text-sm font-medium" style="color:#2C2C3A">URL contains:</span>'
+                      f'<code class="ml-2 px-2 py-0.5 rounded text-xs ibm-mono" style="background:#F8F8FA;border:1px solid #E4E4EC">{v}</code>'
+                      f'</div></div>')
+
+    if t == "text_any":
+        texts = escape(", ".join(rules.get("texts", [])))
+        return Markup(f'<div class="flex items-start gap-2 py-2" style="margin-left:{indent}px">'
+                      f'<span style="color:#8A8A9A;font-weight:600;font-size:1.125rem">○</span>'
+                      f'<div><span class="text-sm font-medium" style="color:#2C2C3A">Page shows text:</span>'
+                      f'<code class="ml-2 px-2 py-0.5 rounded text-xs ibm-mono" style="background:#F8F8FA;border:1px solid #E4E4EC">{texts}</code>'
+                      f'</div></div>')
+
+    if t in ("any_of", "all_of"):
+        group_name = escape(rules.get("name", "OR Group") if t == "any_of" else "AND Group")
+        desc = "(any one must pass)" if t == "any_of" else "(all must pass)"
+        title_color = "#0A66FF" if t == "any_of" else "#090947"
+        children = Markup("").join(
+            _render_verification_rules_def(child, depth + 1)
+            for child in rules.get("conditions", [])
+        )
+        return Markup(f'<div class="border-l-2 pl-3 py-2" style="margin-left:{indent}px;border-color:#E4E4EC">'
+                      f'<div class="text-sm font-semibold mb-2" style="color:{title_color}">{group_name} '
+                      f'<span class="text-xs font-normal" style="color:#8A8A9A">{desc}</span></div>'
+                      f'{children}</div>')
+
+    return Markup('<div class="text-sm italic" style="color:#8A8A9A">Unknown rule type</div>')
+
+
 templates.env.filters["tojson"] = _tojson
 templates.env.globals["render_verification_rules"] = _render_verification_rules
+templates.env.globals["render_verification_rules_def"] = _render_verification_rules_def
 
 
 async def get_db() -> AsyncSession:
@@ -187,6 +227,19 @@ async def verification_partial(
     if not task_run:
         raise HTTPException(status_code=404, detail="Task run not found")
     return templates.TemplateResponse(request, "partials/verification.html", {"task_run": task_run})
+
+
+@partials_router.get("/task-definition/{task_def_id}/verification-rules", response_class=HTMLResponse)
+async def verification_rules_partial(
+    request: Request, task_def_id: UUID, db: AsyncSession = Depends(get_db)
+):
+    task_def = await EvaluationRepository(db).get_task_definition(task_def_id)
+    if not task_def:
+        raise HTTPException(status_code=404, detail="Task definition not found")
+    return templates.TemplateResponse(request, "partials/verification_rules.html", {
+        "task_description": task_def.description,
+        "verification_rules": task_def.verification_rules,
+    })
 
 
 app.include_router(partials_router)

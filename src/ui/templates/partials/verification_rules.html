@@ -1,0 +1,10 @@
+<p class="text-sm text-muted-gray mb-4">{{ task_description }}</p>
+
+<div class="mb-4">
+    <span class="px-3 py-1 text-sm rounded-full font-semibold bg-warn-yellow text-warn-yellow-dark">Pending — not yet evaluated</span>
+</div>
+
+<div>
+    <h3 class="font-semibold text-brand-navy mb-3">Verification Rules</h3>
+    <div class="space-y-1">{{ render_verification_rules_def(verification_rules) }}</div>
+</div>
