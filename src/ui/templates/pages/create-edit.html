@@ -351,21 +351,10 @@
                             class="text-xs text-error-red hover:opacity-70">Remove</button>
                 </div>
 
-                <div id="simple-${taskId}" class="space-y-3">
+                <div class="space-y-3">
                     <div>
                         <label class="block text-sm font-medium text-body-dark mb-1">Task Description <span class="text-error-red">*</span></label>
                         <textarea id="desc-${taskId}" rows="2"
-                                  class="block w-full rounded border border-border-gray bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-blue"
-                                  placeholder="E.g., Add a blue wireless mouse to the shopping cart">${description}</textarea>
-                    </div>
-                    <button type="button" onclick="toggleAdvanced(${taskId})"
-                            class="text-xs text-brand-blue hover:opacity-70">⚙ Advanced Options</button>
-                </div>
-
-                <div id="advanced-${taskId}" class="hidden space-y-3">
-                    <div>
-                        <label class="block text-sm font-medium text-body-dark mb-1">Task Description <span class="text-error-red">*</span></label>
-                        <textarea id="desc-adv-${taskId}" rows="2"
                                   class="block w-full rounded border border-border-gray bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-blue"
                                   placeholder="E.g., Add a blue wireless mouse to the shopping cart">${description}</textarea>
                     </div>
@@ -385,16 +374,15 @@
                     </div>
 
                     <div>
-                        <div class="flex items-center gap-2 mb-3">
-                            <input type="checkbox" id="verify-enabled-${taskId}"
-                                   class="rounded border-border-gray"
-                                   onchange="toggleVerification(${taskId})">
-                            <label for="verify-enabled-${taskId}" class="text-sm font-medium text-body-dark">
-                                Verify task completion automatically
-                            </label>
-                        </div>
+                        <button type="button" onclick="toggleVerification(${taskId})"
+                                class="flex items-center gap-2.5 select-none">
+                            <div id="verify-toggle-pill-${taskId}" class="relative w-9 h-5 rounded-full bg-border-gray transition-colors duration-200">
+                                <div id="verify-toggle-dot-${taskId}" class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"></div>
+                            </div>
+                            <span class="text-sm font-medium text-body-dark">Verification rules</span>
+                        </button>
 
-                        <div id="verify-options-${taskId}" class="hidden pl-4 border-l-2 border-brand-blue space-y-3">
+                        <div id="verify-options-${taskId}" class="hidden mt-3 pl-4 border-l-2 border-brand-blue space-y-3">
                             <div class="flex justify-center mb-3">
                                 <div class="inline-flex rounded overflow-hidden border border-border-gray" role="group">
                                     <button type="button" id="verify-mode-simple-btn-${taskId}"
@@ -456,22 +444,16 @@
                             </div>
                         </div>
                     </div>
-
-                    <button type="button" onclick="toggleAdvanced(${taskId})"
-                            class="text-xs text-brand-blue hover:opacity-70">← Simple View</button>
                 </div>
             `;
 
             container.appendChild(taskCard);
 
-            if (taskData && (taskData.max_steps !== 25 || taskData.base_url_override || taskData.verification_rules)) {
-                document.getElementById(`simple-${taskId}`).classList.add('hidden');
-                document.getElementById(`advanced-${taskId}`).classList.remove('hidden');
-            }
-
             if (taskData && taskData.verification_rules) {
-                const checkbox = document.getElementById(`verify-enabled-${taskId}`);
-                checkbox.checked = true;
+                const pill = document.getElementById(`verify-toggle-pill-${taskId}`);
+                const dot = document.getElementById(`verify-toggle-dot-${taskId}`);
+                if (pill) { pill.classList.add('bg-brand-blue'); pill.classList.remove('bg-border-gray'); }
+                if (dot) dot.classList.add('translate-x-4');
                 document.getElementById(`verify-options-${taskId}`).classList.remove('hidden');
                 populateVerificationRules(taskId, taskData.verification_rules);
             }
@@ -484,32 +466,34 @@
             }
         }
 
-        function toggleAdvanced(taskId) {
-            const simple = document.getElementById(`simple-${taskId}`);
-            const advanced = document.getElementById(`advanced-${taskId}`);
-            const descSimple = document.getElementById(`desc-${taskId}`);
-            const descAdv = document.getElementById(`desc-adv-${taskId}`);
-
-            if (simple.classList.contains('hidden')) {
-                descSimple.value = descAdv.value;
-                simple.classList.remove('hidden');
-                advanced.classList.add('hidden');
-            } else {
-                descAdv.value = descSimple.value;
-                simple.classList.add('hidden');
-                advanced.classList.remove('hidden');
-            }
-        }
-
         // ============================================================================
         // VERIFICATION — MODE SWITCHING
         // ============================================================================
 
+        function isVerifyEnabled(taskId) {
+            const pill = document.getElementById(`verify-toggle-pill-${taskId}`);
+            return pill && pill.classList.contains('bg-brand-blue');
+        }
+
         function toggleVerification(taskId) {
-            const enabled = document.getElementById(`verify-enabled-${taskId}`).checked;
-            document.getElementById(`verify-options-${taskId}`).classList.toggle('hidden', !enabled);
-            if (enabled && document.getElementById(`verify-rules-${taskId}`).children.length === 0) {
-                addVerifyRule(taskId);
+            const pill = document.getElementById(`verify-toggle-pill-${taskId}`);
+            const dot = document.getElementById(`verify-toggle-dot-${taskId}`);
+            const options = document.getElementById(`verify-options-${taskId}`);
+            const enabled = isVerifyEnabled(taskId);
+
+            if (enabled) {
+                pill.classList.remove('bg-brand-blue');
+                pill.classList.add('bg-border-gray');
+                dot.classList.remove('translate-x-4');
+                options.classList.add('hidden');
+            } else {
+                pill.classList.add('bg-brand-blue');
+                pill.classList.remove('bg-border-gray');
+                dot.classList.add('translate-x-4');
+                options.classList.remove('hidden');
+                if (document.getElementById(`verify-rules-${taskId}`).children.length === 0) {
+                    addVerifyRule(taskId);
+                }
             }
         }
 
@@ -795,8 +779,7 @@
         // ============================================================================
 
         function buildVerificationRules(taskId) {
-            const enabled = document.getElementById(`verify-enabled-${taskId}`);
-            if (!enabled || !enabled.checked) return null;
+            if (!isVerifyEnabled(taskId)) return null;
             const mode = verifyModes[taskId] || 'simple';
             return mode === 'advanced' ? buildAdvancedVerificationRules(taskId) : buildSimpleVerificationRules(taskId);
         }
@@ -904,24 +887,12 @@
                 const taskCard = document.getElementById(`task-${i}`);
                 if (!taskCard) continue;
 
-                const simple = document.getElementById(`simple-${i}`);
-                const isSimpleView = !simple.classList.contains('hidden');
-                let description, max_steps, url_override, verify_rules;
+                const description = document.getElementById(`desc-${i}`).value.trim();
+                const max_steps = parseInt(document.getElementById(`max-steps-${i}`).value);
+                const url_override = document.getElementById(`url-override-${i}`).value.trim() || null;
+                const verify_rules = buildVerificationRules(i);
 
-                if (isSimpleView) {
-                    description = document.getElementById(`desc-${i}`).value.trim();
-                    max_steps = 25;
-                    url_override = null;
-                    verify_rules = null;
-                } else {
-                    description = document.getElementById(`desc-adv-${i}`).value.trim();
-                    max_steps = parseInt(document.getElementById(`max-steps-${i}`).value);
-                    url_override = document.getElementById(`url-override-${i}`).value.trim() || null;
-                    verify_rules = buildVerificationRules(i);
-                    if (verify_rules === null && document.getElementById(`verify-enabled-${i}`)?.checked) {
-                        if ((verifyModes[i] || 'simple') === 'advanced') return;
-                    }
-                }
+                if (isVerifyEnabled(i) && verify_rules === null && (verifyModes[i] || 'simple') === 'advanced') return;
 
                 if (!description) {
                     alert(`Task ${i + 1} is missing a description`);
