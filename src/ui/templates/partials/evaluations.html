@@ -27,10 +27,11 @@
 {% endmacro %}
 
 {% set has_running = evaluations | selectattr('status', 'equalto', 'RUNNING') | list | length > 0 %}
+{% set has_aborting = evaluations | selectattr('status', 'equalto', 'ABORTED') | list | length > 0 %}
 
 {% if evaluations %}
 <div id="evaluations-container"
-     {% if has_running %}
+     {% if has_running or has_aborting %}
      hx-ext="morph" hx-get="/partials/evaluations" hx-swap="morph:outerHTML" hx-target="this"
      hx-trigger="every {{ '3s' if has_aborting else '10s' }}"
      {% endif %}>
@@ -69,7 +70,7 @@
                         {% elif ev.status == 'COMPLETED' %}
                         <span class="inline-block px-[14px] py-[6px] text-[12px] font-semibold tracking-[0.04em] uppercase rounded-full bg-success-green text-success-dark">Completed</span>
                         {% elif ev.status == 'ABORTED' %}
-                        <span class="inline-block px-[14px] py-[6px] text-[12px] font-semibold tracking-[0.04em] uppercase rounded-full bg-error-light text-error-dark">Aborted</span>
+                        <span class="inline-block px-[14px] py-[6px] text-[12px] font-semibold tracking-[0.04em] uppercase rounded-full bg-error-red text-error-dark animate-pulse">Aborting</span>
                         {% endif %}
                     </td>
                     <td class="px-4 py-[13px] align-middle ibm-mono font-semibold text-[12.5px] text-body-dark whitespace-nowrap">{{ ev.task_count }}</td>
@@ -96,6 +97,10 @@
                                     class="w-[110px] justify-center text-[13px] font-semibold px-3 py-1 border rounded border-error-red text-white bg-error-red cursor-pointer whitespace-nowrap hover:opacity-80 transition-opacity">
                                 Abort
                             </button>
+                            {{ action_dropdown(ev, can_edit=false, can_delete=false) }}
+
+                            {% elif ev.status == 'ABORTED' %}
+                            <span class="w-[110px] justify-center inline-flex items-center text-[13px] font-medium py-1 border rounded border-gray-300 text-gray-300 whitespace-nowrap cursor-not-allowed select-none">Aborting...</span>
                             {{ action_dropdown(ev, can_edit=false, can_delete=false) }}
 
                             {% else %}

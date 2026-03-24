@@ -293,6 +293,7 @@ class EvaluationService:
             raise ValueError(f"Cannot abort evaluation with status {evaluation.status.value}")
 
         evaluation_cancellation[evaluation_id] = True
+        await self.eval_repo.update_status(evaluation, EvaluationStatus.ABORTED)
 
         await broadcast_progress(evaluation_id, {
             "type": "status",

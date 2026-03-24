@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database.connection import AsyncSessionLocal
 from src.database.repositories import EvaluationRepository
 from src.evaluation.api.router import router as evaluation_router
-from src.evaluation.api.websocket import evaluation_cancellation
 from src.evaluation.services.evaluation_service import EvaluationService
 from src.evaluation.services.task_run_service import TaskRunService
 
@@ -116,9 +115,8 @@ async def get_db() -> AsyncSession:
 
 async def _evaluations_template(request: Request, db: AsyncSession) -> HTMLResponse:
     evaluations = await EvaluationService(db).list_evaluations()
-    has_aborting = any(evaluation_cancellation.get(ev.id, False) for ev in evaluations)
     return templates.TemplateResponse(
-        request, "partials/evaluations.html", {"evaluations": evaluations, "has_aborting": has_aborting}
+        request, "partials/evaluations.html", {"evaluations": evaluations}
     )
 
 
