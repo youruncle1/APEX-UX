@@ -132,6 +132,9 @@ class EvaluationService:
                 steps_taken = metrics.steps_taken if metrics else 0
                 seq_score = metrics.seq_score if metrics else None
                 seq_reasoning = metrics.seq_reasoning if metrics else None
+                failed_action_count = metrics.failed_action_count if metrics else 0
+                backtracking_count = metrics.backtracking_count if metrics else 0
+                outcome_mismatch_count = metrics.outcome_mismatch_count if metrics else 0
 
                 task_runs_data.append({
                     "id": str(task_run.id),
@@ -143,6 +146,9 @@ class EvaluationService:
                     "seq_reasoning": seq_reasoning,
                     "verification_result": task_run.verification_result.value if task_run.verification_result else None,
                     "agent_done": task_run.agent_done,
+                    "failed_action_count": failed_action_count,
+                    "backtracking_count": backtracking_count,
+                    "outcome_mismatch_count": outcome_mismatch_count,
                 })
 
                 if metrics:
