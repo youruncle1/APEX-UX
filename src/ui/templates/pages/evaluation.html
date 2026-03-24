@@ -145,7 +145,7 @@
                     <thead>
                         <tr class="border-b border-border-gray">
                             <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase">#</th>
-                            <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase">Description</th>
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase w-1/2">Description</th>
                             <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase">URL Override</th>
                             <th class="px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase">Max Steps</th>
                             <th class="px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase">Verification</th>
@@ -229,7 +229,7 @@
                         <table class="w-full border-collapse">
                             <thead>
                                 <tr class="border-b border-border-gray">
-                                    <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase">Task</th>
+                                    <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase w-2/5">Task</th>
                                     <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase">Status</th>
                                     <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase">Verification</th>
                                     <th class="px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase">SEQ</th>
@@ -241,7 +241,7 @@
                                 {% for task in persona.tasks %}
                                 <tr class="border-b border-border-gray last:border-b-0 hover:bg-hover-gray transition-colors">
                                     <td class="px-3 py-2 text-sm">
-                                        <div class="max-w-xs truncate text-body-dark" title="{{ task.task_description }}">{{ task.task_description }}</div>
+                                        <div class="text-body-dark break-words">{{ task.task_description }}</div>
                                     </td>
                                     <td class="px-3 py-2 text-sm">
                                         {% if task.agent_done %}
