@@ -3,11 +3,11 @@
 {% block title %}{% if mode == 'edit' %}Edit Evaluation{% else %}Create Evaluation{% endif %}{% endblock %}
 
 {% block header_title %}
-<h1 class="text-base font-semibold text-[#090947]">
+<h1 class="text-base font-semibold text-brand-navy">
     {% if mode == 'edit' %}Edit Evaluation{% else %}Create New Evaluation{% endif %}
 </h1>
 {% if mode == 'edit' %}
-<span style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#FFF3CD;color:#5a4a00">Editing</span>
+<span class="inline-block px-[10px] py-[3px] text-[11px] font-semibold tracking-[0.04em] uppercase rounded-full bg-warn-yellow-light text-warn-yellow-dark">Editing</span>
 {% endif %}
 {% endblock %}
 
@@ -17,52 +17,52 @@
 
         {% if mode == 'edit' %}
         <div id="loading" class="text-center py-16">
-            <div class="w-7 h-7 border-2 border-[#E4E4EC] border-t-[#0A66FF] rounded-full animate-spin mx-auto mb-4"></div>
-            <p class="text-sm text-[#8A8A9A]">Loading evaluation...</p>
+            <div class="w-7 h-7 border-2 border-border-gray border-t-brand-blue rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="text-sm text-muted-gray">Loading evaluation...</p>
         </div>
         {% endif %}
 
         <form id="evaluation-form" class="{% if mode == 'edit' %}hidden {% endif %}space-y-6">
 
             <!-- Evaluation Details -->
-            <div class="bg-white border border-[#E4E4EC] rounded-md p-6">
-                <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-[#0A66FF] mb-5">Evaluation Details</h2>
+            <div class="bg-white border border-border-gray rounded-md p-6">
+                <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-brand-blue mb-5">Evaluation Details</h2>
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-[#2C2C3A] mb-1">
-                            Evaluation Name <span class="text-[#8A8A9A] font-normal">(optional)</span>
+                        <label class="block text-sm font-medium text-body-dark mb-1">
+                            Evaluation Name <span class="text-muted-gray font-normal">(optional)</span>
                         </label>
                         <input type="text" id="eval-name"
-                               class="block w-full rounded border border-[#E4E4EC] bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#0A66FF]"
+                               class="block w-full rounded border border-border-gray bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-blue"
                                placeholder="E.g., E-commerce Usability Test">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-[#2C2C3A] mb-1">
-                            Website Base URL <span class="text-[#FF4D4D]">*</span>
+                        <label class="block text-sm font-medium text-body-dark mb-1">
+                            Website Base URL <span class="text-error-red">*</span>
                         </label>
                         <input type="url" id="eval-url" required
-                               class="block w-full rounded border border-[#E4E4EC] bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#0A66FF]"
+                               class="block w-full rounded border border-border-gray bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-blue"
                                placeholder="https://example.com">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-[#2C2C3A] mb-1">Number of Clones</label>
+                        <label class="block text-sm font-medium text-body-dark mb-1">Number of Clones</label>
                         <input type="number" id="clone-count" value="3" min="1" max="10"
-                               class="block w-full rounded border border-[#E4E4EC] bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#0A66FF]">
-                        <p class="mt-1 text-xs text-[#8A8A9A]">Number of persona clones to simulate{% if mode == 'create' %} (placeholder personas will be used){% endif %}</p>
+                               class="block w-full rounded border border-border-gray bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-blue">
+                        <p class="mt-1 text-xs text-muted-gray">Number of persona clones to simulate{% if mode == 'create' %} (placeholder personas will be used){% endif %}</p>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-[#2C2C3A] mb-1">Browser</label>
+                        <label class="block text-sm font-medium text-body-dark mb-1">Browser</label>
                         <select id="eval-browser"
-                                class="block w-full rounded border border-[#E4E4EC] bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#0A66FF]">
+                                class="block w-full rounded border border-border-gray bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-blue">
                             <option value="chromium">Chrome (Chromium)</option>
                             <option value="firefox">Firefox</option>
                             <option value="webkit">Safari (WebKit)</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-[#2C2C3A] mb-1">Viewport</label>
+                        <label class="block text-sm font-medium text-body-dark mb-1">Viewport</label>
                         <select id="eval-viewport"
-                                class="block w-full rounded border border-[#E4E4EC] bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#0A66FF]"
+                                class="block w-full rounded border border-border-gray bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-blue"
                                 onchange="onViewportChange()">
                             <option value="1280x720">720p HD — 1280×720 (default)</option>
                             <option value="1920x1080">1080p Full HD — 1920×1080</option>
@@ -75,38 +75,38 @@
                         </div>
                         <div id="viewport-custom" class="hidden mt-2 flex items-center gap-2">
                             <input type="number" id="viewport-w" placeholder="Width" min="400" max="3840" value="1280"
-                                   class="w-24 rounded border border-[#E4E4EC] bg-white px-2 py-1.5 text-sm focus:outline-none focus:border-[#0A66FF]">
-                            <span class="text-[#8A8A9A] text-sm">×</span>
+                                   class="w-24 rounded border border-border-gray bg-white px-2 py-1.5 text-sm focus:outline-none focus:border-brand-blue">
+                            <span class="text-muted-gray text-sm">×</span>
                             <input type="number" id="viewport-h" placeholder="Height" min="300" max="2160" value="720"
-                                   class="w-24 rounded border border-[#E4E4EC] bg-white px-2 py-1.5 text-sm focus:outline-none focus:border-[#0A66FF]">
-                            <span class="text-[#8A8A9A] text-sm">px</span>
+                                   class="w-24 rounded border border-border-gray bg-white px-2 py-1.5 text-sm focus:outline-none focus:border-brand-blue">
+                            <span class="text-muted-gray text-sm">px</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Tasks -->
-            <div class="bg-white border border-[#E4E4EC] rounded-md p-6">
+            <div class="bg-white border border-border-gray rounded-md p-6">
                 <div class="flex justify-between items-center mb-5">
-                    <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-[#0A66FF]">Tasks</h2>
+                    <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-brand-blue">Tasks</h2>
                     <button type="button" onclick="addTask()"
-                            class="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded bg-[#090947] text-white hover:opacity-80 transition-opacity">
+                            class="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded bg-brand-navy text-white hover:opacity-80 transition-opacity">
                         + Add Task
                     </button>
                 </div>
                 <div id="tasks-container" class="space-y-4"></div>
-                <p id="no-tasks-message" class="text-sm text-[#8A8A9A] text-center py-8">
+                <p id="no-tasks-message" class="text-sm text-muted-gray text-center py-8">
                     No tasks added yet. Click "Add Task" to create a task.
                 </p>
             </div>
 
             <!-- Submit -->
             <div class="flex justify-end gap-3">
-                <a href="/" class="inline-flex items-center text-sm font-medium px-4 py-2 rounded border border-[#E4E4EC] text-[#8A8A9A] hover:text-[#2C2C3A] hover:border-[#2C2C3A] transition-colors no-underline">
+                <a href="/" class="inline-flex items-center text-sm font-medium px-4 py-2 rounded border border-border-gray text-muted-gray hover:text-body-dark hover:border-body-dark transition-colors no-underline">
                     Cancel
                 </a>
                 <button type="submit" id="submit-btn"
-                        class="inline-flex items-center text-sm font-medium px-4 py-2 rounded bg-[#090947] text-white hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed">
+                        class="inline-flex items-center text-sm font-medium px-4 py-2 rounded bg-brand-navy text-white hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed">
                     {% if mode == 'edit' %}Save Changes{% else %}Create Evaluation{% endif %}
                 </button>
             </div>
@@ -191,8 +191,8 @@
             } catch (error) {
                 document.getElementById('loading').innerHTML = `
                     <div class="text-center py-16">
-                        <p class="text-sm mb-4" style="color:#FF4D4D">Failed to load evaluation. ${error.message}</p>
-                        <a href="/" class="text-sm text-[#0A66FF] hover:underline">← Back to Dashboard</a>
+                        <p class="text-sm mb-4 text-error-red">Failed to load evaluation. ${error.message}</p>
+                        <a href="/" class="text-sm text-brand-blue hover:underline">← Back to Dashboard</a>
                     </div>
                 `;
             }
@@ -213,44 +213,44 @@
 
             const taskCard = document.createElement('div');
             taskCard.id = `task-${taskId}`;
-            taskCard.className = 'border border-[#E4E4EC] rounded p-4';
+            taskCard.className = 'border border-border-gray rounded p-4';
 
             taskCard.innerHTML = `
                 <div class="flex justify-between items-start mb-3">
-                    <span class="text-xs font-semibold uppercase tracking-[0.07em] text-[#8A8A9A]">Task ${taskIdCounter}</span>
+                    <span class="text-xs font-semibold uppercase tracking-[0.07em] text-muted-gray">Task ${taskIdCounter}</span>
                     <button type="button" onclick="removeTask(${taskId})"
-                            class="text-xs text-[#FF4D4D] hover:opacity-70">Remove</button>
+                            class="text-xs text-error-red hover:opacity-70">Remove</button>
                 </div>
 
                 <div id="simple-${taskId}" class="space-y-3">
                     <div>
-                        <label class="block text-sm font-medium text-[#2C2C3A] mb-1">Task Description <span class="text-[#FF4D4D]">*</span></label>
+                        <label class="block text-sm font-medium text-body-dark mb-1">Task Description <span class="text-error-red">*</span></label>
                         <textarea id="desc-${taskId}" rows="2"
-                                  class="block w-full rounded border border-[#E4E4EC] bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#0A66FF]"
+                                  class="block w-full rounded border border-border-gray bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-blue"
                                   placeholder="E.g., Add a blue wireless mouse to the shopping cart">${description}</textarea>
                     </div>
                     <button type="button" onclick="toggleAdvanced(${taskId})"
-                            class="text-xs text-[#0A66FF] hover:opacity-70">⚙ Advanced Options</button>
+                            class="text-xs text-brand-blue hover:opacity-70">⚙ Advanced Options</button>
                 </div>
 
                 <div id="advanced-${taskId}" class="hidden space-y-3">
                     <div>
-                        <label class="block text-sm font-medium text-[#2C2C3A] mb-1">Task Description <span class="text-[#FF4D4D]">*</span></label>
+                        <label class="block text-sm font-medium text-body-dark mb-1">Task Description <span class="text-error-red">*</span></label>
                         <textarea id="desc-adv-${taskId}" rows="2"
-                                  class="block w-full rounded border border-[#E4E4EC] bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#0A66FF]"
+                                  class="block w-full rounded border border-border-gray bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-blue"
                                   placeholder="E.g., Add a blue wireless mouse to the shopping cart">${description}</textarea>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-[#2C2C3A] mb-1">Max Steps</label>
+                            <label class="block text-sm font-medium text-body-dark mb-1">Max Steps</label>
                             <input type="number" id="max-steps-${taskId}" value="${maxSteps}" min="5" max="100"
-                                   class="block w-full rounded border border-[#E4E4EC] bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#0A66FF]">
+                                   class="block w-full rounded border border-border-gray bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-blue">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-[#2C2C3A] mb-1">Base URL Override</label>
+                            <label class="block text-sm font-medium text-body-dark mb-1">Base URL Override</label>
                             <input type="url" id="url-override-${taskId}" value="${urlOverride}"
-                                   class="block w-full rounded border border-[#E4E4EC] bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#0A66FF]"
+                                   class="block w-full rounded border border-border-gray bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-blue"
                                    placeholder="https://...">
                         </div>
                     </div>
@@ -258,69 +258,69 @@
                     <div>
                         <div class="flex items-center gap-2 mb-3">
                             <input type="checkbox" id="verify-enabled-${taskId}"
-                                   class="rounded border-[#E4E4EC]"
+                                   class="rounded border-border-gray"
                                    onchange="toggleVerification(${taskId})">
-                            <label for="verify-enabled-${taskId}" class="text-sm font-medium text-[#2C2C3A]">
+                            <label for="verify-enabled-${taskId}" class="text-sm font-medium text-body-dark">
                                 Verify task completion automatically
                             </label>
                         </div>
 
-                        <div id="verify-options-${taskId}" class="hidden pl-4 border-l-2 border-[#0A66FF] space-y-3">
+                        <div id="verify-options-${taskId}" class="hidden pl-4 border-l-2 border-brand-blue space-y-3">
                             <div class="flex justify-center mb-3">
-                                <div class="inline-flex rounded overflow-hidden border border-[#E4E4EC]" role="group">
+                                <div class="inline-flex rounded overflow-hidden border border-border-gray" role="group">
                                     <button type="button" id="verify-mode-simple-btn-${taskId}"
                                             onclick="switchVerificationMode(${taskId}, 'simple')"
-                                            class="px-4 py-1.5 text-xs font-medium text-white bg-[#090947] border-r border-[#E4E4EC]">
+                                            class="px-4 py-1.5 text-xs font-medium text-white bg-brand-navy border-r border-border-gray">
                                         Simple
                                     </button>
                                     <button type="button" id="verify-mode-advanced-btn-${taskId}"
                                             onclick="switchVerificationMode(${taskId}, 'advanced')"
-                                            class="px-4 py-1.5 text-xs font-medium text-[#8A8A9A] bg-white">
+                                            class="px-4 py-1.5 text-xs font-medium text-muted-gray bg-white">
                                         Advanced
                                     </button>
                                 </div>
                             </div>
 
                             <div id="verify-simple-${taskId}" class="space-y-3">
-                                <div class="bg-[#F8F8FA] border border-[#E4E4EC] rounded p-3">
-                                    <div class="text-xs font-medium text-[#2C2C3A] mb-2">How should verification work?</div>
+                                <div class="bg-page-gray border border-border-gray rounded p-3">
+                                    <div class="text-xs font-medium text-body-dark mb-2">How should verification work?</div>
                                     <label class="flex items-center gap-2 mb-2">
-                                        <input type="radio" name="verify-logic-${taskId}" value="any_of" checked class="border-[#E4E4EC]">
-                                        <span class="text-xs text-[#2C2C3A]">ANY one of these rules passes (OR logic)</span>
+                                        <input type="radio" name="verify-logic-${taskId}" value="any_of" checked class="border-border-gray">
+                                        <span class="text-xs text-body-dark">ANY one of these rules passes (OR logic)</span>
                                     </label>
                                     <label class="flex items-center gap-2">
-                                        <input type="radio" name="verify-logic-${taskId}" value="all_of" class="border-[#E4E4EC]">
-                                        <span class="text-xs text-[#2C2C3A]">ALL of these rules must pass (AND logic)</span>
+                                        <input type="radio" name="verify-logic-${taskId}" value="all_of" class="border-border-gray">
+                                        <span class="text-xs text-body-dark">ALL of these rules must pass (AND logic)</span>
                                     </label>
                                 </div>
                                 <div>
                                     <div class="flex justify-between items-center mb-2">
-                                        <span class="text-xs font-medium text-[#2C2C3A]">Verification Rules:</span>
+                                        <span class="text-xs font-medium text-body-dark">Verification Rules:</span>
                                         <button type="button" onclick="addVerifyRule(${taskId})"
-                                                class="text-xs text-[#0A66FF] hover:opacity-70 font-medium">+ Add rule</button>
+                                                class="text-xs text-brand-blue hover:opacity-70 font-medium">+ Add rule</button>
                                     </div>
                                     <div id="verify-rules-${taskId}" class="space-y-2"></div>
                                 </div>
                             </div>
 
                             <div id="verify-advanced-${taskId}" class="hidden space-y-4">
-                                <div class="bg-[#F8F8FA] border border-[#E4E4EC] rounded p-3">
-                                    <div class="text-xs font-medium text-[#2C2C3A] mb-1">Advanced Mode</div>
-                                    <div class="text-xs text-[#8A8A9A]">All conditions must pass (AND at top-level). Use OR Groups to allow alternatives.</div>
+                                <div class="bg-page-gray border border-border-gray rounded p-3">
+                                    <div class="text-xs font-medium text-body-dark mb-1">Advanced Mode</div>
+                                    <div class="text-xs text-muted-gray">All conditions must pass (AND at top-level). Use OR Groups to allow alternatives.</div>
                                 </div>
                                 <div>
                                     <div class="flex justify-between items-center mb-2">
-                                        <span class="text-xs font-medium text-[#2C2C3A]">Individual Rules:</span>
+                                        <span class="text-xs font-medium text-body-dark">Individual Rules:</span>
                                         <button type="button" onclick="addAdvancedIndividualRule(${taskId})"
-                                                class="text-xs text-[#0A66FF] hover:opacity-70 font-medium">+ Add individual rule</button>
+                                                class="text-xs text-brand-blue hover:opacity-70 font-medium">+ Add individual rule</button>
                                     </div>
                                     <div id="verify-advanced-individual-${taskId}" class="space-y-2"></div>
                                 </div>
                                 <div>
                                     <div class="flex justify-between items-center mb-2">
-                                        <span class="text-xs font-medium text-[#2C2C3A]">OR Groups (any rule within group passes):</span>
+                                        <span class="text-xs font-medium text-body-dark">OR Groups (any rule within group passes):</span>
                                         <button type="button" onclick="addAdvancedORGroup(${taskId})"
-                                                class="text-xs text-[#0A66FF] hover:opacity-70 font-medium">+ Add OR Group</button>
+                                                class="text-xs text-brand-blue hover:opacity-70 font-medium">+ Add OR Group</button>
                                     </div>
                                     <div id="verify-advanced-groups-${taskId}" class="space-y-3"></div>
                                 </div>
@@ -329,7 +329,7 @@
                     </div>
 
                     <button type="button" onclick="toggleAdvanced(${taskId})"
-                            class="text-xs text-[#0A66FF] hover:opacity-70">← Simple View</button>
+                            class="text-xs text-brand-blue hover:opacity-70">← Simple View</button>
                 </div>
             `;
 
@@ -400,8 +400,8 @@
                 }
                 simpleDiv.classList.add('hidden');
                 advancedDiv.classList.remove('hidden');
-                simpleBtn.className = 'px-4 py-1.5 text-xs font-medium text-[#8A8A9A] bg-white';
-                advancedBtn.className = 'px-4 py-1.5 text-xs font-medium text-white bg-[#090947]';
+                simpleBtn.className = 'px-4 py-1.5 text-xs font-medium text-muted-gray bg-white';
+                advancedBtn.className = 'px-4 py-1.5 text-xs font-medium text-white bg-brand-navy';
                 verifyModes[taskId] = 'advanced';
             } else {
                 const individualRules = document.getElementById(`verify-advanced-individual-${taskId}`);
@@ -413,8 +413,8 @@
                 }
                 advancedDiv.classList.add('hidden');
                 simpleDiv.classList.remove('hidden');
-                advancedBtn.className = 'px-4 py-1.5 text-xs font-medium text-[#8A8A9A] bg-white';
-                simpleBtn.className = 'px-4 py-1.5 text-xs font-medium text-white bg-[#090947]';
+                advancedBtn.className = 'px-4 py-1.5 text-xs font-medium text-muted-gray bg-white';
+                simpleBtn.className = 'px-4 py-1.5 text-xs font-medium text-white bg-brand-navy';
                 verifyModes[taskId] = 'simple';
             }
         }
@@ -428,18 +428,18 @@
             const container = document.getElementById(`verify-rules-${taskId}`);
             const ruleDiv = document.createElement('div');
             ruleDiv.id = `verify-rule-${taskId}-${ruleId}`;
-            ruleDiv.className = 'flex items-center gap-2 bg-[#F8F8FA] border border-[#E4E4EC] p-2 rounded';
+            ruleDiv.className = 'flex items-center gap-2 bg-page-gray border border-border-gray p-2 rounded';
             ruleDiv.innerHTML = `
                 <select id="verify-rule-type-${taskId}-${ruleId}"
-                        class="text-xs border border-[#E4E4EC] rounded px-2 py-1 flex-shrink-0 focus:outline-none focus:border-[#0A66FF]">
+                        class="text-xs border border-border-gray rounded px-2 py-1 flex-shrink-0 focus:outline-none focus:border-brand-blue">
                     <option value="url_contains">URL contains</option>
                     <option value="text_any">Page shows text</option>
                 </select>
                 <input type="text" id="verify-rule-value-${taskId}-${ruleId}"
                        placeholder="Enter value..."
-                       class="flex-1 text-xs border border-[#E4E4EC] rounded px-2 py-1 focus:outline-none focus:border-[#0A66FF]">
+                       class="flex-1 text-xs border border-border-gray rounded px-2 py-1 focus:outline-none focus:border-brand-blue">
                 <button type="button" onclick="removeVerifyRule(${taskId}, ${ruleId})"
-                        class="text-xs text-[#FF4D4D] hover:opacity-70 px-1">Remove</button>
+                        class="text-xs text-error-red hover:opacity-70 px-1">Remove</button>
             `;
             container.appendChild(ruleDiv);
         }
@@ -457,18 +457,18 @@
             const container = document.getElementById(`verify-advanced-individual-${taskId}`);
             const ruleDiv = document.createElement('div');
             ruleDiv.id = `verify-advanced-individual-rule-${taskId}-${ruleId}`;
-            ruleDiv.className = 'flex items-center gap-2 bg-[#F8F8FA] border border-[#E4E4EC] p-2 rounded';
+            ruleDiv.className = 'flex items-center gap-2 bg-page-gray border border-border-gray p-2 rounded';
             ruleDiv.innerHTML = `
                 <select id="verify-advanced-individual-type-${taskId}-${ruleId}"
-                        class="text-xs border border-[#E4E4EC] rounded px-2 py-1 flex-shrink-0 focus:outline-none focus:border-[#0A66FF]">
+                        class="text-xs border border-border-gray rounded px-2 py-1 flex-shrink-0 focus:outline-none focus:border-brand-blue">
                     <option value="url_contains">URL contains</option>
                     <option value="text_any">Page shows text</option>
                 </select>
                 <input type="text" id="verify-advanced-individual-value-${taskId}-${ruleId}"
                        placeholder="Enter value..."
-                       class="flex-1 text-xs border border-[#E4E4EC] rounded px-2 py-1 focus:outline-none focus:border-[#0A66FF]">
+                       class="flex-1 text-xs border border-border-gray rounded px-2 py-1 focus:outline-none focus:border-brand-blue">
                 <button type="button" onclick="removeAdvancedIndividualRule(${taskId}, ${ruleId})"
-                        class="text-xs text-[#FF4D4D] hover:opacity-70 px-1">Remove</button>
+                        class="text-xs text-error-red hover:opacity-70 px-1">Remove</button>
             `;
             container.appendChild(ruleDiv);
         }
@@ -484,20 +484,20 @@
 
             const groupDiv = document.createElement('div');
             groupDiv.id = `verify-advanced-group-${taskId}-${groupId}`;
-            groupDiv.className = 'border-2 border-[#0A66FF] rounded p-3 bg-[#F0F5FF]';
+            groupDiv.className = 'border-2 border-brand-blue rounded p-3 bg-brand-blue/5';
             groupDiv.innerHTML = `
                 <div class="flex justify-between items-center mb-3">
                     <input type="text" id="verify-advanced-group-name-${taskId}-${groupId}"
                            value="Group ${groupId}"
-                           class="text-xs font-medium border border-[#E4E4EC] rounded px-2 py-1 bg-white focus:outline-none focus:border-[#0A66FF]"
+                           class="text-xs font-medium border border-border-gray rounded px-2 py-1 bg-white focus:outline-none focus:border-brand-blue"
                            placeholder="Group name">
                     <button type="button" onclick="removeAdvancedORGroup(${taskId}, ${groupId})"
-                            class="text-xs text-[#FF4D4D] hover:opacity-70 font-medium">Remove Group</button>
+                            class="text-xs text-error-red hover:opacity-70 font-medium">Remove Group</button>
                 </div>
-                <div class="text-xs text-[#8A8A9A] mb-2">ANY of these rules must pass:</div>
+                <div class="text-xs text-muted-gray mb-2">ANY of these rules must pass:</div>
                 <div id="verify-advanced-group-rules-${taskId}-${groupId}" class="space-y-2 mb-2"></div>
                 <button type="button" onclick="addAdvancedGroupRule(${taskId}, ${groupId})"
-                        class="text-xs text-[#0A66FF] hover:opacity-70 font-medium">+ Add rule to group</button>
+                        class="text-xs text-brand-blue hover:opacity-70 font-medium">+ Add rule to group</button>
             `;
             container.appendChild(groupDiv);
             advancedGroupRuleCounters[`${taskId}-${groupId}`] = 0;
@@ -517,18 +517,18 @@
 
             const ruleDiv = document.createElement('div');
             ruleDiv.id = `verify-advanced-group-rule-${taskId}-${groupId}-${ruleId}`;
-            ruleDiv.className = 'flex items-center gap-2 bg-white border border-[#E4E4EC] p-2 rounded';
+            ruleDiv.className = 'flex items-center gap-2 bg-white border border-border-gray p-2 rounded';
             ruleDiv.innerHTML = `
                 <select id="verify-advanced-group-rule-type-${taskId}-${groupId}-${ruleId}"
-                        class="text-xs border border-[#E4E4EC] rounded px-2 py-1 flex-shrink-0 focus:outline-none focus:border-[#0A66FF]">
+                        class="text-xs border border-border-gray rounded px-2 py-1 flex-shrink-0 focus:outline-none focus:border-brand-blue">
                     <option value="url_contains">URL contains</option>
                     <option value="text_any">Page shows text</option>
                 </select>
                 <input type="text" id="verify-advanced-group-rule-value-${taskId}-${groupId}-${ruleId}"
                        placeholder="Enter value..."
-                       class="flex-1 text-xs border border-[#E4E4EC] rounded px-2 py-1 focus:outline-none focus:border-[#0A66FF]">
+                       class="flex-1 text-xs border border-border-gray rounded px-2 py-1 focus:outline-none focus:border-brand-blue">
                 <button type="button" onclick="removeAdvancedGroupRule(${taskId}, ${groupId}, ${ruleId})"
-                        class="text-xs text-[#FF4D4D] hover:opacity-70 px-1">×</button>
+                        class="text-xs text-error-red hover:opacity-70 px-1">×</button>
             `;
             container.appendChild(ruleDiv);
         }
@@ -554,8 +554,8 @@
                 const advancedBtn = document.getElementById(`verify-mode-advanced-btn-${taskId}`);
                 document.getElementById(`verify-simple-${taskId}`).classList.add('hidden');
                 document.getElementById(`verify-advanced-${taskId}`).classList.remove('hidden');
-                simpleBtn.className = 'px-4 py-1.5 text-xs font-medium text-[#8A8A9A] bg-white';
-                advancedBtn.className = 'px-4 py-1.5 text-xs font-medium text-white bg-[#090947]';
+                simpleBtn.className = 'px-4 py-1.5 text-xs font-medium text-muted-gray bg-white';
+                advancedBtn.className = 'px-4 py-1.5 text-xs font-medium text-white bg-brand-navy';
                 verifyModes[taskId] = 'advanced';
                 populateAdvancedRules(taskId, rules);
             } else {
@@ -608,20 +608,20 @@
 
                     const groupDiv = document.createElement('div');
                     groupDiv.id = `verify-advanced-group-${taskId}-${groupId}`;
-                    groupDiv.className = 'border-2 border-[#0A66FF] rounded p-3 bg-[#F0F5FF]';
+                    groupDiv.className = 'border-2 border-brand-blue rounded p-3 bg-brand-blue/5';
                     groupDiv.innerHTML = `
                         <div class="flex justify-between items-center mb-3">
                             <input type="text" id="verify-advanced-group-name-${taskId}-${groupId}"
                                    value="${condition.name || `Group ${groupId}`}"
-                                   class="text-xs font-medium border border-[#E4E4EC] rounded px-2 py-1 bg-white focus:outline-none focus:border-[#0A66FF]"
+                                   class="text-xs font-medium border border-border-gray rounded px-2 py-1 bg-white focus:outline-none focus:border-brand-blue"
                                    placeholder="Group name">
                             <button type="button" onclick="removeAdvancedORGroup(${taskId}, ${groupId})"
-                                    class="text-xs text-[#FF4D4D] hover:opacity-70 font-medium">Remove Group</button>
+                                    class="text-xs text-error-red hover:opacity-70 font-medium">Remove Group</button>
                         </div>
-                        <div class="text-xs text-[#8A8A9A] mb-2">ANY of these rules must pass:</div>
+                        <div class="text-xs text-muted-gray mb-2">ANY of these rules must pass:</div>
                         <div id="verify-advanced-group-rules-${taskId}-${groupId}" class="space-y-2 mb-2"></div>
                         <button type="button" onclick="addAdvancedGroupRule(${taskId}, ${groupId})"
-                                class="text-xs text-[#0A66FF] hover:opacity-70 font-medium">+ Add rule to group</button>
+                                class="text-xs text-brand-blue hover:opacity-70 font-medium">+ Add rule to group</button>
                     `;
                     groupsContainer.appendChild(groupDiv);
                     advancedGroupRuleCounters[`${taskId}-${groupId}`] = 0;

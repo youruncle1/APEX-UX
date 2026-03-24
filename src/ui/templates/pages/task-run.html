@@ -3,22 +3,22 @@
 {% block title %}{{ task_run.task_description }}{% endblock %}
 
 {% block header_title %}
-<h1 class="text-base font-semibold text-[#090947] max-w-sm truncate" title="{{ task_run.task_description }}">
+<h1 class="text-base font-semibold text-brand-navy max-w-sm truncate" title="{{ task_run.task_description }}">
     {{ task_run.task_description }}
 </h1>
 {% if task_run.status == 'COMPLETED' %}
-<span style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#24C875;color:#0a3d22">Completed</span>
+<span class="inline-block px-[10px] py-[3px] text-[11px] font-semibold tracking-[0.04em] uppercase rounded-full bg-success-green text-success-dark">Completed</span>
 {% elif task_run.status == 'TIMEOUT' %}
-<span style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#FEF3C7;color:#92400E">Timeout</span>
+<span class="inline-block px-[10px] py-[3px] text-[11px] font-semibold tracking-[0.04em] uppercase rounded-full bg-warn-amber text-warn-amber-dark">Timeout</span>
 {% elif task_run.status == 'RUNNING' %}
-<span class="animate-pulse" style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#0A66FF;color:white">Running</span>
+<span class="inline-block px-[10px] py-[3px] text-[11px] font-semibold tracking-[0.04em] uppercase rounded-full bg-brand-blue text-white animate-pulse">Running</span>
 {% else %}
-<span style="display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:999px;background:#ffe0e0;color:#8b0000">{{ task_run.status }}</span>
+<span class="inline-block px-[10px] py-[3px] text-[11px] font-semibold tracking-[0.04em] uppercase rounded-full bg-error-light text-error-dark">{{ task_run.status }}</span>
 {% endif %}
 {% endblock %}
 
 {% block header_back %}
-<a href="javascript:history.back()" class="text-sm text-[#8A8A9A] hover:text-[#090947] transition-colors">← Back to Report</a>
+<a href="javascript:history.back()" class="text-sm text-muted-gray hover:text-brand-navy transition-colors">← Back to Report</a>
 {% endblock %}
 
 {% block content %}
@@ -31,21 +31,21 @@
             <div class="lg:col-span-2 space-y-6">
 
                 <!-- Screenshot -->
-                <div class="bg-white border border-[#E4E4EC] rounded-md p-6">
+                <div class="bg-white border border-border-gray rounded-md p-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-[#0A66FF] flex items-center gap-2">
+                        <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-brand-blue flex items-center gap-2">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                             Screenshot
                         </h2>
-                        <span class="text-xs text-[#8A8A9A] ibm-mono" id="step-indicator">Step 1 / {{ task_run.actions | length }}</span>
+                        <span class="text-xs text-muted-gray ibm-mono" id="step-indicator">Step 1 / {{ task_run.actions | length }}</span>
                     </div>
 
-                    <div class="relative border border-[#E4E4EC] rounded overflow-hidden" style="background:#F8F8FA">
+                    <div class="relative border border-border-gray rounded overflow-hidden bg-page-gray">
                         <canvas id="screenshot-canvas" class="w-full h-auto"></canvas>
-                        <div id="screenshot-loading" class="absolute inset-0 flex items-center justify-center" style="background:#F8F8FA">
+                        <div id="screenshot-loading" class="absolute inset-0 flex items-center justify-center bg-page-gray">
                             <div class="text-center">
-                                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#0A66FF]"></div>
-                                <p class="mt-2 text-sm text-[#8A8A9A]">Loading screenshot...</p>
+                                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-blue"></div>
+                                <p class="mt-2 text-sm text-muted-gray">Loading screenshot...</p>
                             </div>
                         </div>
                     </div>
@@ -53,13 +53,13 @@
                     <!-- Navigation Controls -->
                     <div class="flex justify-between items-center mt-4">
                         <button id="btn-prev" onclick="previousStep()"
-                                class="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded border border-[#E4E4EC] text-[#2C2C3A] bg-white hover:border-[#0A66FF] hover:text-[#0A66FF] transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-[#E4E4EC] disabled:hover:text-[#2C2C3A]">
+                                class="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded border border-border-gray text-body-dark bg-white hover:border-brand-blue hover:text-brand-blue transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-border-gray disabled:hover:text-body-dark">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                             Previous
                         </button>
-                        <span class="text-xs text-[#8A8A9A]">Use ← → arrow keys to navigate</span>
+                        <span class="text-xs text-muted-gray">Use ← → arrow keys to navigate</span>
                         <button id="btn-next" onclick="nextStep()"
-                                class="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded border border-[#E4E4EC] text-[#2C2C3A] bg-white hover:border-[#0A66FF] hover:text-[#0A66FF] transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-[#E4E4EC] disabled:hover:text-[#2C2C3A]">
+                                class="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded border border-border-gray text-body-dark bg-white hover:border-brand-blue hover:text-brand-blue transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-border-gray disabled:hover:text-body-dark">
                             Next
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                         </button>
@@ -67,12 +67,12 @@
                 </div>
 
                 <!-- Action Details -->
-                <div class="bg-white border border-[#E4E4EC] rounded-md p-6">
-                    <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-[#0A66FF] mb-4 flex items-center gap-2">
+                <div class="bg-white border border-border-gray rounded-md p-6">
+                    <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-brand-blue mb-4 flex items-center gap-2">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
                         Action Details
                     </h2>
-                    <div id="action-details" class="space-y-2 text-sm text-[#2C2C3A]"></div>
+                    <div id="action-details" class="space-y-2 text-sm text-body-dark"></div>
                 </div>
 
             </div>
@@ -81,40 +81,39 @@
             <div class="space-y-6">
 
                 <!-- Metrics -->
-                <div class="bg-white border border-[#E4E4EC] rounded-md p-6">
-                    <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-[#0A66FF] mb-4 flex items-center gap-2">
+                <div class="bg-white border border-border-gray rounded-md p-6">
+                    <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-brand-blue mb-4 flex items-center gap-2">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                         Metrics
                     </h2>
                     <div class="space-y-2 text-sm">
                         {% if task_run.metrics %}
-                        <div class="flex justify-between py-1 border-b border-[#E4E4EC]">
-                            <span class="text-[#8A8A9A]">Steps</span>
-                            <span class="font-medium text-[#090947]">{{ task_run.metrics.steps_taken }}</span>
+                        <div class="flex justify-between py-1 border-b border-border-gray">
+                            <span class="text-muted-gray">Steps</span>
+                            <span class="font-medium text-brand-navy">{{ task_run.metrics.steps_taken }}</span>
                         </div>
-                        <div class="flex justify-between py-1 border-b border-[#E4E4EC]">
-                            <span class="text-[#8A8A9A]">Failed Actions</span>
-                            <span class="font-medium {% if task_run.metrics.failed_action_count > 0 %}text-[#FF4D4D]{% else %}text-[#090947]{% endif %}">{{ task_run.metrics.failed_action_count }}</span>
+                        <div class="flex justify-between py-1 border-b border-border-gray">
+                            <span class="text-muted-gray">Failed Actions</span>
+                            <span class="font-medium {% if task_run.metrics.failed_action_count > 0 %}text-error-red{% else %}text-brand-navy{% endif %}">{{ task_run.metrics.failed_action_count }}</span>
                         </div>
-                        <div class="flex justify-between py-1 border-b border-[#E4E4EC]">
-                            <span class="text-[#8A8A9A]">Outcome Mismatches</span>
-                            <span class="font-medium {% if task_run.metrics.outcome_mismatch_count > 0 %}text-[#FF4D4D]{% else %}text-[#090947]{% endif %}">{{ task_run.metrics.outcome_mismatch_count }}</span>
+                        <div class="flex justify-between py-1 border-b border-border-gray">
+                            <span class="text-muted-gray">Outcome Mismatches</span>
+                            <span class="font-medium {% if task_run.metrics.outcome_mismatch_count > 0 %}text-error-red{% else %}text-brand-navy{% endif %}">{{ task_run.metrics.outcome_mismatch_count }}</span>
                         </div>
-                        <div class="flex justify-between py-1 border-b border-[#E4E4EC]">
-                            <span class="text-[#8A8A9A]">Backtracking</span>
-                            <span class="font-medium text-[#090947]">{{ task_run.metrics.backtracking_count }}</span>
+                        <div class="flex justify-between py-1 border-b border-border-gray">
+                            <span class="text-muted-gray">Backtracking</span>
+                            <span class="font-medium text-brand-navy">{{ task_run.metrics.backtracking_count }}</span>
                         </div>
                         {% endif %}
                         <div class="flex justify-between py-1">
-                            <span class="text-[#8A8A9A]">Verification</span>
+                            <span class="text-muted-gray">Verification</span>
                             <span>
                                 {% if task_run.verification_result == 'PASS' %}
                                 <button hx-get="/partials/task-run/{{ task_run.id }}/verification"
                                         hx-target="#verification-modal-body"
                                         hx-swap="innerHTML"
                                         hx-on::after-request="document.getElementById('verification-modal').classList.remove('hidden')"
-                                        class="px-2 py-0.5 text-xs rounded font-semibold cursor-pointer hover:opacity-80"
-                                        style="background:#24C87520;color:#0a3d22">
+                                        class="px-2 py-0.5 text-xs rounded font-semibold cursor-pointer hover:opacity-80 bg-success-green/20 text-success-dark">
                                     <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline;vertical-align:middle"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                                     Verified
                                 </button>
@@ -123,8 +122,7 @@
                                         hx-target="#verification-modal-body"
                                         hx-swap="innerHTML"
                                         hx-on::after-request="document.getElementById('verification-modal').classList.remove('hidden')"
-                                        class="px-2 py-0.5 text-xs rounded font-semibold cursor-pointer hover:opacity-80"
-                                        style="background:#ffe0e0;color:#8b0000">
+                                        class="px-2 py-0.5 text-xs rounded font-semibold cursor-pointer hover:opacity-80 bg-error-light text-error-dark">
                                     ✗ Failed
                                 </button>
                                 {% elif task_run.verification_result == 'UNKNOWN' %}
@@ -132,13 +130,12 @@
                                         hx-target="#verification-modal-body"
                                         hx-swap="innerHTML"
                                         hx-on::after-request="document.getElementById('verification-modal').classList.remove('hidden')"
-                                        class="px-2 py-0.5 text-xs rounded font-semibold cursor-pointer hover:opacity-80"
-                                        style="background:#F3E98880;color:#5a4a00">
+                                        class="px-2 py-0.5 text-xs rounded font-semibold cursor-pointer hover:opacity-80 bg-warn-yellow/50 text-warn-yellow-dark">
                                     <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline;vertical-align:middle"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
                                     Unknown
                                 </button>
                                 {% else %}
-                                <span class="px-2 py-0.5 text-xs rounded font-semibold border border-[#E4E4EC]" style="background:#F8F8FA;color:#8A8A9A">○ Skipped</span>
+                                <span class="px-2 py-0.5 text-xs rounded font-semibold border border-border-gray bg-page-gray text-muted-gray">○ Skipped</span>
                                 {% endif %}
                             </span>
                         </div>
@@ -147,32 +144,32 @@
 
                 <!-- SEQ Score -->
                 {% if task_run.metrics and task_run.metrics.seq_score %}
-                <div class="bg-white border border-[#E4E4EC] rounded-md p-6">
+                <div class="bg-white border border-border-gray rounded-md p-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-[#0A66FF] flex items-center gap-2">
+                        <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-brand-blue flex items-center gap-2">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                             Task Ease (SEQ)
                         </h2>
-                        <button onclick="showSEQModal()" class="text-xs font-medium hover:underline" style="color:#0A66FF">
+                        <button onclick="showSEQModal()" class="text-xs font-medium text-brand-blue hover:underline">
                             View Details →
                         </button>
                     </div>
                     <div class="flex items-center gap-4">
-                        <div class="w-14 h-14 rounded-full flex flex-col items-center justify-center border border-[#E4E4EC] shadow-sm" style="background:#F8F8FA">
-                            <div class="text-xl font-bold text-[#0A66FF]">{{ task_run.metrics.seq_score | round(1) }}</div>
-                            <div class="text-xs text-[#8A8A9A]">/7</div>
+                        <div class="w-14 h-14 rounded-full flex flex-col items-center justify-center border border-border-gray shadow-sm bg-page-gray">
+                            <div class="text-xl font-bold text-brand-blue">{{ task_run.metrics.seq_score | round(1) }}</div>
+                            <div class="text-xs text-muted-gray">/7</div>
                         </div>
                         <div>
-                            <div class="text-xs text-[#8A8A9A] mb-0.5">Overall, this task was:</div>
-                            <div class="text-sm font-semibold text-[#090947]" id="seq-label-inline"></div>
+                            <div class="text-xs text-muted-gray mb-0.5">Overall, this task was:</div>
+                            <div class="text-sm font-semibold text-brand-navy" id="seq-label-inline"></div>
                         </div>
                     </div>
                 </div>
                 {% endif %}
 
                 <!-- Timeline -->
-                <div class="bg-white border border-[#E4E4EC] rounded-md p-6">
-                    <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-[#0A66FF] mb-4 flex items-center gap-2">
+                <div class="bg-white border border-border-gray rounded-md p-6">
+                    <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-brand-blue mb-4 flex items-center gap-2">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
                         Timeline
                     </h2>
@@ -196,8 +193,8 @@
                 <div class="px-6 py-6" id="verification-modal-body">
                     <!-- Populated by htmx -->
                 </div>
-                <div class="px-6 py-3 flex justify-end border-t border-[#E4E4EC] rounded-b-lg" style="background:#F8F8FA">
-                    <button onclick="closeVerificationModal()" class="px-4 py-2 text-sm font-medium border rounded border-[#090947] text-[#090947] bg-transparent hover:opacity-80 transition-opacity">Close</button>
+                <div class="px-6 py-3 flex justify-end border-t border-border-gray rounded-b-lg bg-page-gray">
+                    <button onclick="closeVerificationModal()" class="px-4 py-2 text-sm font-medium border rounded border-brand-navy text-brand-navy bg-transparent hover:opacity-80 transition-opacity">Close</button>
                 </div>
             </div>
         </div>
@@ -207,6 +204,21 @@
         const taskRunData = {{ task_run | tojson | safe }};
         const SEQ_LABELS = ['Very Difficult', 'Difficult', 'Somewhat Difficult', 'Neutral',
                             'Somewhat Easy', 'Easy', 'Very Easy'];
+
+        // Color constants (mirrors tailwind.config palette)
+        const C = {
+            brandNavy:    '#090947',
+            brandBlue:    '#0A66FF',
+            borderGray:   '#E4E4EC',
+            mutedGray:    '#8A8A9A',
+            bodyDark:     '#2C2C3A',
+            successGreen: '#24C875',
+            successDark:  '#0a3d22',
+            errorRed:     '#FF4D4D',
+            errorLight:   '#ffe0e0',
+            errorDark:    '#8b0000',
+            errorSubtle:  '#FFF5F5',
+        };
 
         let currentStepIndex = 0;
         const screenshotCache = {};
@@ -238,27 +250,27 @@
                 const step = document.createElement('div');
                 step.className = `cursor-pointer px-3 py-2 rounded transition-colors text-sm ${
                     index === currentStepIndex
-                        ? 'border border-[#0A66FF] bg-[#0A66FF0d]'
-                        : 'hover:bg-[#f3f3fa]'
+                        ? 'border border-brand-blue bg-brand-blue/5'
+                        : 'hover:bg-hover-gray'
                 }`;
                 step.onclick = () => showStep(index);
 
-                const successColor = action.execution_success ? '#24C875' : '#FF4D4D';
+                const successColor = action.execution_success ? C.successGreen : C.errorRed;
                 const successIcon = action.execution_success
                     ? `<svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>`
                     : `<svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>`;
                 const omBadge = outcomeMismatchesMap[action.step_number]
-                    ? `<span class="px-1 py-0.5 text-[10px] font-bold text-white rounded" style="background:#FF4D4D" title="Outcome Mismatch">OM</span>`
+                    ? `<span class="px-1 py-0.5 text-[10px] font-bold text-white rounded" style="background:${C.errorRed}" title="Outcome Mismatch">OM</span>`
                     : '';
 
                 step.innerHTML = `
                     <div class="flex items-center gap-2">
-                        <span class="text-[10px] ibm-mono" style="color:#8A8A9A;width:1.5rem;text-align:right;flex-shrink:0">${action.step_number}</span>
+                        <span class="text-[10px] ibm-mono" style="color:${C.mutedGray};width:1.5rem;text-align:right;flex-shrink:0">${action.step_number}</span>
                         <span style="color:${successColor}">${successIcon}</span>
-                        <span class="font-medium flex-1 truncate" style="color:#2C2C3A">${action.action_type}</span>
+                        <span class="font-medium flex-1 truncate" style="color:${C.bodyDark}">${action.action_type}</span>
                         ${omBadge}
                     </div>
-                    <div class="text-[11px] truncate mt-0.5 pl-8" style="color:#8A8A9A">${action.reasoning || ''}</div>
+                    <div class="text-[11px] truncate mt-0.5 pl-8" style="color:${C.mutedGray}">${action.reasoning || ''}</div>
                 `;
                 timeline.appendChild(step);
             });
@@ -284,9 +296,9 @@
 
             const addRow = (label, value) => {
                 rows.push(`
-                    <div class="flex gap-3 py-1.5 border-b border-[#E4E4EC] last:border-b-0">
-                        <span class="text-[#8A8A9A] w-28 flex-shrink-0">${label}</span>
-                        <span class="text-[#2C2C3A] flex-1">${value}</span>
+                    <div class="flex gap-3 py-1.5 border-b border-border-gray last:border-b-0">
+                        <span class="text-muted-gray w-28 flex-shrink-0">${label}</span>
+                        <span class="text-body-dark flex-1">${value}</span>
                     </div>
                 `);
             };
@@ -297,25 +309,25 @@
             if (action.reasoning) addRow('Reasoning', action.reasoning);
 
             const execBadge = action.execution_success
-                ? `<span class="px-2 py-0.5 text-xs rounded font-semibold" style="background:#24C87520;color:#0a3d22">✓ Success</span>`
-                : `<span class="px-2 py-0.5 text-xs rounded font-semibold" style="background:#ffe0e0;color:#8b0000">✗ Failed</span>`;
+                ? `<span class="px-2 py-0.5 text-xs rounded font-semibold" style="background:${C.successGreen}20;color:${C.successDark}">✓ Success</span>`
+                : `<span class="px-2 py-0.5 text-xs rounded font-semibold" style="background:${C.errorLight};color:${C.errorDark}">✗ Failed</span>`;
             addRow('Execution', execBadge);
 
             if (action.execution_feedback) {
-                addRow('Feedback', `<span class="text-xs text-[#8A8A9A]">${action.execution_feedback}</span>`);
+                addRow('Feedback', `<span class="text-xs text-muted-gray">${action.execution_feedback}</span>`);
             }
 
-            let html = `<div class="divide-y divide-[#E4E4EC]">${rows.join('')}</div>`;
+            let html = `<div class="divide-y divide-border-gray">${rows.join('')}</div>`;
 
             const om = outcomeMismatchesMap[action.step_number];
             if (om) {
                 html += `
-                    <div class="mt-3 p-3 rounded border-l-4" style="background:#FFF5F5;border-color:#FF4D4D">
-                        <div class="flex items-center gap-1.5 font-semibold text-sm mb-1" style="color:#8b0000">
+                    <div class="mt-3 p-3 rounded border-l-4" style="background:${C.errorSubtle};border-color:${C.errorRed}">
+                        <div class="flex items-center gap-1.5 font-semibold text-sm mb-1" style="color:${C.errorDark}">
                             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
                             Outcome Mismatch
                         </div>
-                        <div class="text-sm text-[#2C2C3A]">${om}</div>
+                        <div class="text-sm text-body-dark">${om}</div>
                     </div>
                 `;
             }
@@ -326,7 +338,7 @@
         async function loadScreenshot(screenshotUrl, boundingBox, clickCoordinates) {
             const loadingEl = document.getElementById('screenshot-loading');
             if (!screenshotUrl) {
-                loadingEl.innerHTML = '<p class="text-sm" style="color:#8A8A9A">No screenshot available</p>';
+                loadingEl.innerHTML = `<p class="text-sm text-muted-gray">No screenshot available</p>`;
                 return;
             }
             loadingEl.classList.remove('hidden');
@@ -335,7 +347,7 @@
                 drawScreenshot(base64Data, boundingBox, clickCoordinates);
                 loadingEl.classList.add('hidden');
             } catch {
-                loadingEl.innerHTML = '<p class="text-sm" style="color:#FF4D4D">Failed to load screenshot</p>';
+                loadingEl.innerHTML = `<p class="text-sm text-error-red">Failed to load screenshot</p>`;
             }
             prefetchNextScreenshots(currentStepIndex);
         }
@@ -411,7 +423,7 @@
             document.getElementById('seq-modal-scale').innerHTML = [1,2,3,4,5,6,7].map(i => {
                 const sel = Math.round(m.seq_score) === i;
                 return `<div class="flex-1 text-center p-3 rounded border-2 transition-all ${sel ? 'font-bold transform scale-105 shadow-md' : ''}"
-                             style="${sel ? 'background:linear-gradient(to bottom right,#090947,#0A66FF);color:white;border-color:#0A66FF' : 'background:white;border-color:#E4E4EC;color:#8A8A9A'}">
+                             style="${sel ? `background:linear-gradient(to bottom right,${C.brandNavy},${C.brandBlue});color:white;border-color:${C.brandBlue}` : `background:white;border-color:${C.borderGray};color:${C.mutedGray}`}">
                     <div class="text-lg font-bold">${i}</div>
                     <div class="text-xs mt-1">${SEQ_LABELS[i-1]}</div>
                 </div>`;
