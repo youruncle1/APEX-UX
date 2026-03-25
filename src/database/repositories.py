@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from src.database.models import (
     Evaluation, EvaluationStatus, EvaluationClone,
     TaskDefinition, TaskRun, TaskRunStatus, TaskRunMetrics,
-    ActionRecord, VerificationResult as VR,
+    ActionRecord, VerificationResult as VR, Persona,
 )
 
 
@@ -58,11 +58,17 @@ class EvaluationRepository:
         self,
         name: Optional[str],
         base_url: str,
-        clone_count: int,
+        persona_ids: list[str],
         tasks_data: list[dict],
         browser: str = "chromium",
         viewport: Optional[dict] = None,
     ) -> Evaluation:
+        personas = await PersonaRepository(self.session).get_by_ids(persona_ids)
+        by_id = {p.id: p for p in personas}
+        missing = [pid for pid in persona_ids if pid not in by_id]
+        if missing:
+            raise ValueError(f"Persona(s) not found: {missing}")
+
         evaluation = Evaluation(
             name=name,
             base_url=base_url,
@@ -73,14 +79,13 @@ class EvaluationRepository:
         self.session.add(evaluation)
         await self.session.flush()
 
-        for i in range(clone_count):
+        for persona_id in persona_ids:
+            persona = by_id[persona_id]
             clone = EvaluationClone(
                 evaluation_id=evaluation.id,
-                clone_id=f"placeholder_clone_{i + 1}",
-                persona_cache={
-                    "name": f"Placeholder Persona {i + 1}",
-                    "description": "Generic user persona",
-                },
+                clone_id=persona.id,
+                persona_id=persona.id,
+                persona_cache={"id": persona.id, "name": persona.name},
             )
             self.session.add(clone)
 
@@ -119,6 +124,7 @@ class EvaluationRepository:
             self.session.add(EvaluationClone(
                 evaluation_id=new_eval.id,
                 clone_id=clone.clone_id,
+                persona_id=clone.persona_id,
                 persona_cache=clone.persona_cache,
             ))
 
@@ -140,11 +146,17 @@ class EvaluationRepository:
         evaluation: Evaluation,
         name: Optional[str],
         base_url: str,
-        clone_count: int,
+        persona_ids: list[str],
         tasks_data: list[dict],
         browser: str = "chromium",
         viewport: Optional[dict] = None,
     ) -> None:
+        personas = await PersonaRepository(self.session).get_by_ids(persona_ids)
+        by_id = {p.id: p for p in personas}
+        missing = [pid for pid in persona_ids if pid not in by_id]
+        if missing:
+            raise ValueError(f"Persona(s) not found: {missing}")
+
         evaluation.name = name
         evaluation.base_url = base_url
         evaluation.browser = browser
@@ -157,11 +169,13 @@ class EvaluationRepository:
             delete(EvaluationClone).where(EvaluationClone.evaluation_id == evaluation.id)
         )
 
-        for i in range(clone_count):
+        for persona_id in persona_ids:
+            persona = by_id[persona_id]
             clone = EvaluationClone(
                 evaluation_id=evaluation.id,
-                clone_id=f"placeholder_clone_{i + 1}",
-                persona_cache={"name": f"Placeholder Persona {i + 1}", "description": "Generic user"},
+                clone_id=persona.id,
+                persona_id=persona.id,
+                persona_cache={"id": persona.id, "name": persona.name},
             )
             self.session.add(clone)
 
@@ -329,3 +343,21 @@ class TaskRunRepository:
 
     async def commit(self) -> None:
         await self.session.commit()
+
+
+class PersonaRepository:
+
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def list_all(self) -> list[Persona]:
+        result = await self.session.execute(select(Persona).order_by(Persona.name))
+        return list(result.scalars().all())
+
+    async def get_by_id(self, persona_id: str) -> Optional[Persona]:
+        result = await self.session.execute(select(Persona).where(Persona.id == persona_id))
+        return result.scalar_one_or_none()
+
+    async def get_by_ids(self, persona_ids: list[str]) -> list[Persona]:
+        result = await self.session.execute(select(Persona).where(Persona.id.in_(persona_ids)))
+        return list(result.scalars().all())

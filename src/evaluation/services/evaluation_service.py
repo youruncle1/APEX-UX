@@ -62,14 +62,14 @@ class EvaluationService:
             base_url=data.base_url,
             browser=data.browser,
             viewport=data.viewport,
-            clone_count=data.clone_count,
+            persona_ids=data.persona_ids,
             tasks_data=[t.model_dump() for t in data.tasks],
         )
 
         return {
             "evaluation_id": str(evaluation.id),
             "status": "created",
-            "message": f"Evaluation created with {data.clone_count} clones and {len(data.tasks)} tasks",
+            "message": f"Evaluation created with {len(data.persona_ids)} personas and {len(data.tasks)} tasks",
         }
 
     async def get_evaluation_report(self, evaluation_id: UUID) -> Optional[dict]:
@@ -218,7 +218,7 @@ class EvaluationService:
             "base_url": evaluation.base_url,
             "browser": evaluation.browser or "chromium",
             "viewport": evaluation.viewport or {"width": 1280, "height": 720},
-            "clone_count": len(evaluation.clones),
+            "persona_ids": [c.persona_id for c in evaluation.clones if c.persona_id],
             "tasks": [
                 {
                     "description": task.description,
@@ -245,7 +245,7 @@ class EvaluationService:
             base_url=data.base_url,
             browser=data.browser,
             viewport=data.viewport,
-            clone_count=data.clone_count,
+            persona_ids=data.persona_ids,
             tasks_data=[t.model_dump() for t in data.tasks],
         )
 

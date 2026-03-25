@@ -12,6 +12,14 @@
 {% endblock %}
 
 {% block content %}
+    <style>
+        .persona-card { transition: border-color 0.1s, background-color 0.1s; }
+        .persona-card .persona-desc { opacity: 0; transition: opacity 0.15s; pointer-events: none; }
+        .persona-card:hover .persona-desc { opacity: 1; }
+        .persona-card .persona-check { opacity: 0; transition: opacity 0.1s; }
+        .persona-card.selected { border-color: #090947; border-width: 2px; background-color: #f5f5fc; }
+        .persona-card.selected .persona-check { opacity: 1; }
+    </style>
 
     <main class="max-w-3xl mx-auto px-8 py-8">
 
@@ -113,13 +121,21 @@
             <!-- SECTION 2 — Personas                                         -->
             <!-- ============================================================ -->
             <div id="section-personas" class="{% if mode == 'create' %}hidden {% endif %}bg-white border border-border-gray rounded-md p-6">
-                <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-brand-blue mb-5">Personas</h2>
-                <div>
-                    <label class="block text-sm font-medium text-body-dark mb-1">Number of Personas</label>
-                    <input type="number" id="clone-count" value="3" min="1" max="10"
-                           class="block w-full rounded border border-border-gray bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-blue">
-                    <p class="mt-1 text-xs text-muted-gray">Number of persona clones to simulate (placeholder personas will be used)</p>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-brand-blue">Personas</h2>
+                    <div class="flex items-center gap-3">
+                        <span id="persona-count-label" class="text-xs text-muted-gray hidden"></span>
+                        <button type="button" id="btn-select-all" onclick="toggleSelectAll()"
+                                class="hidden text-xs font-medium text-brand-blue hover:opacity-70 transition-opacity">Select all</button>
+                    </div>
                 </div>
+                <div id="personas-loading" class="flex items-center gap-2 py-6">
+                    <div class="w-4 h-4 border-2 border-border-gray border-t-brand-blue rounded-full animate-spin flex-shrink-0"></div>
+                    <span class="text-xs text-muted-gray">Loading personas...</span>
+                </div>
+                <div id="personas-grid" class="hidden grid grid-cols-3 gap-3"></div>
+                <p id="personas-error" class="hidden text-sm text-error-red py-2">Failed to load personas.</p>
+                <p id="personas-none-selected" class="hidden mt-3 text-xs text-error-red">Please select at least one persona to continue.</p>
             </div>
 
             <!-- ============================================================ -->
@@ -188,6 +204,97 @@
         const verifyGroupRuleCounter = {};
 
         // ============================================================================
+        // PERSONAS
+        // ============================================================================
+
+        let allPersonas = [];
+        let selectedPersonaIds = new Set();
+
+        function _personaLabel(id) {
+            return id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        }
+
+        async function loadPersonas(preselectIds = []) {
+            try {
+                const resp = await fetch('/api/personas');
+                if (!resp.ok) throw new Error();
+                allPersonas = await resp.json();
+
+                const grid = document.getElementById('personas-grid');
+                grid.innerHTML = '';
+
+                allPersonas.forEach(p => {
+                    const label = _personaLabel(p.id);
+                    const initial = p.name.charAt(0).toUpperCase();
+                    const card = document.createElement('div');
+                    card.className = 'persona-card relative rounded border border-border-gray bg-white cursor-pointer select-none overflow-hidden h-[130px] flex flex-col items-center justify-center gap-1.5 p-3 text-center';
+                    card.dataset.id = p.id;
+                    card.addEventListener('click', () => togglePersona(card));
+                    card.innerHTML = `
+                        <div class="relative w-11 h-11 rounded-full overflow-hidden bg-[#EDEDF5] flex-shrink-0">
+                            <img src="/static/personas/${p.id}.webp" alt="${p.name}"
+                                 class="w-full h-full object-cover"
+                                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                            <div class="persona-fallback hidden absolute inset-0 items-center justify-center text-sm font-semibold text-muted-gray">${initial}</div>
+                        </div>
+                        <div class="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-gray leading-tight">${label}</div>
+                        <div class="text-xs font-medium text-body-dark leading-tight">${p.name}</div>
+                        <div class="persona-desc absolute inset-0 flex items-center p-3" style="background:rgba(9,9,71,0.94)">
+                            <p class="text-[11px] text-white leading-relaxed text-left" style="display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden">${p.description}</p>
+                        </div>
+                        <div class="persona-check absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-brand-navy flex items-center justify-center">
+                            <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </div>`;
+                    grid.appendChild(card);
+                });
+
+                document.getElementById('personas-loading').classList.add('hidden');
+                grid.classList.remove('hidden');
+                document.getElementById('btn-select-all').classList.remove('hidden');
+                document.getElementById('persona-count-label').classList.remove('hidden');
+
+                preselectIds.forEach(id => {
+                    const card = grid.querySelector(`[data-id="${id}"]`);
+                    if (card) _selectCard(card);
+                });
+                _updatePersonaCount();
+            } catch (_) {
+                document.getElementById('personas-loading').classList.add('hidden');
+                document.getElementById('personas-error').classList.remove('hidden');
+            }
+        }
+
+        function togglePersona(card) {
+            selectedPersonaIds.has(card.dataset.id) ? _deselectCard(card) : _selectCard(card);
+            _updatePersonaCount();
+            document.getElementById('personas-none-selected').classList.add('hidden');
+        }
+
+        function toggleSelectAll() {
+            const allSelected = selectedPersonaIds.size === allPersonas.length;
+            document.querySelectorAll('#personas-grid .persona-card').forEach(card => {
+                allSelected ? _deselectCard(card) : _selectCard(card);
+            });
+            _updatePersonaCount();
+        }
+
+        function _selectCard(card) {
+            card.classList.add('selected');
+            selectedPersonaIds.add(card.dataset.id);
+        }
+
+        function _deselectCard(card) {
+            card.classList.remove('selected');
+            selectedPersonaIds.delete(card.dataset.id);
+        }
+
+        function _updatePersonaCount() {
+            const n = selectedPersonaIds.size, t = allPersonas.length;
+            document.getElementById('persona-count-label').textContent = `${n} of ${t} selected`;
+            document.getElementById('btn-select-all').textContent = n === t ? 'Deselect all' : 'Select all';
+        }
+
+        // ============================================================================
         // WIZARD STEP NAVIGATION (create mode only)
         // ============================================================================
 
@@ -244,6 +351,12 @@
                     return;
                 }
                 document.getElementById('eval-url').classList.remove('border-error-red');
+            }
+            if (currentStep === 2) {
+                if (selectedPersonaIds.size === 0) {
+                    document.getElementById('personas-none-selected').classList.remove('hidden');
+                    return;
+                }
             }
             if (currentStep < TOTAL_STEPS) goToStep(currentStep + 1);
         }
@@ -308,8 +421,8 @@
                 document.getElementById('eval-name').value = data.name || '';
                 document.getElementById('eval-url').value = data.base_url;
                 document.getElementById('eval-browser').value = data.browser || 'chromium';
-                document.getElementById('clone-count').value = data.clone_count;
                 setViewport(data.viewport);
+                await loadPersonas(data.persona_ids || []);
 
                 if (data.tasks.length === 0) {
                     document.getElementById('no-tasks-message').classList.remove('hidden');
@@ -701,11 +814,16 @@
             const name = document.getElementById('eval-name').value.trim() || null;
             const base_url = document.getElementById('eval-url').value.trim();
             const browser = document.getElementById('eval-browser').value;
-            const clone_count = parseInt(document.getElementById('clone-count').value);
             const viewport = getViewport();
+            const persona_ids = Array.from(selectedPersonaIds);
 
             if (!base_url) {
                 alert('Please enter a base URL');
+                return;
+            }
+
+            if (persona_ids.length === 0) {
+                alert('Please select at least one persona');
                 return;
             }
 
@@ -741,7 +859,7 @@
                 const response = await fetch(url, {
                     method,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, base_url, browser, viewport, clone_count, tasks })
+                    body: JSON.stringify({ name, base_url, browser, viewport, persona_ids, tasks })
                 });
 
                 if (response.ok) {
@@ -765,6 +883,7 @@
             } else {
                 goToStep(1);
                 addTask();
+                loadPersonas();
             }
         });
     </script>

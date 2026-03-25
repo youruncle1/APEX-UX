@@ -32,12 +32,18 @@ class TaskDefinitionCreate(BaseModel):
     verification_rules: Optional[dict] = None
 
 
+class PersonaResponse(BaseModel):
+    id: str
+    name: str
+    description: str
+
+
 class EvaluationCreate(BaseModel):
     name: Optional[str] = None
     base_url: str
     browser: str = "chromium"
     viewport: Optional[dict] = None
-    clone_count: int = 3
+    persona_ids: List[str]
     tasks: List[TaskDefinitionCreate]
 
 

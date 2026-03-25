@@ -7,11 +7,11 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.connection import AsyncSessionLocal
-from src.database.repositories import EvaluationRepository
+from src.database.repositories import EvaluationRepository, PersonaRepository
 from src.evaluation.api.websocket import active_connections
 from src.evaluation.models.api_models import (
     EvaluationCreate, EvaluationSummary, EvaluationReport,
-    TaskRunDetail,
+    TaskRunDetail, PersonaResponse,
 )
 from src.evaluation.services.evaluation_service import EvaluationService, calculate_progress
 from src.evaluation.services.task_run_service import TaskRunService
@@ -37,6 +37,12 @@ async def get_db() -> AsyncSession:
 # ============================================================================
 # EVALUATION ROUTES
 # ============================================================================
+
+@router.get("/personas", response_model=List[PersonaResponse])
+async def list_personas(db: AsyncSession = Depends(get_db)):
+    personas = await PersonaRepository(db).list_all()
+    return [PersonaResponse(id=p.id, name=p.name, description=p.description) for p in personas]
+
 
 @router.get("/evaluations", response_model=List[EvaluationSummary])
 async def list_evaluations(db: AsyncSession = Depends(get_db)):

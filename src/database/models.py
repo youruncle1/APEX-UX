@@ -47,13 +47,23 @@ class Evaluation(Base):
     clones = relationship("EvaluationClone", back_populates="evaluation", cascade="all, delete-orphan")
     tasks = relationship("TaskDefinition", back_populates="evaluation", cascade="all, delete-orphan")
 
+class Persona(Base):
+    __tablename__ = "personas"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=False)
+    narrative = Column(Text, nullable=False)
+
+
 class EvaluationClone(Base):
     __tablename__ = "evaluation_clones"
-    
+
     id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     evaluation_id = Column(PGUUID(as_uuid=True), ForeignKey("evaluations.id"), nullable=False)
-    clone_id = Column(String, nullable=False)  
-    persona_cache = Column(JSON, nullable=False) 
+    clone_id = Column(String, nullable=False)
+    persona_id = Column(String, ForeignKey("personas.id"), nullable=True)
+    persona_cache = Column(JSON, nullable=False)
     sus_score = Column(Float, nullable=True) 
     sus_ratings = Column(JSON, nullable=True)  
     sus_reasoning = Column(Text, nullable=True)  

@@ -10,7 +10,7 @@ from src.database.models import (
     TaskDefinition, TaskRun, TaskRunStatus,
     VerificationResult as VR,
 )
-from src.database.repositories import EvaluationRepository, TaskRunRepository
+from src.database.repositories import EvaluationRepository, TaskRunRepository, PersonaRepository
 from src.agents.logic.grounder import GroundingAgent
 from src.browser_connector.connector import BrowserConnector
 from src.controller.controller import TwoAgentController, TaskAbortedError
@@ -21,12 +21,6 @@ from src.storage import create_screenshot_storage
 from src.log import get_logger
 
 logger = get_logger(__name__)
-
-# Placeholder persona
-PLACEHOLDER_PERSONA = """You are a typical web user with moderate technical skills.
-You navigate websites carefully and read interface elements before interacting.
-You prefer clear labels and visible feedback from your actions.
-When encountering issues, you try alternative approaches rather than giving up immediately."""
 
 
 class EvaluationRunner:
@@ -180,7 +174,12 @@ class EvaluationRunner:
 
         logger.info("Running clone: %s", clone.clone_id)
 
-        persona_context = PLACEHOLDER_PERSONA
+        persona = await PersonaRepository(session).get_by_id(clone.persona_id)
+        if not persona:
+            raise ValueError(f"Persona '{clone.persona_id}' not found for clone {clone.clone_id}")
+        clone.persona_cache = {"id": persona.id, "name": persona.name, "description": persona.description}
+        await session.commit()
+        persona_context = persona.narrative
 
         vp = evaluation.viewport or {"width": 1280, "height": 720}
         grounder = GroundingAgent(viewport_width=vp["width"], viewport_height=vp["height"])
