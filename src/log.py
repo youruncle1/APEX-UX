@@ -1,5 +1,4 @@
 import logging
-import os
 
 import colorama
 from colorama import Fore, Style
@@ -12,6 +11,7 @@ _BANNED = (
     "openai._base_client",
     "openai.http_client",
     "aiohttp.access",
+    "PIL",
 )
 
 
