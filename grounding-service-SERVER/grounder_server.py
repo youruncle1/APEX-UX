@@ -9,6 +9,7 @@ import asyncio
 import base64
 import logging
 import os
+import tempfile
 from asyncio import Queue
 from io import BytesIO
 from typing import Optional
@@ -206,112 +207,119 @@ def run_inference(request: GroundRequest) -> GroundResponse:
         image_bytes = base64.b64decode(request.image_base64)
         image = Image.open(BytesIO(image_bytes)).convert("RGB")
         
-        # Save to temporary location for model input
-        # (Model expects file path, not PIL Image directly)
-        temp_path = "/tmp/grounding_input.png"
-        image.save(temp_path)
-        
-        # Build prompt
-        prompt_template = (
-            "Outline the position corresponding to the instruction: {}. "
-            "The output should be only [x1,y1,x2,y2]."
-        )
-        full_prompt = prompt_template.format(request.instruction)
-        
-        # Prepare messages
-        min_pixels = 1_500_000
-        max_pixels = 2_400_000
-        
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "image": temp_path,
-                        "min_pixels": min_pixels,
-                        "max_pixels": max_pixels,
-                    },
-                    {
-                        "type": "text",
-                        "text": full_prompt,
-                    },
-                ],
-            }
-        ]
-        
-        # Process with tokenizer
-        text = processor.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True,
-        )
-        
-        image_inputs, video_inputs = process_vision_info(messages)
-        
-        model_inputs = processor(
-            text=[text],
-            images=image_inputs,
-            videos=video_inputs,
-            padding=True,
-            return_tensors="pt",
-        ).to(model.device)
-        
-        # Generate
-        with torch.inference_mode():
-            generated_ids = model.generate(
-                **model_inputs,
-                **GENERATION_CONFIG,
-            )
-        
-        # Decode output
-        generated_ids_trimmed = [
-            out_ids[len(in_ids):]
-            for in_ids, out_ids in zip(
-                model_inputs.input_ids,
-                generated_ids,
-            )
-        ]
-        
-        output_text = processor.batch_decode(
-            generated_ids_trimmed,
-            skip_special_tokens=True,
-            clean_up_tokenization_spaces=False,
-        )
-        
-        # Parse and normalize coordinates
+        # Save to a unique temporary file (shared path causes race conditions
+        # when multiple evaluations run concurrently)
+        tmp_file = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        temp_path = tmp_file.name
+        tmp_file.close()
+
         try:
-            box = eval(output_text[0])  # Model outputs "[x1, y1, x2, y2]" as string
-            
-            # Get input dimensions for normalization
-            input_height = model_inputs["image_grid_thw"][0][1] * 14
-            input_width = model_inputs["image_grid_thw"][0][2] * 14
-            
-            # Normalize to [0, 1]
-            abs_x1 = float(box[0]) / input_width
-            abs_y1 = float(box[1]) / input_height
-            abs_x2 = float(box[2]) / input_width
-            abs_y2 = float(box[3]) / input_height
-            
-            bbox = [abs_x1, abs_y1, abs_x2, abs_y2]
-            
-        except Exception as e:
-            logger.warning(f"Failed to parse model output '{output_text[0]}': {e}")
-            bbox = [0.0, 0.0, 0.0, 0.0]
-        
-        # Calculate center point
-        point = [
-            (bbox[0] + bbox[2]) / 2,
-            (bbox[1] + bbox[3]) / 2,
-        ]
-        
-        return GroundResponse(
-            bbox=bbox,
-            point=point,
-            success=True,
-            error=None
-        )
-        
+            image.save(temp_path)
+
+            # Build prompt
+            prompt_template = (
+                "Outline the position corresponding to the instruction: {}. "
+                "The output should be only [x1,y1,x2,y2]."
+            )
+            full_prompt = prompt_template.format(request.instruction)
+
+            # Prepare messages
+            min_pixels = 1_500_000
+            max_pixels = 2_400_000
+
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "image": temp_path,
+                            "min_pixels": min_pixels,
+                            "max_pixels": max_pixels,
+                        },
+                        {
+                            "type": "text",
+                            "text": full_prompt,
+                        },
+                    ],
+                }
+            ]
+
+            # Process with tokenizer
+            text = processor.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+
+            image_inputs, video_inputs = process_vision_info(messages)
+
+            model_inputs = processor(
+                text=[text],
+                images=image_inputs,
+                videos=video_inputs,
+                padding=True,
+                return_tensors="pt",
+            ).to(model.device)
+
+            # Generate
+            with torch.inference_mode():
+                generated_ids = model.generate(
+                    **model_inputs,
+                    **GENERATION_CONFIG,
+                )
+
+            # Decode output
+            generated_ids_trimmed = [
+                out_ids[len(in_ids):]
+                for in_ids, out_ids in zip(
+                    model_inputs.input_ids,
+                    generated_ids,
+                )
+            ]
+
+            output_text = processor.batch_decode(
+                generated_ids_trimmed,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=False,
+            )
+
+            # Parse and normalize coordinates
+            try:
+                box = eval(output_text[0])  # Model outputs "[x1, y1, x2, y2]" as string
+
+                # Get input dimensions for normalization
+                input_height = model_inputs["image_grid_thw"][0][1] * 14
+                input_width = model_inputs["image_grid_thw"][0][2] * 14
+
+                # Normalize to [0, 1]
+                abs_x1 = float(box[0]) / input_width
+                abs_y1 = float(box[1]) / input_height
+                abs_x2 = float(box[2]) / input_width
+                abs_y2 = float(box[3]) / input_height
+
+                bbox = [abs_x1, abs_y1, abs_x2, abs_y2]
+
+            except Exception as e:
+                logger.warning(f"Failed to parse model output '{output_text[0]}': {e}")
+                bbox = [0.0, 0.0, 0.0, 0.0]
+
+            # Calculate center point
+            point = [
+                (bbox[0] + bbox[2]) / 2,
+                (bbox[1] + bbox[3]) / 2,
+            ]
+
+            return GroundResponse(
+                bbox=bbox,
+                point=point,
+                success=True,
+                error=None
+            )
+
+        finally:
+            os.unlink(temp_path)
+
     except Exception as e:
         logger.error(f"Inference error: {e}", exc_info=True)
         return GroundResponse(

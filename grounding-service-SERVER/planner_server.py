@@ -9,6 +9,8 @@ import asyncio
 import base64
 import logging
 import json
+import os
+import tempfile
 from asyncio import Queue
 from io import BytesIO
 from typing import Optional, Literal
@@ -194,11 +196,15 @@ def run_inference(request: PlanRequest) -> PlanResponse:
         image_bytes = base64.b64decode(request.image_base64)
         image = Image.open(BytesIO(image_bytes)).convert("RGB")
         
-        temp_path = "/tmp/planner_input.png"
-        image.save(temp_path)
-        
-        # Enhanced JSON instruction with schema
-        json_instruction = f"""
+        tmp_file = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        temp_path = tmp_file.name
+        tmp_file.close()
+
+        try:
+            image.save(temp_path)
+
+            # Enhanced JSON instruction with schema
+            json_instruction = f"""
 CRITICAL: Respond with ONLY valid JSON matching this EXACT schema:
 
 {ActionSchema.model_json_schema()}
@@ -216,119 +222,122 @@ Example valid response:
 
 Your response must start with {{ and end with }}.
 """
-        
-        full_user_prompt = f"{request.user_prompt}\n\n{json_instruction}"
-        
-        # Build messages
-        messages = [
-            {
-                "role": "system",
-                "content": request.system_prompt
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "image": temp_path,
-                    },
-                    {
-                        "type": "text",
-                        "text": full_user_prompt,
-                    },
-                ],
-            }
-        ]
-        
-        # Process chat template
-        text = processor.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True,
-        )
-        
-        # Process vision info
-        image_inputs, video_inputs = process_vision_info(messages)
-        
-        # Tokenize
-        inputs = processor(
-            text=[text],
-            images=image_inputs,
-            videos=video_inputs,
-            padding=True,
-            return_tensors="pt"
-        )
-        inputs = inputs.to(model.device)
-        
-        # Generate
-        with torch.inference_mode():
-            generated_ids = model.generate(
-                **inputs,
-                **GENERATION_CONFIG,
+
+            full_user_prompt = f"{request.user_prompt}\n\n{json_instruction}"
+
+            # Build messages
+            messages = [
+                {
+                    "role": "system",
+                    "content": request.system_prompt
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "image": temp_path,
+                        },
+                        {
+                            "type": "text",
+                            "text": full_user_prompt,
+                        },
+                    ],
+                }
+            ]
+
+            # Process chat template
+            text = processor.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
             )
-        
-        # Decode
-        generated_ids_trimmed = [
-            out_ids[len(in_ids):]
-            for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
-        ]
-        
-        output_text = processor.batch_decode(
-            generated_ids_trimmed,
-            skip_special_tokens=True,
-            clean_up_tokenization_spaces=False
-        )[0].strip()
-        
-        logger.info(f"Model output: {output_text[:200]}")
-        
-        # Parse and validate JSON with Pydantic
-        try:
-            # Clean output
-            cleaned = output_text
-            if "```json" in cleaned:
-                cleaned = cleaned.split("```json")[1].split("```")[0].strip()
-            elif "```" in cleaned:
-                cleaned = cleaned.split("```")[1].split("```")[0].strip()
-            
-            logger.info(f"Cleaned output: {cleaned[:300]}")
-            
-            # Parse JSON
-            parsed_data = json.loads(cleaned)
-            
-            # Validate with Pydantic - THIS IS THE KEY STEP
-            validated_action = ActionSchema.model_validate(parsed_data)
-            
-            # Convert validated Pydantic model to dict
-            action_dict = validated_action.model_dump()
-            
-            logger.info(f"✓ Validated action: {action_dict['action_type']}")
-            
-            return PlanResponse(
-                action=action_dict,
-                raw_output=output_text,
-                success=True,
-                error=None
+
+            # Process vision info
+            image_inputs, video_inputs = process_vision_info(messages)
+
+            # Tokenize
+            inputs = processor(
+                text=[text],
+                images=image_inputs,
+                videos=video_inputs,
+                padding=True,
+                return_tensors="pt"
             )
-            
-        except json.JSONDecodeError as e:
-            logger.warning(f"JSON decode error: {e}\nOutput: {output_text[:300]}")
-            return PlanResponse(
-                action=None,
-                raw_output=output_text,
-                success=False,
-                error=f"Invalid JSON: {str(e)}"
-            )
-        
-        except ValidationError as e:
-            # Pydantic validation failed - output doesn't match schema
-            logger.warning(f"Schema validation error: {e}\nParsed: {parsed_data}")
-            return PlanResponse(
-                action=None,
-                raw_output=output_text,
-                success=False,
-                error=f"Schema validation failed: {str(e)}"
-            )
-        
+            inputs = inputs.to(model.device)
+
+            # Generate
+            with torch.inference_mode():
+                generated_ids = model.generate(
+                    **inputs,
+                    **GENERATION_CONFIG,
+                )
+
+            # Decode
+            generated_ids_trimmed = [
+                out_ids[len(in_ids):]
+                for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+            ]
+
+            output_text = processor.batch_decode(
+                generated_ids_trimmed,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=False
+            )[0].strip()
+
+            logger.info(f"Model output: {output_text[:200]}")
+
+            # Parse and validate JSON with Pydantic
+            try:
+                # Clean output
+                cleaned = output_text
+                if "```json" in cleaned:
+                    cleaned = cleaned.split("```json")[1].split("```")[0].strip()
+                elif "```" in cleaned:
+                    cleaned = cleaned.split("```")[1].split("```")[0].strip()
+
+                logger.info(f"Cleaned output: {cleaned[:300]}")
+
+                # Parse JSON
+                parsed_data = json.loads(cleaned)
+
+                # Validate with Pydantic - THIS IS THE KEY STEP
+                validated_action = ActionSchema.model_validate(parsed_data)
+
+                # Convert validated Pydantic model to dict
+                action_dict = validated_action.model_dump()
+
+                logger.info(f"✓ Validated action: {action_dict['action_type']}")
+
+                return PlanResponse(
+                    action=action_dict,
+                    raw_output=output_text,
+                    success=True,
+                    error=None
+                )
+
+            except json.JSONDecodeError as e:
+                logger.warning(f"JSON decode error: {e}\nOutput: {output_text[:300]}")
+                return PlanResponse(
+                    action=None,
+                    raw_output=output_text,
+                    success=False,
+                    error=f"Invalid JSON: {str(e)}"
+                )
+
+            except ValidationError as e:
+                # Pydantic validation failed - output doesn't match schema
+                logger.warning(f"Schema validation error: {e}\nParsed: {parsed_data}")
+                return PlanResponse(
+                    action=None,
+                    raw_output=output_text,
+                    success=False,
+                    error=f"Schema validation failed: {str(e)}"
+                )
+
+        finally:
+            os.unlink(temp_path)
+
     except Exception as e:
         logger.error(f"Inference error: {e}", exc_info=True)
         return PlanResponse(

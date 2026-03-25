@@ -17,7 +17,7 @@ LLAMA_SERVER="${LLAMA_SERVER_PATH:-/media/disk/roman/llama.cpp/build/bin/llama-s
 
 # llama-server parameters
 N_GPU_LAYERS="${N_GPU_LAYERS:-80}"
-CTX_SIZE="${CTX_SIZE:-8192}"
+CTX_SIZE="${CTX_SIZE:-32768}"
 
 echo "=========================================="
 echo "Both Services Startup (llama-server Planner)"
