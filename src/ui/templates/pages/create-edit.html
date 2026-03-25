@@ -122,7 +122,11 @@
             <!-- ============================================================ -->
             <div id="section-personas" class="{% if mode == 'create' %}hidden {% endif %}bg-white border border-border-gray rounded-md p-6">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-brand-blue">Personas</h2>
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-[12px] font-semibold uppercase tracking-[0.07em] text-brand-blue">Pick Personas</h2>
+                        <button type="button" id="btn-show-all" onclick="togglePersonaShowAll()"
+                                class="hidden text-xs font-medium text-muted-gray hover:text-brand-navy transition-colors">Show all</button>
+                    </div>
                     <div class="flex items-center gap-3">
                         <span id="persona-count-label" class="text-xs text-muted-gray hidden"></span>
                         <button type="button" id="btn-select-all" onclick="toggleSelectAll()"
@@ -133,7 +137,20 @@
                     <div class="w-4 h-4 border-2 border-border-gray border-t-brand-blue rounded-full animate-spin flex-shrink-0"></div>
                     <span class="text-xs text-muted-gray">Loading personas...</span>
                 </div>
-                <div id="personas-grid" class="hidden grid grid-cols-3 gap-3"></div>
+                <div id="personas-reel-wrapper" class="hidden">
+                    <div class="relative">
+                        <button id="persona-prev" type="button" onclick="prevPersonaPage()"
+                                class="absolute left-[-62px] top-1/2 -translate-y-1/2 w-7 h-7 rounded-full border border-brand-navy bg-brand-navy flex items-center justify-center text-white hover:bg-brand-blue hover:border-brand-blue transition-colors disabled:opacity-45 disabled:cursor-not-allowed disabled:pointer-events-none z-10">
+                            <svg width="5" height="9" viewBox="0 0 5 9" fill="none"><path d="M4 1L1 4.5L4 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <div id="personas-grid" class="grid grid-cols-3 gap-3 min-h-[372px] content-start"></div>
+                        <button id="persona-next" type="button" onclick="nextPersonaPage()"
+                                class="absolute right-[-62px] top-1/2 -translate-y-1/2 w-7 h-7 rounded-full border border-brand-navy bg-brand-navy flex items-center justify-center text-white hover:bg-brand-blue hover:border-brand-blue transition-colors disabled:opacity-25 disabled:cursor-not-allowed disabled:pointer-events-none z-10">
+                            <svg width="5" height="9" viewBox="0 0 5 9" fill="none"><path d="M1 1L4 4.5L1 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                    </div>
+                    <div id="persona-page-dots" class="flex items-center justify-center gap-1.5 mt-3 h-3"></div>
+                </div>
                 <p id="personas-error" class="hidden text-sm text-error-red py-2">Failed to load personas.</p>
                 <p id="personas-none-selected" class="hidden mt-3 text-xs text-error-red">Please select at least one persona to continue.</p>
             </div>
@@ -209,6 +226,9 @@
 
         let allPersonas = [];
         let selectedPersonaIds = new Set();
+        let personaPage = 0;
+        let personaShowAll = false;
+        const PERSONAS_PER_PAGE = 6;
 
         function _personaLabel(id) {
             return id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -227,20 +247,22 @@
                     const label = _personaLabel(p.id);
                     const initial = p.name.charAt(0).toUpperCase();
                     const card = document.createElement('div');
-                    card.className = 'persona-card relative rounded border border-border-gray bg-white cursor-pointer select-none overflow-hidden h-[130px] flex flex-col items-center justify-center gap-1.5 p-3 text-center';
+                    card.className = 'persona-card relative rounded border border-border-gray bg-white cursor-pointer select-none overflow-hidden h-[180px] flex flex-col items-center justify-center gap-2 p-3 text-center';
                     card.dataset.id = p.id;
                     card.addEventListener('click', () => togglePersona(card));
                     card.innerHTML = `
-                        <div class="relative w-11 h-11 rounded-full overflow-hidden bg-[#EDEDF5] flex-shrink-0">
+                        <div class="relative w-20 h-20 rounded-full overflow-hidden bg-[#EDEDF5] flex-shrink-0">
                             <img src="/static/personas/${p.id}.webp" alt="${p.name}"
                                  class="w-full h-full object-cover"
                                  onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-                            <div class="persona-fallback hidden absolute inset-0 items-center justify-center text-sm font-semibold text-muted-gray">${initial}</div>
+                            <div class="persona-fallback hidden absolute inset-0 items-center justify-center text-lg font-semibold text-muted-gray">${initial}</div>
                         </div>
-                        <div class="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-gray leading-tight">${label}</div>
-                        <div class="text-xs font-medium text-body-dark leading-tight">${p.name}</div>
+                        <div>
+                            <div class="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-gray leading-tight mb-0.5">${label}</div>
+                            <div class="text-sm font-medium text-body-dark leading-tight">${p.name}</div>
+                        </div>
                         <div class="persona-desc absolute inset-0 flex items-center p-3" style="background:rgba(9,9,71,0.94)">
-                            <p class="text-[11px] text-white leading-relaxed text-left" style="display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden">${p.description}</p>
+                            <p class="text-[11px] text-white leading-relaxed text-left" style="display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;overflow:hidden">${p.description}</p>
                         </div>
                         <div class="persona-check absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-brand-navy flex items-center justify-center">
                             <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -249,8 +271,9 @@
                 });
 
                 document.getElementById('personas-loading').classList.add('hidden');
-                grid.classList.remove('hidden');
+                document.getElementById('personas-reel-wrapper').classList.remove('hidden');
                 document.getElementById('btn-select-all').classList.remove('hidden');
+                document.getElementById('btn-show-all').classList.remove('hidden');
                 document.getElementById('persona-count-label').classList.remove('hidden');
 
                 preselectIds.forEach(id => {
@@ -258,10 +281,64 @@
                     if (card) _selectCard(card);
                 });
                 _updatePersonaCount();
+                _renderReel();
             } catch (_) {
                 document.getElementById('personas-loading').classList.add('hidden');
                 document.getElementById('personas-error').classList.remove('hidden');
             }
+        }
+
+        function _renderReel() {
+            const cards = Array.from(document.querySelectorAll('#personas-grid .persona-card'));
+            const total = cards.length;
+            const totalPages = Math.max(1, Math.ceil(total / PERSONAS_PER_PAGE));
+
+            if (personaShowAll) {
+                cards.forEach(c => c.classList.remove('hidden'));
+            } else {
+                const start = personaPage * PERSONAS_PER_PAGE;
+                const end = start + PERSONAS_PER_PAGE;
+                cards.forEach((c, i) => c.classList.toggle('hidden', i < start || i >= end));
+            }
+
+            const prevBtn = document.getElementById('persona-prev');
+            const nextBtn = document.getElementById('persona-next');
+            const dotsEl = document.getElementById('persona-page-dots');
+            const showAllBtn = document.getElementById('btn-show-all');
+
+            const navVisible = !personaShowAll && totalPages > 1;
+            prevBtn.classList.toggle('hidden', !navVisible);
+            nextBtn.classList.toggle('hidden', !navVisible);
+            dotsEl.classList.toggle('hidden', !navVisible);
+
+            if (navVisible) {
+                prevBtn.disabled = personaPage === 0;
+                nextBtn.disabled = personaPage >= totalPages - 1;
+                dotsEl.innerHTML = '';
+                for (let i = 0; i < totalPages; i++) {
+                    const dot = document.createElement('button');
+                    dot.type = 'button';
+                    const active = i === personaPage;
+                    dot.className = `w-1.5 h-1.5 rounded-full transition-colors ${active ? 'bg-brand-navy' : 'bg-border-gray hover:bg-muted-gray'}`;
+                    dot.addEventListener('click', () => { personaPage = i; _renderReel(); });
+                    dotsEl.appendChild(dot);
+                }
+            }
+
+            showAllBtn.textContent = personaShowAll ? 'Show reel' : 'Show all';
+        }
+
+        function prevPersonaPage() {
+            if (personaPage > 0) { personaPage--; _renderReel(); }
+        }
+
+        function nextPersonaPage() {
+            if (personaPage < Math.ceil(allPersonas.length / PERSONAS_PER_PAGE) - 1) { personaPage++; _renderReel(); }
+        }
+
+        function togglePersonaShowAll() {
+            personaShowAll = !personaShowAll;
+            _renderReel();
         }
 
         function togglePersona(card) {
