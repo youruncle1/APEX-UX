@@ -28,6 +28,7 @@
 
 {% set has_running = evaluations | selectattr('status', 'equalto', 'RUNNING') | list | length > 0 %}
 {% set has_aborting = evaluations | selectattr('status', 'equalto', 'ABORTED') | list | length > 0 %}
+{% set running_count = evaluations | selectattr('status', 'equalto', 'RUNNING') | list | length %}
 
 {% if evaluations %}
 <div id="evaluations-container"
@@ -40,6 +41,12 @@
             + New Evaluation
         </a>
     </div>
+    {% if running_count >= 2 %}
+    <p class="text-[13px] text-muted-gray mb-3">
+        <strong>{{ running_count }} evaluations running at once.</strong> 
+        Each will take longer as they share the same AI model.
+    </p>
+    {% endif %}
     <div class="bg-white border border-border-gray rounded-md overflow-hidden">
         <table class="w-full border-collapse">
             <thead>
