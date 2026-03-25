@@ -4,7 +4,7 @@ import os
 import colorama
 from colorama import Fore, Style
 
-colorama.init()
+colorama.init(strip=False)
 
 _BANNED = (
     "httpcore",
@@ -45,11 +45,11 @@ def initialize_logging(loglevel: str | int = logging.INFO) -> None:
 
     logging.addLevelName(logging.DEBUG, f"{Fore.BLUE}DEBUG{Style.RESET_ALL}")
     logging.addLevelName(logging.INFO, f"{Fore.GREEN}INFO{Style.RESET_ALL}")
-    logging.addLevelName(logging.WARNING, f"{Fore.YELLOW}WARNING{Style.RESET_ALL}")
+    logging.addLevelName(logging.WARNING, f"\033[38;5;208mWARNING{Style.RESET_ALL}")
     logging.addLevelName(logging.ERROR, f"{Fore.RED}ERROR{Style.RESET_ALL}")
     logging.addLevelName(logging.CRITICAL, f"{Fore.MAGENTA}CRITICAL{Style.RESET_ALL}")
 
-    # Redirect uvicorn loggers through our root logger so they use our format/level
+    # Redirect uvicorn loggers
     for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
         uv = logging.getLogger(name)
         uv.handlers.clear()

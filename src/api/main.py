@@ -342,12 +342,3 @@ app.include_router(pages_router)
 @app.get("/health", tags=["health"])
 async def health_check():
     return {"status": "ok"}
-
-
-# ============================================================================
-# STARTUP
-# ============================================================================
-
-@app.on_event("startup")
-async def startup_event():
-    logger.info("APEX-UX ready — Dashboard: http://localhost:8002 | API Docs: http://localhost:8002/docs")
