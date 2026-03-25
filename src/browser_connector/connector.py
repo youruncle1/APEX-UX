@@ -54,8 +54,12 @@ class BrowserConnector:
         
         if action_type == ActionType.CLICK:
             await self.page.wait_for_load_state("load")
+            await self.page.wait_for_timeout(self.stabilization_wait)
+            await self.page.wait_for_load_state("load")
 
         elif action_type == ActionType.PRESS_KEY:
+            await self.page.wait_for_load_state("load")
+            await self.page.wait_for_timeout(self.stabilization_wait)
             await self.page.wait_for_load_state("load")
 
         elif action_type == ActionType.HOVER:
