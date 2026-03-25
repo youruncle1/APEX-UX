@@ -18,7 +18,9 @@ from src.evaluation.logic.metrics import MetricsCalculator
 from src.evaluation.self_report import SelfReportCollector
 from src.evaluation.api.websocket import evaluation_cancellation, broadcast_progress
 from src.storage import create_screenshot_storage
+from src.log import get_logger
 
+logger = get_logger(__name__)
 
 # Placeholder persona
 PLACEHOLDER_PERSONA = """You are a typical web user with moderate technical skills.
@@ -54,9 +56,9 @@ class EvaluationRunner:
             if not evaluation:
                 raise ValueError(f"Evaluation {evaluation_id} not found")
 
-            print(f"[Runner] Starting evaluation: {evaluation.name or evaluation.id}")
-            print(f"[Runner] Tasks: {len(evaluation.tasks)}, Clones: {len(evaluation.clones)}")
-            print(f"[Runner] Error policy: {self.error_policy}")
+            logger.info("Starting evaluation: %s", evaluation.name or evaluation.id)
+            logger.info("Tasks: %d, Clones: %d", len(evaluation.tasks), len(evaluation.clones))
+            logger.info("Error policy: %s", self.error_policy)
 
             await eval_repo.update_status(evaluation, EvaluationStatus.RUNNING, started_at=datetime.utcnow(),)
 
@@ -65,25 +67,25 @@ class EvaluationRunner:
                 for clone in evaluation.clones:
                     # Check cancellation between clones
                     if self._is_cancelled(evaluation_id):
-                        print(f"[Runner] Abort requested before clone {clone.clone_id}, stopping.")
+                        logger.warning("Abort requested before clone %s, stopping.", clone.clone_id)
                         await self._abort_and_cleanup(evaluation_id, session, eval_repo)
                         return
 
                     try:
                         await self._run_clone(session, evaluation, clone, evaluation_id)
                     except TaskAbortedError:
-                        print(f"[Runner] Clone {clone.clone_id} aborted mid-task.")
+                        logger.warning("Clone %s aborted mid-task.", clone.clone_id)
                         await self._abort_and_cleanup(evaluation_id, session, eval_repo)
                         return
                     except Exception as e:
-                        print(f"[Runner] Clone {clone.clone_id} failed: {e}")
+                        logger.error("Clone %s failed: %s", clone.clone_id, e)
                         if self.error_policy == "fail_fast":
                             raise
                         evaluation_failed = True
 
                     # Check cancellation after each clone completes
                     if self._is_cancelled(evaluation_id):
-                        print(f"[Runner] Abort requested after clone {clone.clone_id}, stopping.")
+                        logger.warning("Abort requested after clone %s, stopping.", clone.clone_id)
                         await self._abort_and_cleanup(evaluation_id, session, eval_repo)
                         return
 
@@ -92,10 +94,10 @@ class EvaluationRunner:
                     EvaluationStatus.COMPLETED,
                     finished_at=datetime.utcnow(),
                 )
-                print(f"[Runner] Evaluation completed {'with failures' if evaluation_failed else 'successfully'}")
+                logger.info("Evaluation completed %s", "with failures" if evaluation_failed else "successfully")
 
             except Exception as e:
-                print(f"[Runner] Evaluation aborted due to exception: {e}")
+                logger.error("Evaluation aborted due to exception: %s", e)
                 await eval_repo.update_status(
                     evaluation,
                     EvaluationStatus.ABORTED,
@@ -113,7 +115,7 @@ class EvaluationRunner:
         Clean up all task run data created during this evaluation run,
         delete screenshots, reset clone SUS data, and return evaluation to PENDING.
         """
-        print(f"[Runner] Aborting and cleaning up evaluation {evaluation_id}")
+        logger.info("Aborting and cleaning up evaluation %s", evaluation_id)
 
         # Delete all task runs for this evaluation (cascades to ActionRecord + TaskRunMetrics)
         result = await session.execute(
@@ -139,9 +141,9 @@ class EvaluationRunner:
         # Delete screenshots
         try:
             await self.screenshot_storage.delete_evaluation(str(evaluation_id))
-            print(f"[Runner] Screenshots deleted for evaluation {evaluation_id}")
+            logger.debug("Screenshots deleted for evaluation %s", evaluation_id)
         except Exception as e:
-            print(f"[Runner] Failed to delete screenshots (non-fatal): {e}")
+            logger.warning("Failed to delete screenshots (non-fatal): %s", e)
 
         # Reset evaluation to PENDING
         result = await session.execute(
@@ -165,7 +167,7 @@ class EvaluationRunner:
         if evaluation_id in evaluation_cancellation:
             del evaluation_cancellation[evaluation_id]
 
-        print(f"[Runner] Cleanup complete, evaluation reset to PENDING")
+        logger.info("Cleanup complete, evaluation reset to PENDING")
 
     async def _run_clone(
         self,
@@ -176,7 +178,7 @@ class EvaluationRunner:
     ):
         """Run all tasks for a single clone, then collect SUS score."""
 
-        print(f"\n[Runner] Running clone: {clone.clone_id}")
+        logger.info("Running clone: %s", clone.clone_id)
 
         persona_context = PLACEHOLDER_PERSONA
 
@@ -203,7 +205,10 @@ class EvaluationRunner:
             for task_def in evaluation.tasks:
                 # Check cancellation between tasks
                 if self._is_cancelled(evaluation_id):
-                    print(f"[Runner] Abort requested before task '{task_def.description[:40]}...', stopping.")
+                    logger.warning(
+                        "Abort requested before task '%s...', stopping.",
+                        task_def.description[:40],
+                    )
                     return  # Caller will handle cleanup
 
                 # TaskAbortedError from execute_task propagates up naturally
@@ -217,20 +222,23 @@ class EvaluationRunner:
                         persona_context=persona_context,
                     )
                 except TaskAbortedError:
-                    print(f"[Runner] Task '{task_def.description[:50]}...' aborted mid-step.")
+                    logger.warning("Task '%s...' aborted mid-step.", task_def.description[:50])
                     raise  # Re-raise so _run_clone → run() can handle cleanup
                 except Exception as e:
-                    print(f"[Runner] Task '{task_def.description[:50]}...' failed: {e}")
+                    logger.error("Task '%s...' failed: %s", task_def.description[:50], e)
                     if self.error_policy == "fail_fast":
                         raise
 
                 # Check cancellation after each task completes
                 if self._is_cancelled(evaluation_id):
-                    print(f"[Runner] Abort requested after task '{task_def.description[:40]}...', stopping.")
+                    logger.warning(
+                        "Abort requested after task '%s...', stopping.",
+                        task_def.description[:40],
+                    )
                     return  # Caller will handle cleanup
 
             # Only collect SUS if we completed all tasks without abort
-            print(f"\n[Runner] Collecting SUS for clone {clone.clone_id}...")
+            logger.debug("Collecting SUS for clone %s...", clone.clone_id)
 
             await eval_repo.refresh_clone_task_runs(clone)
             task_summaries = []
@@ -268,12 +276,12 @@ class EvaluationRunner:
                         sus_ratings=sus_result["ratings"],
                         sus_reasoning=sus_result["reasoning"],
                     )
-                    print(f"[Runner] SUS score saved: {sus_result['sus_score']:.1f}/100")
+                    logger.info("SUS score saved: %.1f/100", sus_result["sus_score"])
                 else:
-                    print("[Runner] SUS collection returned None (non-fatal)")
+                    logger.warning("SUS collection returned None (non-fatal)")
 
             except Exception as e:
-                print(f"[Runner] SUS collection failed (non-fatal): {e}")
+                logger.warning("SUS collection failed (non-fatal): %s", e)
 
         finally:
             await browser.close()
@@ -289,7 +297,7 @@ class EvaluationRunner:
     ):
         """Run a single task for a clone."""
 
-        print(f"\n[Runner] Task: {task_def.description[:50]}...")
+        logger.info("Task: %s...", task_def.description[:50])
 
         task_run_repo = TaskRunRepository(session)
 
@@ -334,7 +342,7 @@ class EvaluationRunner:
                             status = TaskRunStatus.COMPLETED
 
                     except Exception as e:
-                        print(f"[Runner] Verification exception: {e}")
+                        logger.warning("Verification exception: %s", e)
                         status = TaskRunStatus.COMPLETED
                         verification_result = VR.UNKNOWN
                         verification_details = {
@@ -369,10 +377,13 @@ class EvaluationRunner:
                 action_records=action_records,
             )
 
-            print(f"[Runner] Basic metrics: steps={basic_metrics['steps_taken']}, "
-                  f"failed={basic_metrics['failed_action_count']}, "
-                  f"mismatches={basic_metrics['outcome_mismatch_count']}, "
-                  f"backtrack={basic_metrics['backtracking_count']}")
+            logger.debug(
+                "Basic metrics: steps=%d, failed=%d, mismatches=%d, backtrack=%d",
+                basic_metrics["steps_taken"],
+                basic_metrics["failed_action_count"],
+                basic_metrics["outcome_mismatch_count"],
+                basic_metrics["backtracking_count"],
+            )
 
             seq_result = None
             try:
@@ -396,7 +407,7 @@ class EvaluationRunner:
                     persona_context=persona_context,
                 )
             except Exception as e:
-                print(f"[Runner] SEQ collection failed (non-fatal): {e}")
+                logger.warning("SEQ collection failed (non-fatal): %s", e)
 
             await task_run_repo.save_metrics(
                 task_run_id=task_run.id,
@@ -409,7 +420,7 @@ class EvaluationRunner:
             )
 
             if seq_result:
-                print(f"[Runner] SEQ: {seq_result['rating']}/7 - {seq_result['reasoning'][:60]}...")
+                logger.info("SEQ: %s/7 - %s...", seq_result["rating"], seq_result["reasoning"][:60])
 
             await task_run_repo.save_action_records(
                 task_run_id=task_run.id,
@@ -418,7 +429,7 @@ class EvaluationRunner:
 
             await task_run_repo.commit()
 
-            print(f"[Runner] Task completed: {task_run.status.value}")
+            logger.info("Task completed: %s", task_run.status.value)
 
         except TaskAbortedError:
             # Mark this task run as aborted, then re-raise for the runner to handle cleanup
@@ -426,7 +437,7 @@ class EvaluationRunner:
             await task_run_repo.commit()
             raise
         except Exception as e:
-            print(f"[Runner] Task execution failed: {e}")
+            logger.error("Task execution failed: %s", e)
             await task_run_repo.mark_aborted(task_run, failure_reason=str(e))
             await task_run_repo.commit()
             raise

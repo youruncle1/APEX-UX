@@ -1,7 +1,10 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
 from src.config import get_settings, require_database_url
+from src.log import get_logger
 from .models import Base
+
+logger = get_logger(__name__)
 
 _settings = get_settings()
 DATABASE_URL = require_database_url(_settings)
@@ -18,10 +21,10 @@ async def get_session() -> AsyncSession:
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    print("Database tables created")
+    logger.info("Database tables created")
 
 
 async def drop_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-    print("Database tables dropped")
+    logger.info("Database tables dropped")

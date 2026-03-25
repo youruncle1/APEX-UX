@@ -16,6 +16,9 @@ from src.evaluation.models.api_models import (
 from src.evaluation.services.evaluation_service import EvaluationService, calculate_progress
 from src.evaluation.services.task_run_service import TaskRunService
 from src.storage import create_screenshot_storage
+from src.log import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api", tags=["evaluations"])
 
@@ -182,6 +185,7 @@ async def evaluation_progress_websocket(
     evaluation_id: UUID,
 ):
     await websocket.accept()
+    logger.debug("WebSocket connected: evaluation %s", evaluation_id)
 
     if evaluation_id not in active_connections:
         active_connections[evaluation_id] = []
@@ -200,3 +204,4 @@ async def evaluation_progress_websocket(
         active_connections[evaluation_id].remove(websocket)
         if not active_connections[evaluation_id]:
             del active_connections[evaluation_id]
+        logger.debug("WebSocket disconnected: evaluation %s", evaluation_id)

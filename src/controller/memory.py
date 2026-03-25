@@ -2,6 +2,9 @@ from typing import Optional
 
 from src.agents.llm_client import get_utility_client
 from src.config import get_settings
+from src.log import get_logger
+
+logger = get_logger(__name__)
 
 
 class MemoryManager:
@@ -47,6 +50,12 @@ class MemoryManager:
         to_compress = self.action_history[:-keep_count]
         self.action_history = self.action_history[-keep_count:]
 
+        logger.debug(
+            "Compressing %d actions into summary (threshold: %d)",
+            len(to_compress),
+            self.compression_threshold,
+        )
+
         actions_text = "\n".join(
             f"Step {i + 1}: {action['action_type']} - {action['reasoning']}"
             for i, action in enumerate(to_compress)
@@ -74,10 +83,10 @@ class MemoryManager:
                 max_tokens=200,
             )
             self.action_summary = response.choices[0].message.content.strip()
-            print(f"[Memory] Compressed {len(to_compress)} actions into summary")
+            logger.debug("Compressed %d actions into summary", len(to_compress))
 
         except Exception as e:
-            print(f"[Memory] Compression failed: {e}")
+            logger.warning("Compression failed: %s", e)
 
     def get_state(self) -> dict:
         """Return current memory state for database storage."""

@@ -68,9 +68,13 @@ services:
       S3_REGION: ${S3_REGION:-eu-central-1}
       S3_PUBLIC_URL_BASE: ${S3_PUBLIC_URL_BASE:-}
 
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      MEMORY_COMPRESSION_THRESHOLD: ${MEMORY_COMPRESSION_THRESHOLD:-10}
+
       # Python
+      PYTHONUNBUFFERED: 1
       #PYTHONDONTWRITEBYTECODE: 1
-      #PYTHONUNBUFFERED: 1
 
     volumes:
       - ./src:/app/src

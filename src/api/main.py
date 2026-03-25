@@ -1,5 +1,11 @@
 import json
+import os
 from uuid import UUID
+
+from src.log import initialize_logging, get_logger
+
+initialize_logging(os.getenv("LOG_LEVEL", "INFO"))
+logger = get_logger(__name__)
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,6 +43,13 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="src/ui/static"), name="static")
 
 app.include_router(evaluation_router)
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    if request.url.path != "/health":
+        logger.debug("%s %s", request.method, request.url.path)
+    return await call_next(request)
 
 templates = Jinja2Templates(directory="src/ui/templates")
 templates.env.filters["format_duration"] = lambda s: f"{s // 60}m {s % 60}s" if s is not None else "-"
@@ -337,9 +350,4 @@ async def health_check():
 
 @app.on_event("startup")
 async def startup_event():
-    print("=" * 60)
-    print("APEX-UX Web UI Starting")
-    print("=" * 60)
-    print("Dashboard: http://localhost:8002")
-    print("API Docs: http://localhost:8002/docs")
-    print("=" * 60)
+    logger.info("APEX-UX ready — Dashboard: http://localhost:8002 | API Docs: http://localhost:8002/docs")

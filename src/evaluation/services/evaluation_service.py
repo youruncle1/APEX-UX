@@ -22,6 +22,9 @@ from src.evaluation.models.api_models import (
 )
 from src.evaluation.prompts import SUS_ITEMS
 from src.storage import create_screenshot_storage
+from src.log import get_logger
+
+logger = get_logger(__name__)
 
 
 class EvaluationService:
@@ -261,7 +264,7 @@ class EvaluationService:
         try:
             await create_screenshot_storage().delete_evaluation(str(evaluation_id))
         except Exception as e:
-            print(f"[EvaluationService] Failed to delete screenshots: {e}")
+            logger.warning("Failed to delete screenshots: %s", e)
 
         await self.eval_repo.delete(evaluation)
 
@@ -360,7 +363,7 @@ async def broadcast_progress_loop(evaluation_id: UUID):
                 "percentage": percentage,
             })
         except Exception as e:
-            print(f"[Progress] Failed to broadcast progress: {e}")
+            logger.warning("Failed to broadcast progress: %s", e)
         await asyncio.sleep(10)
 
 

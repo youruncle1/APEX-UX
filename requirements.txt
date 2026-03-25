@@ -21,6 +21,7 @@ Pillow==12.1.1
 aioboto3==15.5.0 
 
 # Utils
+colorama==0.4.6
 pydantic==2.12.5
 pydantic-settings==2.13.1
 python-dotenv==1.2.2

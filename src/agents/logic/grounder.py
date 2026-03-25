@@ -4,6 +4,9 @@ import aiohttp
 
 from src.agents.models.data_models import BoundingBox
 from src.config import get_settings
+from src.log import get_logger
+
+logger = get_logger(__name__)
 
 
 class GroundingAgent:
@@ -38,13 +41,13 @@ class GroundingAgent:
                 async with session.post(f"{self.service_url}/ground", json=payload) as response:
                     if response.status != 200:
                         error_text = await response.text()
-                        print(f"[Grounder] Service error {response.status}: {error_text}")
+                        logger.error("Service error %d: %s", response.status, error_text)
                         return None
 
                     result = await response.json()
 
                     if not result.get("success", False):
-                        print(f"[Grounder] Grounding failed: {result.get('error')}")
+                        logger.warning("Grounding failed: %s", result.get("error"))
                         return None
 
                     # bbox is [x1, y1, x2, y2] normalized to [0, 1]
@@ -58,12 +61,12 @@ class GroundingAgent:
                     x2 = to_px(bbox_norm[2], self.viewport_width)
                     y2 = to_px(bbox_norm[3], self.viewport_height)
 
-                    print(f"[Grounder] Located at ({x1}, {y1}, {x2}, {y2})")
+                    logger.debug("Located at (%d, %d, %d, %d)", x1, y1, x2, y2)
                     return BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2)
 
         except aiohttp.ClientError as e:
-            print(f"[Grounder] Network error: {e}")
+            logger.error("Network error: %s", e)
             return None
         except Exception as e:
-            print(f"[Grounder] Unexpected error: {e}")
+            logger.error("Unexpected error: %s", e)
             return None

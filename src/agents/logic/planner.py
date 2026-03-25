@@ -14,6 +14,9 @@ from src.agents.prompts import (
     OUTCOME_MISMATCHES_TEMPLATE,
 )
 from src.config import get_settings
+from src.log import get_logger
+
+logger = get_logger(__name__)
 
 
 class PlannerAgent:
@@ -45,7 +48,7 @@ class PlannerAgent:
         self.temperature = temperature
         self.client, self.model = get_planner_client(backend=self.backend, model=model)
 
-        print(f"[Planner] Backend: {self.backend}, Model: {self.model}")
+        logger.info("Backend: %s, Model: %s", self.backend, self.model)
 
     async def plan(
         self,
@@ -104,7 +107,7 @@ class PlannerAgent:
             content = response.choices[0].message.content
 
             if not content:
-                print("[Planner] Empty response from model")
+                logger.error("Empty response from model")
                 return None
 
             content = content.strip()
@@ -123,14 +126,14 @@ class PlannerAgent:
             )
 
         except json.JSONDecodeError as e:
-            print(f"[Planner] JSON decode error: {e}")
-            print(f"[Planner] Raw content: {content[:300] if content else 'None'}...")
+            logger.error("JSON decode error: %s", e)
+            logger.debug("Raw content: %s", content[:300] if content else "None")
             return None
         except KeyError as e:
-            print(f"[Planner] Missing required field: {e}")
+            logger.error("Missing required field: %s", e)
             return None
         except Exception as e:
-            print(f"[Planner] Error: {e}")
+            logger.error("Unexpected error: %s", e)
             return None
 
     # -------------------------------------------------------------------------

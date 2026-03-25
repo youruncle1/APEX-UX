@@ -4,6 +4,9 @@ from typing import Optional
 from playwright.async_api import async_playwright, Browser, Page, Playwright
 from src.browser_connector.models.data_models import Action, ActionType, ExecutionResult, VerificationResult
 from src.browser_connector.logic.verification import Verifier
+from src.log import get_logger
+
+logger = get_logger(__name__)
 
 class BrowserConnector:
     def __init__(
@@ -27,17 +30,19 @@ class BrowserConnector:
 
     async def start(self, url: str) -> None:
         """Launch browser and navigate to initial URL"""
+        logger.debug("Launching %s browser (headless=%s)", self.browser_type, self.headless)
         self.playwright = await async_playwright().start()
         browser_launcher = getattr(self.playwright, self.browser_type)
         self.browser = await browser_launcher.launch(headless=self.headless)
-        
+
         self.page = await self.browser.new_page(
             viewport={"width": self.viewport_width, "height": self.viewport_height}
         )
-        
+
         self.page.set_default_timeout(self.timeout)
-        
+
         await self.page.goto(url, wait_until="load")
+        logger.debug("Navigated to %s", url)
     
     async def screenshot(self) -> str:
         """Screenshot current viewport as base64 string"""

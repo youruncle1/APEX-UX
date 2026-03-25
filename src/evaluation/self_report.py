@@ -13,6 +13,9 @@ from src.evaluation.prompts import (
     SEQ_SYSTEM_PROMPT_TEMPLATE, SUS_SYSTEM_PROMPT_TEMPLATE,
     build_seq_user_prompt, build_sus_user_prompt,
 )
+from src.log import get_logger
+
+logger = get_logger(__name__)
 
 
 class SelfReportCollector:
@@ -91,8 +94,8 @@ class SelfReportCollector:
             content = self._clean_json_response(content)
             result = json.loads(content)
 
-            print(f"[SEQ] Rating: {result['rating']}/7")
-            print(f"[SEQ] Reasoning: {result['reasoning'][:100]}...")
+            logger.debug("SEQ rating: %s/7", result["rating"])
+            logger.debug("SEQ reasoning: %s", result["reasoning"][:100])
 
             return {
                 "rating": float(result["rating"]),
@@ -100,7 +103,7 @@ class SelfReportCollector:
             }
 
         except Exception as e:
-            print(f"[SEQ] Collection failed: {e}")
+            logger.debug("SEQ collection failed: %s", e)
             return None
 
     async def collect_sus(
@@ -154,13 +157,13 @@ class SelfReportCollector:
             # Validate ratings
             ratings = result["ratings"]
             if len(ratings) != 10 or not all(1 <= r <= 5 for r in ratings):
-                print(f"[SUS] Invalid ratings: {ratings}")
+                logger.debug("Invalid SUS ratings: %s", ratings)
                 return None
 
             sus_score = self._calculate_sus_score(ratings)
 
-            print(f"[SUS] Score: {sus_score:.1f}/100")
-            print(f"[SUS] Reasoning: {result['reasoning'][:100]}...")
+            logger.debug("SUS score: %.1f/100", sus_score)
+            logger.debug("SUS reasoning: %s", result["reasoning"][:100])
 
             return {
                 "sus_score": sus_score,
@@ -169,7 +172,7 @@ class SelfReportCollector:
             }
 
         except Exception as e:
-            print(f"[SUS] Collection failed: {e}")
+            logger.debug("SUS collection failed: %s", e)
             return None
 
     def _calculate_sus_score(self, ratings: List[int]) -> float:
