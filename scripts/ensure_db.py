@@ -1,7 +1,3 @@
-"""
-Run on every container startup. Creates database tables if they don't exist,
-then seeds default personas.
-"""
 import asyncio
 import sys
 import os

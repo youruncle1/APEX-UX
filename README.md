@@ -1,3 +1,37 @@
+# Setup
+
+## Prerequisites
+
+- Docker and Docker Compose
+
+## Getting Started
+
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Start the application:
+   ```bash
+   docker compose up
+   ```
+
+The database is initialized automatically on first run. The app is available at **http://localhost:5000** (if not configured otherwise).
+
+## Model Services
+
+For evaluations to work, two model services must be reachable from the container:
+
+**Grounder** - always local vision model (UI-Venus-Ground-7B). Must be listening on `0.0.0.0:<port>`. Configure the URL|port in `.env` via `GROUNDING_SERVICE_URL`.
+
+**Planner** - can be Qwen (local) or OpenAI. Set `PLANNER_BACKEND=qwen` or `PLANNER_BACKEND=openai` in `.env`.
+- Qwen: must be listening on `0.0.0.0:<port>`, configure URL|port via `PLANNER_SERVICE_URL`
+- OpenAI: set `OPENAI_API_KEY` in `.env`, no URL needed.
+
+**Utility model** (memory compression, self-report) - set via `UTILITY_BACKEND=qwen` or `UTILITY_BACKEND=openai`. If set to `qwen`, it reuses the same endpoint as the Qwen planner.
+
+---
+
 # Screenshot Storage Configuration
 
 APEX-UX supports two screenshot storage backends: **local filesystem** and **S3-compatible object storage**. The backend is selected via the `SCREENSHOT_STORAGE_TYPE` environment variable in `.env`.
