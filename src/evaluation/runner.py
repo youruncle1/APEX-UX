@@ -163,6 +163,21 @@ class EvaluationRunner:
 
         logger.info("Cleanup complete, evaluation reset to PENDING")
 
+    @staticmethod
+    def _task_outcome_label(status: TaskRunStatus, agent_done: bool) -> str:
+        """Return a persona-voice description of how a task ended."""
+        if status == TaskRunStatus.VERIFIED:
+            return "You successfully completed the task"
+        if status == TaskRunStatus.COMPLETED:
+            return "You completed the task (no automated check was run)"
+        if status == TaskRunStatus.TIMEOUT:
+            return "You did not finish the task within the allowed number of steps"
+        if status == TaskRunStatus.FAILED:
+            if agent_done:
+                return "You believed you had finished the task, but the system could not confirm it"
+            return "You were unable to complete the task"
+        return "The task ended unexpectedly"
+
     async def _run_clone(
         self,
         session: AsyncSession,
@@ -245,7 +260,7 @@ class EvaluationRunner:
             for task_run in clone.task_runs:
                 await eval_repo.refresh_task_run_relations(task_run)
 
-                full_action_history = [
+                actions = [
                     {
                         "action_type": action.action_type,
                         "reasoning": action.reasoning or "",
@@ -255,10 +270,10 @@ class EvaluationRunner:
 
                 task_summaries.append({
                     "description": task_run.task_definition.description,
-                    "status": task_run.status.value,
+                    "task_outcome": self._task_outcome_label(task_run.status, task_run.agent_done),
                     "steps_taken": task_run.metrics.steps_taken if task_run.metrics else 0,
                     "seq_score": task_run.metrics.seq_score if task_run.metrics else None,
-                    "action_history": full_action_history,
+                    "actions": actions,
                     "outcome_mismatches": task_run.final_outcome_mismatches or [],
                 })
 
@@ -386,7 +401,7 @@ class EvaluationRunner:
 
             seq_result = None
             try:
-                full_action_history = [
+                seq_actions = [
                     {
                         "action_type": action["action_type"],
                         "reasoning": action.get("reasoning", ""),
@@ -394,15 +409,11 @@ class EvaluationRunner:
                     for action in action_records
                 ]
 
-                complete_memory_state = {
-                    "action_history": full_action_history,
-                    "action_summary": None,
-                    "outcome_mismatches": memory_state.get("outcome_mismatches", []),
-                }
-
                 seq_result = await self.self_report_collector.collect_seq(
                     task_description=task_def.description,
-                    memory_state=complete_memory_state,
+                    actions=seq_actions,
+                    outcome_mismatches=memory_state.get("outcome_mismatches", []),
+                    task_outcome=self._task_outcome_label(status, task_run.agent_done),
                     persona_context=persona_context,
                 )
             except Exception as e:

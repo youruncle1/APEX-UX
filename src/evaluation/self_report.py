@@ -11,11 +11,15 @@ from src.evaluation.prompts import (
     SEQ_SCHEMA, SUS_SCHEMA,
     SEQ_JSON_INSTRUCTION, SUS_JSON_INSTRUCTION,
     SEQ_SYSTEM_PROMPT_TEMPLATE, SUS_SYSTEM_PROMPT_TEMPLATE,
-    build_seq_user_prompt, build_sus_user_prompt,
+    NARRATIVE_SYSTEM_PROMPT_TEMPLATE,
+    build_seq_user_prompt, build_sus_user_prompt, build_narrative_user_prompt,
+    merge_scrolls,
 )
 from src.log import get_logger
 
 logger = get_logger(__name__)
+
+SUS_ACTION_CUMULATIVE_THRESHOLD = 400
 
 
 class SelfReportCollector:
@@ -48,21 +52,36 @@ class SelfReportCollector:
     async def collect_seq(
         self,
         task_description: str,
-        memory_state: Dict[str, Any],
-        persona_context: str
+        actions: List[Dict[str, Any]],
+        outcome_mismatches: List[str],
+        task_outcome: str,
+        persona_context: str,
     ) -> Optional[Dict[str, Any]]:
         """
         Collect Single Ease Question (SEQ) score.
+
+        Args:
+            task_description: The task the agent was asked to complete.
+            actions: Full list of action records (action_type + reasoning). Will be scroll-merged internally.
+            outcome_mismatches: List of mismatch strings recorded during execution.
+            task_outcome: Persona-voice label describing how the task ended.
+            persona_context: The persona narrative.
 
         Returns:
             Dict with rating (float 1-7) and reasoning (str), or None on failure.
         """
         self._ensure_client()
 
-        system_prompt = SEQ_SYSTEM_PROMPT_TEMPLATE.format(persona_context=persona_context)
-        user_prompt = build_seq_user_prompt(task_description, memory_state)
+        merged_actions = merge_scrolls(actions)
 
-        # Append JSON instruction for Qwen
+        system_prompt = SEQ_SYSTEM_PROMPT_TEMPLATE.format(persona_context=persona_context)
+        user_prompt = build_seq_user_prompt(
+            task_description=task_description,
+            actions=merged_actions,
+            outcome_mismatches=outcome_mismatches,
+            task_outcome=task_outcome,
+        )
+
         if self._is_qwen():
             user_prompt += SEQ_JSON_INSTRUCTION
 
@@ -71,21 +90,20 @@ class SelfReportCollector:
                 "model": self._model,
                 "messages": [
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
+                    {"role": "user", "content": user_prompt},
                 ],
                 "temperature": self.temperature,
                 "max_tokens": 512,
             }
 
-            # Only OpenAI supports structured outputs
             if not self._is_qwen():
                 kwargs["response_format"] = {
                     "type": "json_schema",
                     "json_schema": {
                         "name": "seq_response",
                         "strict": True,
-                        "schema": SEQ_SCHEMA
-                    }
+                        "schema": SEQ_SCHEMA,
+                    },
                 }
 
             response = await self._client.chat.completions.create(**kwargs)
@@ -99,20 +117,63 @@ class SelfReportCollector:
 
             return {
                 "rating": float(result["rating"]),
-                "reasoning": result["reasoning"]
+                "reasoning": result["reasoning"],
             }
 
         except Exception as e:
             logger.debug("SEQ collection failed: %s", e)
             return None
 
+    async def _generate_task_narrative(
+        self,
+        task_description: str,
+        actions: List[Dict[str, Any]],
+        outcome_mismatches: List[str],
+        task_outcome: str,
+        steps_taken: int,
+        persona_context: str,
+    ) -> str:
+        """Generate a ~200-300 word first-person narrative of a task for use in the SUS prompt."""
+        system_prompt = NARRATIVE_SYSTEM_PROMPT_TEMPLATE.format(persona_context=persona_context)
+        user_prompt = build_narrative_user_prompt(
+            task_description=task_description,
+            actions=actions,
+            outcome_mismatches=outcome_mismatches,
+            task_outcome=task_outcome,
+            steps_taken=steps_taken,
+        )
+
+        response = await self._client.chat.completions.create(
+            model=self._model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=self.temperature,
+            max_tokens=512,
+        )
+        return response.choices[0].message.content.strip()
+
     async def collect_sus(
         self,
         persona_context: str,
-        task_summaries: List[Dict[str, Any]]
+        task_summaries: List[Dict[str, Any]],
+        cumulative_threshold: int = SUS_ACTION_CUMULATIVE_THRESHOLD,
     ) -> Optional[Dict[str, Any]]:
         """
         Collect System Usability Scale (SUS) score.
+
+        Each task summary must contain:
+          - description: str
+          - task_outcome: str
+          - steps_taken: int
+          - seq_score: float | None
+          - actions: list[dict]  (raw action records, scroll-merged internally)
+          - outcome_mismatches: list[str]
+
+        When the total merged action count across all tasks exceeds cumulative_threshold,
+        tasks whose merged action count exceeds (cumulative_threshold / num_tasks) are
+        replaced with a concise LLM-generated narrative in persona voice.
 
         Returns:
             Dict with sus_score (float 0-100), ratings (list[int]), reasoning (str),
@@ -120,10 +181,51 @@ class SelfReportCollector:
         """
         self._ensure_client()
 
-        system_prompt = SUS_SYSTEM_PROMPT_TEMPLATE.format(persona_context=persona_context)
-        user_prompt = build_sus_user_prompt(task_summaries)
+        # Merge scrolls for every task up front
+        merged_summaries = [
+            {**t, "actions": merge_scrolls(t.get("actions") or [])}
+            for t in task_summaries
+        ]
 
-        # Append JSON instruction for Qwen
+        total_merged = sum(len(t["actions"]) for t in merged_summaries)
+        num_tasks = len(merged_summaries)
+
+        if total_merged > cumulative_threshold and num_tasks > 0:
+            per_task_budget = cumulative_threshold / num_tasks
+            final_summaries = []
+            for task in merged_summaries:
+                if len(task["actions"]) > per_task_budget:
+                    logger.debug(
+                        "Task '%s...' has %d merged actions (budget %.0f) — generating narrative",
+                        task["description"][:40],
+                        len(task["actions"]),
+                        per_task_budget,
+                    )
+                    try:
+                        narrative = await self._generate_task_narrative(
+                            task_description=task["description"],
+                            actions=task["actions"],
+                            outcome_mismatches=task.get("outcome_mismatches") or [],
+                            task_outcome=task["task_outcome"],
+                            steps_taken=task["steps_taken"],
+                            persona_context=persona_context,
+                        )
+                        final_summaries.append({**task, "narrative": narrative, "actions": None})
+                    except Exception as e:
+                        logger.warning(
+                            "Narrative generation failed for task '%s...' (using raw actions): %s",
+                            task["description"][:40],
+                            e,
+                        )
+                        final_summaries.append(task)
+                else:
+                    final_summaries.append(task)
+        else:
+            final_summaries = merged_summaries
+
+        system_prompt = SUS_SYSTEM_PROMPT_TEMPLATE.format(persona_context=persona_context)
+        user_prompt = build_sus_user_prompt(final_summaries)
+
         if self._is_qwen():
             user_prompt += SUS_JSON_INSTRUCTION
 
@@ -132,7 +234,7 @@ class SelfReportCollector:
                 "model": self._model,
                 "messages": [
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
+                    {"role": "user", "content": user_prompt},
                 ],
                 "temperature": self.temperature,
                 "max_tokens": 1024,
@@ -144,8 +246,8 @@ class SelfReportCollector:
                     "json_schema": {
                         "name": "sus_response",
                         "strict": True,
-                        "schema": SUS_SCHEMA
-                    }
+                        "schema": SUS_SCHEMA,
+                    },
                 }
 
             response = await self._client.chat.completions.create(**kwargs)
@@ -154,7 +256,6 @@ class SelfReportCollector:
             content = self._clean_json_response(content)
             result = json.loads(content)
 
-            # Validate ratings
             ratings = result["ratings"]
             if len(ratings) != 10 or not all(1 <= r <= 5 for r in ratings):
                 logger.debug("Invalid SUS ratings: %s", ratings)
@@ -168,7 +269,7 @@ class SelfReportCollector:
             return {
                 "sus_score": sus_score,
                 "ratings": ratings,
-                "reasoning": result["reasoning"]
+                "reasoning": result["reasoning"],
             }
 
         except Exception as e:

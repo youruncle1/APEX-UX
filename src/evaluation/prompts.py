@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 # ============================================================================
@@ -109,7 +109,7 @@ You embodied this persona while completing the task. Now you will assess how eas
 # SINGLE EASE QUESTION (SEQ)
 Rate the difficulty of the task on a scale from 1 to 7:
 - 1 = Very Difficult
-- 2 = Difficult  
+- 2 = Difficult
 - 3 = Somewhat Difficult
 - 4 = Neutral
 - 5 = Somewhat Easy
@@ -122,6 +122,7 @@ Consider:
 - Did you need to backtrack or try alternative approaches?
 - How confident were you in your actions?
 - Would this persona find the task straightforward?
+- Whether you actually finished the task or not
 
 Be honest, detailed, and specific in your assessment."""
 
@@ -142,6 +143,43 @@ You will rate 10 statements about the website on a scale from 1 to 5:
 
 Be honest and consider your complete experience across all tasks. Provide detailed reasoning that connects your ratings to your actual experiences."""
 
+NARRATIVE_SYSTEM_PROMPT_TEMPLATE = """You are reflecting on a website task you just completed, writing from your persona's perspective.
+
+# YOUR PERSONA
+{persona_context}
+
+Write in first person, as this persona would speak and think."""
+
+
+# ============================================================================
+# ACTION PREPROCESSING
+# ============================================================================
+
+def merge_scrolls(actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Collapse consecutive same-direction scrolls into a single entry."""
+    if not actions:
+        return actions
+
+    merged = []
+    i = 0
+    while i < len(actions):
+        action = actions[i]
+        if action["action_type"] in ("SCROLL_UP", "SCROLL_DOWN"):
+            direction = action["action_type"]
+            count = 1
+            j = i + 1
+            while j < len(actions) and actions[j]["action_type"] == direction:
+                count += 1
+                j += 1
+            label = "down" if direction == "SCROLL_DOWN" else "up"
+            reasoning = f"scrolled {label} {count}x" if count > 1 else action.get("reasoning", "")
+            merged.append({"action_type": direction, "reasoning": reasoning})
+            i = j
+        else:
+            merged.append(action)
+            i += 1
+    return merged
+
 
 # ============================================================================
 # PROMPT BUILDERS
@@ -149,66 +187,105 @@ Be honest and consider your complete experience across all tasks. Provide detail
 
 def build_seq_user_prompt(
     task_description: str,
-    memory_state: Dict[str, Any]
+    actions: List[Dict[str, Any]],
+    outcome_mismatches: List[str],
+    task_outcome: str,
 ) -> str:
     """Build user prompt for SEQ collection."""
-
-    action_history = memory_state.get("action_history", [])
-    action_summary = memory_state.get("action_summary")
-    outcome_mismatches = memory_state.get("outcome_mismatches", [])
-
     prompt_parts = []
     prompt_parts.append(f"# TASK YOU COMPLETED\n{task_description}")
+    prompt_parts.append(f"\n# OUTCOME\n{task_outcome}")
 
-    if action_summary and action_history:
-        prompt_parts.append(f"\n# WHAT HAPPENED\n\n## Earlier Actions (Summary)\n{action_summary}")
-        prompt_parts.append(f"\n## Recent Actions")
-        for i, action in enumerate(action_history):
-            prompt_parts.append(f"{i+1}. {action['action_type']}: {action['reasoning']}")
-    elif action_history:
-        prompt_parts.append(f"\n# WHAT HAPPENED")
-        for i, action in enumerate(action_history):
-            prompt_parts.append(f"{i+1}. {action['action_type']}: {action['reasoning']}")
-    elif action_summary:
-        prompt_parts.append(f"\n# WHAT HAPPENED\n{action_summary}")
+    if actions:
+        prompt_parts.append("\n# WHAT YOU DID")
+        for i, action in enumerate(actions, 1):
+            prompt_parts.append(f"{i}. {action['action_type']}: {action['reasoning']}")
+    else:
+        prompt_parts.append("\n# WHAT YOU DID\nNo actions were recorded.")
 
     if outcome_mismatches:
-        prompt_parts.append(f"\n# ISSUES YOU ENCOUNTERED")
-        for i, mismatch in enumerate(outcome_mismatches):
-            prompt_parts.append(f"{i+1}. {mismatch}")
+        prompt_parts.append("\n# ISSUES YOU ENCOUNTERED")
+        for i, mismatch in enumerate(outcome_mismatches, 1):
+            prompt_parts.append(f"{i}. {mismatch}")
 
     prompt_parts.append(
-        f"\n# YOUR ASSESSMENT\n"
-        f"Based on your experience completing this task, how easy or difficult was it? "
-        f"Rate from 1 (very difficult) to 7 (very easy) and provide detailed reasoning."
+        "\n# YOUR ASSESSMENT\n"
+        "Based on your experience completing this task, how easy or difficult was it? "
+        "Rate from 1 (very difficult) to 7 (very easy) and provide detailed reasoning."
+    )
+
+    return "\n".join(prompt_parts)
+
+
+def build_narrative_user_prompt(
+    task_description: str,
+    actions: List[Dict[str, Any]],
+    outcome_mismatches: List[str],
+    task_outcome: str,
+    steps_taken: int,
+) -> str:
+    """Build user prompt for per-task narrative generation (used in SUS)."""
+    prompt_parts = []
+    prompt_parts.append(f"# TASK\n{task_description}")
+    prompt_parts.append(f"\n# OUTCOME\n{task_outcome}")
+    prompt_parts.append(f"\n# STEPS TAKEN\n{steps_taken}")
+
+    if actions:
+        prompt_parts.append("\n# YOUR ACTIONS")
+        for i, action in enumerate(actions, 1):
+            prompt_parts.append(f"{i}. {action['action_type']}: {action['reasoning']}")
+    else:
+        prompt_parts.append("\n# YOUR ACTIONS\nNo actions recorded.")
+
+    if outcome_mismatches:
+        prompt_parts.append("\n# ISSUES YOU ENCOUNTERED")
+        for mismatch in outcome_mismatches:
+            prompt_parts.append(f"- {mismatch}")
+
+    prompt_parts.append(
+        "\n# YOUR TASK\n"
+        "Write a narrative of 200-300 words in first person, as your persona, describing your experience "
+        "completing this task. Cover what you tried chronologically, where you struggled or felt confused, "
+        "any usability issues you noticed, and how the task concluded. Be specific."
     )
 
     return "\n".join(prompt_parts)
 
 
 def build_sus_user_prompt(task_summaries: List[Dict[str, Any]]) -> str:
-    """Build user prompt for SUS collection."""
+    """Build user prompt for SUS collection.
 
+    Each task summary must have:
+      - description: str
+      - task_outcome: str  (persona-voice outcome label)
+      - steps_taken: int
+      - seq_score: float | None
+      - outcome_mismatches: list[str]
+      - actions: list[dict] | None  (scroll-merged raw list, used when no narrative)
+      - narrative: str | None  (LLM-generated summary, used when actions list is too long)
+    """
     prompt_parts = []
     prompt_parts.append("# YOUR EXPERIENCE")
-    prompt_parts.append(f"You completed {len(task_summaries)} tasks on this website. Here's what happened:\n")
+    prompt_parts.append(f"You completed {len(task_summaries)} tasks on this website. Here is what happened:\n")
 
     for i, task in enumerate(task_summaries, 1):
-        status_emoji = "✓" if task["status"] == "VERIFIED" else "✗"
         prompt_parts.append(f"\n## Task {i}: {task['description']}")
 
-        seq_info = f"Ease: {task['seq_score']:.1f}/7" if task.get('seq_score') else ""
-        prompt_parts.append(f"Status: {status_emoji} {task['status']} | Steps: {task['steps_taken']} | {seq_info}")
+        seq_info = f" | Ease rating: {task['seq_score']:.1f}/7" if task.get("seq_score") else ""
+        prompt_parts.append(
+            f"Outcome: {task['task_outcome']} | Steps taken: {task['steps_taken']}{seq_info}"
+        )
 
-        if task.get('action_history'):
-            prompt_parts.append("\nActions you took:")
-            for j, action in enumerate(task['action_history'], 1):
+        if task.get("narrative"):
+            prompt_parts.append(f"\nYour experience:\n{task['narrative']}")
+        elif task.get("actions"):
+            prompt_parts.append("\nWhat you did:")
+            for j, action in enumerate(task["actions"], 1):
                 prompt_parts.append(f"  {j}. {action['action_type']}: {action['reasoning']}")
-
-        if task.get('outcome_mismatches'):
-            prompt_parts.append("\nIssues encountered:")
-            for mismatch in task['outcome_mismatches']:
-                prompt_parts.append(f"  - {mismatch}")
+            if task.get("outcome_mismatches"):
+                prompt_parts.append("\nIssues encountered:")
+                for mismatch in task["outcome_mismatches"]:
+                    prompt_parts.append(f"  - {mismatch}")
 
     prompt_parts.append("\n# SYSTEM USABILITY SCALE")
     prompt_parts.append("Rate your agreement with each statement from 1 (strongly disagree) to 5 (strongly agree):\n")
