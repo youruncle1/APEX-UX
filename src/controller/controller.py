@@ -66,7 +66,6 @@ class TwoAgentController:
         evaluation_id: UUID,
         task_run_id: UUID,
         max_steps: int = 50,
-        verification_rules: Optional[dict] = None
     ) -> dict:
         """
         Execute a complete task run.

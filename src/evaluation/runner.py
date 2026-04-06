@@ -1,9 +1,9 @@
 import asyncio
 from uuid import UUID
-from typing import Optional, Literal
+from typing import Literal
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, func
+from sqlalchemy import select, func
 
 from src.database.connection import AsyncSessionLocal
 from src.database.models import (
@@ -282,7 +282,6 @@ class EvaluationRunner:
         )
 
         eval_repo = EvaluationRepository(session)
-        task_run_repo = TaskRunRepository(session)
 
         try:
             for task_def in evaluation.tasks:
@@ -400,7 +399,6 @@ class EvaluationRunner:
                 evaluation_id=evaluation_id,
                 task_run_id=task_run.id,
                 max_steps=task_def.max_steps,
-                verification_rules=task_def.verification_rules,
             )
 
             task_run.agent_done = result.get("agent_done", False)
