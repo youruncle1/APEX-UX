@@ -39,9 +39,9 @@ class PlannerAgent:
         settings = get_settings()
         self.backend = (backend or settings.planner_backend).lower()
 
-        if self.backend not in ("openai", "qwen"):
+        if self.backend not in ("openai", "local"):
             raise ValueError(
-                f"Unknown planner backend: {self.backend!r}. Use 'openai' or 'qwen'."
+                f"Unknown planner backend: {self.backend!r}. Use 'openai' or 'local'."
             )
 
         self.system_prompt = SYSTEM_PROMPT_TEMPLATE.format(persona_context=persona_context)
@@ -67,7 +67,7 @@ class PlannerAgent:
             outcome_mismatches=outcome_mismatches,
         )
 
-        if self.backend == "qwen":
+        if self.backend == "local":
             user_message += PLANNER_QWEN_JSON_INSTRUCTION
 
         messages = [
@@ -93,7 +93,7 @@ class PlannerAgent:
                 "max_tokens": 512,
             }
 
-            if self.backend == "openai":
+            if self.backend != "local":
                 kwargs["response_format"] = {
                     "type": "json_schema",
                     "json_schema": {

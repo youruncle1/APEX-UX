@@ -40,7 +40,7 @@ class TwoAgentController:
             grounder: Grounding agent instance
             browser: Browser connector instance
             compression_threshold: History compression threshold
-            planner_backend: Override for planner backend ("openai" or "qwen")
+            planner_backend: Override for planner backend ("openai" or "local")
             is_cancelled: Optional callback that returns True if the run should abort
         """
         # Initialize planner with backend selection

@@ -38,17 +38,25 @@ class Settings(BaseSettings):
     app_port: int = 5000
 
     # AI backends
-    # Which LLM backend to use for the planner agent: "openai" | "qwen"
+    # Which LLM backend to use for the planner agent: "openai" | "local"
     planner_backend: str = "openai"
 
     # Which LLM backend to use for utility tasks (SEQ, SUS, memory compression):
-    # "openai" | "qwen"
+    # "openai" | "local"
     utility_backend: str = "openai"
 
     # OpenAI API key - required when either backend is "openai"
     openai_api_key: Optional[pydantic.SecretStr] = None
 
-    # URL of the self-hosted llama-server (used when backend = "qwen")
+    # Model names - required when using the "local" backend, optional for "openai"
+    # (openai defaults to gpt-4o for planner and gpt-4o-mini for utility)
+    # PLANNER_BACKEND=local requires a vision-capable model (multimodal)
+    # UTILITY_BACKEND=local works with any text model
+    planner_model: Optional[str] = None
+    utility_model: Optional[str] = None
+
+    # URL of the local OpenAI-compatible server (used when backend = "local")
+    # Must expose an OpenAI-compatible API (e.g. llama.cpp, Ollama, vLLM)
     planner_service_url: str = "http://localhost:8001"
 
     # Grounding service

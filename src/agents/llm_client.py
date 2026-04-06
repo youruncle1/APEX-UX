@@ -11,6 +11,7 @@ def get_planner_client(
     """Get OpenAI client and model name for the planner."""
     settings = get_settings()
     backend = (backend or settings.planner_backend).lower()
+    model = model or settings.planner_model
     return _build_client(
         backend=backend,
         model=model,
@@ -27,6 +28,7 @@ def get_utility_client(
     """Get OpenAI client and model name for utility tasks (SEQ, SUS, summarization)."""
     settings = get_settings()
     backend = (backend or settings.utility_backend).lower()
+    model = model or settings.utility_model
     return _build_client(
         backend=backend,
         model=model,
@@ -44,8 +46,8 @@ def _build_client(
     settings,
 ) -> tuple[AsyncOpenAI, str]:
     """Build client for a given backend."""
-    if backend not in ("openai", "qwen"):
-        raise ValueError(f"Unknown backend: {backend!r}. Use 'openai' or 'qwen'.")
+    if backend not in ("openai", "local"):
+        raise ValueError(f"Unknown backend: {backend!r}. Use 'openai' or 'local'.")
 
     if backend == "openai":
         api_key = require_openai_api_key(settings)
@@ -53,10 +55,14 @@ def _build_client(
         model_name = model or default_openai_model
         return client, model_name
 
-    # qwen — points at the self-hosted llama-server
+    # local — points at a self-hosted OpenAI-compatible server (llama.cpp, Ollama, vLLM, ...)
+    if not model:
+        raise ValueError(
+            "PLANNER_MODEL / UTILITY_MODEL must be set when using the local backend. "
+            "Add it to your .env file."
+        )
     client = AsyncOpenAI(
         base_url=f"{planner_service_url}/v1",
         api_key="not-needed",
     )
-    model_name = model or "qwen3-vl"
-    return client, model_name
+    return client, model

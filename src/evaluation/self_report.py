@@ -36,8 +36,8 @@ class SelfReportCollector:
             self._client, self._model = get_utility_client()
             self._backend = os.getenv("UTILITY_BACKEND", "openai").lower()
 
-    def _is_qwen(self) -> bool:
-        return self._backend == "qwen"
+    def _is_local(self) -> bool:
+        return self._backend == "local"
 
     def _clean_json_response(self, content: str) -> str:
         """Strip markdown fences and whitespace from model response."""
@@ -81,7 +81,7 @@ class SelfReportCollector:
             task_outcome=task_outcome,
         )
 
-        if self._is_qwen():
+        if self._is_local():
             user_prompt += SEQ_JSON_INSTRUCTION
 
         try:
@@ -95,7 +95,7 @@ class SelfReportCollector:
                 "max_tokens": 512,
             }
 
-            if not self._is_qwen():
+            if not self._is_local():
                 kwargs["response_format"] = {
                     "type": "json_schema",
                     "json_schema": {
@@ -227,7 +227,7 @@ class SelfReportCollector:
         system_prompt = SUS_SYSTEM_PROMPT_TEMPLATE.format(persona_context=persona_context)
         user_prompt = build_sus_user_prompt(final_summaries)
 
-        if self._is_qwen():
+        if self._is_local():
             user_prompt += SUS_JSON_INSTRUCTION
 
         try:
@@ -241,7 +241,7 @@ class SelfReportCollector:
                 "max_tokens": 1024,
             }
 
-            if not self._is_qwen():
+            if not self._is_local():
                 kwargs["response_format"] = {
                     "type": "json_schema",
                     "json_schema": {

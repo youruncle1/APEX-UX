@@ -24,11 +24,11 @@ For evaluations to work, two model services must be reachable from the container
 
 **Grounder** - always local vision model (UI-Venus-Ground-7B). Must be listening on `0.0.0.0:<port>`. Configure the URL|port in `.env` via `GROUNDING_SERVICE_URL`.
 
-**Planner** - can be Qwen (local) or OpenAI. Set `PLANNER_BACKEND=qwen` or `PLANNER_BACKEND=openai` in `.env`.
-- Qwen: must be listening on `0.0.0.0:<port>`, configure URL|port via `PLANNER_SERVICE_URL`
-- OpenAI: set `OPENAI_API_KEY` in `.env`, no URL needed.
+**Planner** - set `PLANNER_BACKEND=local` or `PLANNER_BACKEND=openai` in `.env`.
+- `local`: any vision-capable (multimodal) model behind an OpenAI-compatible API server (llama.cpp, Ollama, vLLM, ...). Set `PLANNER_MODEL=<model-name>` and configure the server URL via `PLANNER_SERVICE_URL`.
+- `openai`: set `OPENAI_API_KEY` in `.env`. `PLANNER_MODEL` is optional (defaults to `gpt-4o`).
 
-**Utility model** (memory compression, self-report) - set via `UTILITY_BACKEND=qwen` or `UTILITY_BACKEND=openai`. If set to `qwen`, it reuses the same endpoint as the Qwen planner.
+**Utility model** (memory compression, self-report) - set via `UTILITY_BACKEND=local` or `UTILITY_BACKEND=openai`. If set to `local`, it reuses the same server endpoint as the planner. Set `UTILITY_MODEL=<model-name>` (any text model works, vision not required).
 
 ---
 
