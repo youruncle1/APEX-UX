@@ -45,7 +45,7 @@ class SelfReportCollector:
         content = content.strip()
         if content.startswith("```"):
             lines = content.split("\n")
-            lines = [l for l in lines if not l.strip().startswith("```")]
+            lines = [line for line in lines if not line.strip().startswith("```")]
             content = "\n".join(lines).strip()
         return content
 
@@ -53,7 +53,7 @@ class SelfReportCollector:
         self,
         task_description: str,
         actions: List[Dict[str, Any]],
-        outcome_mismatches: List[str],
+        outcome_mismatches: List[Any],
         task_outcome: str,
         persona_context: str,
     ) -> Optional[Dict[str, Any]]:
@@ -63,7 +63,7 @@ class SelfReportCollector:
         Args:
             task_description: The task the agent was asked to complete.
             actions: Full list of action records (action_type + reasoning). Will be scroll-merged internally.
-            outcome_mismatches: List of mismatch strings recorded during execution.
+            outcome_mismatches: List of {step, mismatch} dicts from memory state.
             task_outcome: Persona-voice label describing how the task ended.
             persona_context: The persona narrative.
 
@@ -128,7 +128,7 @@ class SelfReportCollector:
         self,
         task_description: str,
         actions: List[Dict[str, Any]],
-        outcome_mismatches: List[str],
+        outcome_mismatches: List[Any],
         task_outcome: str,
         steps_taken: int,
         persona_context: str,

@@ -185,10 +185,38 @@ def merge_scrolls(actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 # PROMPT BUILDERS
 # ============================================================================
 
+def _mismatches_by_step(outcome_mismatches: List[Any]) -> Dict[int, str]:
+    """Index outcome mismatches by step number. Entries may be dicts {step, mismatch} or plain strings."""
+    index: Dict[int, str] = {}
+    for item in outcome_mismatches:
+        if isinstance(item, dict) and "step" in item:
+            index[item["step"]] = item["mismatch"]
+    return index
+
+
+def _render_actions_with_mismatches(
+    actions: List[Dict[str, Any]],
+    outcome_mismatches: List[Any],
+) -> List[str]:
+    """Render a numbered action list with outcome mismatches inlined after the step they occurred at.
+
+    Uses the original step_number from each action dict for mismatch matching,
+    so scroll-merging (which changes list indices) does not misalign mismatches.
+    """
+    mismatch_index = _mismatches_by_step(outcome_mismatches)
+    lines = []
+    for i, action in enumerate(actions, 1):
+        lines.append(f"{i}. {action['action_type']}: {action['reasoning']}")
+        step_num = action.get("step_number", i)
+        if step_num in mismatch_index:
+            lines.append(f"ISSUE ENCOUNTERD AFTER THIS: {mismatch_index[step_num]}")
+    return lines
+
+
 def build_seq_user_prompt(
     task_description: str,
     actions: List[Dict[str, Any]],
-    outcome_mismatches: List[str],
+    outcome_mismatches: List[Any],
     task_outcome: str,
 ) -> str:
     """Build user prompt for SEQ collection."""
@@ -198,15 +226,9 @@ def build_seq_user_prompt(
 
     if actions:
         prompt_parts.append("\n# WHAT YOU DID")
-        for i, action in enumerate(actions, 1):
-            prompt_parts.append(f"{i}. {action['action_type']}: {action['reasoning']}")
+        prompt_parts.extend(_render_actions_with_mismatches(actions, outcome_mismatches))
     else:
         prompt_parts.append("\n# WHAT YOU DID\nNo actions were recorded.")
-
-    if outcome_mismatches:
-        prompt_parts.append("\n# ISSUES YOU ENCOUNTERED")
-        for i, mismatch in enumerate(outcome_mismatches, 1):
-            prompt_parts.append(f"{i}. {mismatch}")
 
     prompt_parts.append(
         "\n# YOUR ASSESSMENT\n"
@@ -232,15 +254,9 @@ def build_narrative_user_prompt(
 
     if actions:
         prompt_parts.append("\n# YOUR ACTIONS")
-        for i, action in enumerate(actions, 1):
-            prompt_parts.append(f"{i}. {action['action_type']}: {action['reasoning']}")
+        prompt_parts.extend(_render_actions_with_mismatches(actions, outcome_mismatches))
     else:
         prompt_parts.append("\n# YOUR ACTIONS\nNo actions recorded.")
-
-    if outcome_mismatches:
-        prompt_parts.append("\n# ISSUES YOU ENCOUNTERED")
-        for mismatch in outcome_mismatches:
-            prompt_parts.append(f"- {mismatch}")
 
     prompt_parts.append(
         "\n# YOUR TASK\n"
@@ -280,12 +296,8 @@ def build_sus_user_prompt(task_summaries: List[Dict[str, Any]]) -> str:
             prompt_parts.append(f"\nYour experience:\n{task['narrative']}")
         elif task.get("actions"):
             prompt_parts.append("\nWhat you did:")
-            for j, action in enumerate(task["actions"], 1):
-                prompt_parts.append(f"  {j}. {action['action_type']}: {action['reasoning']}")
-            if task.get("outcome_mismatches"):
-                prompt_parts.append("\nIssues encountered:")
-                for mismatch in task["outcome_mismatches"]:
-                    prompt_parts.append(f"  - {mismatch}")
+            for line in _render_actions_with_mismatches(task["actions"], task.get("outcome_mismatches") or []):
+                prompt_parts.append(f"  {line}")
 
     prompt_parts.append("\n# SYSTEM USABILITY SCALE")
     prompt_parts.append("Rate your agreement with each statement from 1 (strongly disagree) to 5 (strongly agree):\n")

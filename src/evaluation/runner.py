@@ -262,6 +262,7 @@ class EvaluationRunner:
 
                 actions = [
                     {
+                        "step_number": action.step_number,
                         "action_type": action.action_type,
                         "reasoning": action.reasoning or "",
                     }
@@ -403,6 +404,7 @@ class EvaluationRunner:
             try:
                 seq_actions = [
                     {
+                        "step_number": action["step_number"],
                         "action_type": action["action_type"],
                         "reasoning": action.get("reasoning", ""),
                     }
