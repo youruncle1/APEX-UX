@@ -1,8 +1,9 @@
+import asyncio
 from uuid import UUID
 from typing import Optional, Literal
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func
 
 from src.database.connection import AsyncSessionLocal
 from src.database.models import (
@@ -41,6 +42,74 @@ class EvaluationRunner:
         return evaluation_cancellation.get(evaluation_id, False)
 
     async def run(self, evaluation_id: UUID):
+        """Run a complete evaluation, managing WebSocket lifecycle."""
+        progress_task = asyncio.create_task(self._broadcast_progress_loop(evaluation_id))
+        try:
+            await broadcast_progress(evaluation_id, {
+                "type": "status",
+                "status": "RUNNING",
+                "message": "Evaluation started",
+            })
+            await self._execute(evaluation_id)
+            if not evaluation_cancellation.get(evaluation_id, False):
+                await broadcast_progress(evaluation_id, {"type": "progress", "percentage": 100})
+                await broadcast_progress(evaluation_id, {
+                    "type": "status",
+                    "status": "COMPLETED",
+                    "message": "Evaluation completed successfully",
+                })
+        except Exception as e:
+            await broadcast_progress(evaluation_id, {
+                "type": "error",
+                "message": f"Evaluation failed: {str(e)}",
+            })
+        finally:
+            progress_task.cancel()
+            if evaluation_id in evaluation_cancellation:
+                del evaluation_cancellation[evaluation_id]
+
+    @staticmethod
+    async def _calculate_progress(evaluation_id: UUID) -> float:
+        async with AsyncSessionLocal() as session:
+            clone_count = (await session.execute(
+                select(func.count(EvaluationClone.id))
+                .where(EvaluationClone.evaluation_id == evaluation_id)
+            )).scalar() or 0
+
+            task_count = (await session.execute(
+                select(func.count(TaskDefinition.id))
+                .where(TaskDefinition.evaluation_id == evaluation_id)
+            )).scalar() or 0
+
+            total_expected = clone_count * task_count
+            if total_expected == 0:
+                return 0.0
+
+            terminal = ("VERIFIED", "COMPLETED", "FAILED", "TIMEOUT", "ABORTED")
+            finished = (await session.execute(
+                select(func.count(TaskRun.id))
+                .join(TaskDefinition, TaskRun.task_definition_id == TaskDefinition.id)
+                .where(TaskDefinition.evaluation_id == evaluation_id)
+                .where(TaskRun.status.in_(terminal))
+            )).scalar() or 0
+
+            return round(min(finished / total_expected * 100, 99.0), 1)
+
+    @staticmethod
+    async def _broadcast_progress_loop(evaluation_id: UUID):
+        """Broadcast progress percentage every 10 seconds until cancelled."""
+        while True:
+            try:
+                percentage = await EvaluationRunner._calculate_progress(evaluation_id)
+                await broadcast_progress(evaluation_id, {
+                    "type": "progress",
+                    "percentage": percentage,
+                })
+            except Exception as e:
+                logger.warning("Failed to broadcast progress: %s", e)
+            await asyncio.sleep(10)
+
+    async def _execute(self, evaluation_id: UUID):
         """Run a complete evaluation."""
 
         async with AsyncSessionLocal() as session:

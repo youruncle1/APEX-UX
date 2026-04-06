@@ -13,7 +13,8 @@ from src.evaluation.models.api_models import (
     EvaluationCreate, EvaluationSummary, EvaluationReport,
     TaskRunDetail, PersonaResponse,
 )
-from src.evaluation.services.evaluation_service import EvaluationService, calculate_progress
+from src.evaluation.runner import EvaluationRunner
+from src.evaluation.services.evaluation_service import EvaluationService
 from src.evaluation.services.task_run_service import TaskRunService
 from src.storage import create_screenshot_storage
 from src.log import get_logger
@@ -198,7 +199,7 @@ async def evaluation_progress_websocket(
     active_connections[evaluation_id].append(websocket)
 
     # Send current progress immediately so the client doesn't wait for the next broadcast
-    percentage = await calculate_progress(evaluation_id)
+    percentage = await EvaluationRunner._calculate_progress(evaluation_id)
     await websocket.send_text(json.dumps({"type": "progress", "percentage": percentage}))
 
     try:

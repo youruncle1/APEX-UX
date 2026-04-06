@@ -1,5 +1,4 @@
 import base64
-import os
 from typing import Optional
 from playwright.async_api import async_playwright, Browser, Page, Playwright
 from src.browser_connector.models.data_models import Action, ActionType, ExecutionResult, VerificationResult

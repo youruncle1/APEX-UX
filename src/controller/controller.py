@@ -1,4 +1,3 @@
-import os
 from typing import Optional, Callable
 from datetime import datetime
 from uuid import UUID

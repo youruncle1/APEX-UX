@@ -3,17 +3,11 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database.connection import AsyncSessionLocal
-from src.database.models import (
-    ActionRecord, EvaluationClone, EvaluationStatus,
-    TaskDefinition, TaskRun,
-)
+from src.database.models import EvaluationStatus
 from src.database.repositories import EvaluationRepository
 from src.evaluation.api.websocket import (
-    active_connections,
     evaluation_cancellation,
     broadcast_progress,
 )
@@ -282,9 +276,10 @@ class EvaluationService:
         if evaluation.status != EvaluationStatus.PENDING:
             raise ValueError(f"Evaluation already {evaluation.status.value}")
 
+        from src.evaluation.runner import EvaluationRunner
         evaluation_cancellation[evaluation_id] = False
         await self.eval_repo.update_status(evaluation, EvaluationStatus.RUNNING, started_at=datetime.utcnow())
-        asyncio.create_task(run_evaluation_background(evaluation_id))
+        asyncio.create_task(EvaluationRunner(error_policy="continue_on_error").run(evaluation_id))
 
         return {
             "evaluation_id": str(evaluation_id),
@@ -316,99 +311,3 @@ class EvaluationService:
             "message": "Abort requested. Evaluation will stop after the current task completes.",
         }
 
-
-# ============================================================================
-# PROGRESS CALCULATION
-# ============================================================================
-
-async def calculate_progress(evaluation_id: UUID) -> float:
-    async with AsyncSessionLocal() as session:
-        # Total expected = clones × tasks
-        clone_count = (await session.execute(
-            select(func.count(EvaluationClone.id))
-            .where(EvaluationClone.evaluation_id == evaluation_id)
-        )).scalar() or 0
-
-        task_count = (await session.execute(
-            select(func.count(TaskDefinition.id))
-            .where(TaskDefinition.evaluation_id == evaluation_id)
-        )).scalar() or 0
-
-        total_expected = clone_count * task_count
-        if total_expected == 0:
-            return 0.0
-
-        # Finished = any terminal status
-        terminal = ("VERIFIED", "COMPLETED", "FAILED", "TIMEOUT", "ABORTED")
-        finished = (await session.execute(
-            select(func.count(TaskRun.id))
-            .join(TaskDefinition, TaskRun.task_definition_id == TaskDefinition.id)
-            .where(TaskDefinition.evaluation_id == evaluation_id)
-            .where(TaskRun.status.in_(terminal))
-        )).scalar() or 0
-
-        return round(min(finished / total_expected * 100, 99.0), 1)
-
-
-async def broadcast_progress_loop(evaluation_id: UUID):
-    """
-    Broadcast progress percentage to all connected WebSocket clients.
-    Fires immediately on start, then every 10 seconds until cancelled.
-    """
-    while True:
-        try:
-            percentage = await calculate_progress(evaluation_id)
-            await broadcast_progress(evaluation_id, {
-                "type": "progress",
-                "percentage": percentage,
-            })
-        except Exception as e:
-            logger.warning("Failed to broadcast progress: %s", e)
-        await asyncio.sleep(10)
-
-
-# ============================================================================
-# BACKGROUND TASK HELPERS
-# ============================================================================
-
-async def run_evaluation_background(evaluation_id: UUID):
-    from src.evaluation.runner import EvaluationRunner
-
-    runner = EvaluationRunner(error_policy="continue_on_error")
-
-    # Start the periodic progress broadcaster alongside the runner
-    progress_task = asyncio.create_task(broadcast_progress_loop(evaluation_id))
-
-    try:
-        await broadcast_progress(evaluation_id, {
-            "type": "status",
-            "status": "RUNNING",
-            "message": "Evaluation started",
-        })
-
-        await runner.run(evaluation_id)
-
-        # Check if we ended via abort/cleanup (runner broadcasts ABORTED_RESET itself)
-        # or via normal completion
-        if not evaluation_cancellation.get(evaluation_id, False):
-            # Send 100% before the completion status
-            await broadcast_progress(evaluation_id, {
-                "type": "progress",
-                "percentage": 100,
-            })
-            await broadcast_progress(evaluation_id, {
-                "type": "status",
-                "status": "COMPLETED",
-                "message": "Evaluation completed successfully",
-            })
-
-    except Exception as e:
-        await broadcast_progress(evaluation_id, {
-            "type": "error",
-            "message": f"Evaluation failed: {str(e)}",
-        })
-
-    finally:
-        progress_task.cancel()
-        if evaluation_id in evaluation_cancellation:
-            del evaluation_cancellation[evaluation_id]
