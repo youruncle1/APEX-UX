@@ -15,11 +15,10 @@ from src.evaluation.prompts import (
     build_seq_user_prompt, build_sus_user_prompt, build_narrative_user_prompt,
     merge_scrolls,
 )
+from src.config import get_settings
 from src.log import get_logger
 
 logger = get_logger(__name__)
-
-SUS_ACTION_CUMULATIVE_THRESHOLD = 400
 
 
 class SelfReportCollector:
@@ -158,7 +157,7 @@ class SelfReportCollector:
         self,
         persona_context: str,
         task_summaries: List[Dict[str, Any]],
-        cumulative_threshold: int = SUS_ACTION_CUMULATIVE_THRESHOLD,
+        cumulative_threshold: int = -1,
     ) -> Optional[Dict[str, Any]]:
         """
         Collect System Usability Scale (SUS) score.
@@ -179,6 +178,8 @@ class SelfReportCollector:
             Dict with sus_score (float 0-100), ratings (list[int]), reasoning (str),
             or None on failure.
         """
+        if cumulative_threshold == -1:
+            cumulative_threshold = get_settings().sus_action_cumulative_threshold
         self._ensure_client()
 
         # Merge scrolls for every task up front

@@ -54,8 +54,19 @@ class Settings(BaseSettings):
     # Grounding service
     grounding_service_url: str = "http://localhost:8000"
 
-    # Memory compression
+    # Memory compression threshold:
+    # - prevents context overflow during the two-agent navigation loop.
+    # - Once the action history for a running task exceeds this number of steps,
+    #   the oldest half is summarised by LLM and replaced with summarisation,
+    #   keeping only the most recent (threshold / 2) actions in full detail.
     memory_compression_threshold: int = 10
+
+    # SUS action compression threshold:
+    # - prevents context overflow when collecting SUS scores.
+    # - If total action/steps count across tasks exceed the threshold, 
+    #   any individual task whose action count exceeds (threshold / num_tasks) 
+    #   gets its action log summarised by LLM.
+    sus_action_cumulative_threshold: int = 400
 
     # Browser
     headless: bool = True
