@@ -29,10 +29,3 @@ class ScreenshotStorage(ABC):
         Delete all screenshots for an evaluation.
         """
         pass
-    
-    @abstractmethod
-    async def get_storage_info(self) -> dict:
-        """
-        Get information about storage backend.
-        """
-        pass

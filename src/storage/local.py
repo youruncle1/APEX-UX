@@ -103,24 +103,3 @@ class LocalStorage(ScreenshotStorage):
             import shutil
             shutil.rmtree(eval_dir)
     
-    async def get_storage_info(self) -> dict:
-        """
-        Get storage backend information
-        """
-        
-        # Calculate total size
-        total_size = sum(
-            f.stat().st_size 
-            for f in self.base_path.rglob('*.webp')
-        )
-        
-        # Count screenshots
-        screenshot_count = len(list(self.base_path.rglob('*.webp')))
-        
-        return {
-            "type": "local",
-            "base_path": str(self.base_path),
-            "total_size_bytes": total_size,
-            "total_size_mb": round(total_size / (1024 * 1024), 2),
-            "screenshot_count": screenshot_count
-        }

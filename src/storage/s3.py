@@ -164,36 +164,3 @@ class S3Storage(ScreenshotStorage):
                             Delete={'Objects': objects}
                         )
     
-    async def get_storage_info(self) -> dict:
-        """Get storage backend information"""
-        
-        async with self.session.client(
-            's3',
-            endpoint_url=self.endpoint_url,
-            aws_access_key_id=self.access_key,
-            aws_secret_access_key=self.secret_key,
-            region_name=self.region
-        ) as s3:
-            # Try to get bucket info
-            try:
-                response = await s3.list_objects_v2(
-                    Bucket=self.bucket_name,
-                    Prefix="screenshots/"
-                )
-                
-                screenshot_count = response.get('KeyCount', 0)
-                total_size = sum(obj['Size'] for obj in response.get('Contents', []))
-                
-            except Exception:
-                screenshot_count = 0
-                total_size = 0
-        
-        return {
-            "type": "s3",
-            "endpoint": self.endpoint_url,
-            "bucket": self.bucket_name,
-            "region": self.region,
-            "total_size_bytes": total_size,
-            "total_size_mb": round(total_size / (1024 * 1024), 2),
-            "screenshot_count": screenshot_count
-        }
