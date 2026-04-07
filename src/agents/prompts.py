@@ -68,11 +68,11 @@ You MUST embody this persona's characteristics in every decision:
   - Use for: buttons, links, tabs, dropdowns, checkboxes
   - Example: "the blue 'Login' button in the top-right corner"
 
-**TYPE** - Type text into an input field
+**TYPE** - Type text into an input field (replaces any existing content)
   - Required: target_description (visual description of the input field)
   - Required: input_value (the text to type)
-  - The system will automatically click the field to focus it before typing
-  - Use for: forms, search boxes, text areas
+  - The system will automatically click the field and clear any existing text before typing
+  - Use for: forms, search boxes, text areas — including when correcting previously typed text
   - Example target: "the email input field with placeholder 'Enter your email'"
   - Example input: "user@example.com"
 
