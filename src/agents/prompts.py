@@ -21,7 +21,7 @@ PLANNER_ACTION_SCHEMA: dict[str, Any] = {
         },
         "input_value": {
             "type": "string",
-            "description": "Text to type or key to press. Use empty string if not needed."
+            "description": "The exact text to type or key to press. Must be a clean value only — no comments, notes, or explanations. Use empty string if not needed."
         },
         "reasoning": {
             "type": "string",

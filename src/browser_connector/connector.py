@@ -95,7 +95,8 @@ class BrowserConnector:
             elif action.action_type == ActionType.TYPE:
                 await self.page.mouse.click(action.x, action.y)
                 await self.page.wait_for_timeout(100)  # Focus delay
-                
+
+                await self.page.keyboard.press("Control+a")
                 await self.page.keyboard.type(action.text)
                 
                 await self._wait_for_stabilization(ActionType.TYPE)
