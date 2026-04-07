@@ -47,10 +47,13 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-apex_dev_password}
 
       # AI backends
-      PLANNER_BACKEND: ${PLANNER_BACKEND:-qwen}
-      UTILITY_BACKEND: ${UTILITY_BACKEND:-qwen}
+      PLANNER_BACKEND: ${PLANNER_BACKEND:-openai}
+      UTILITY_BACKEND: ${UTILITY_BACKEND:-openai}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      PLANNER_MODEL: ${PLANNER_MODEL:-}
+      UTILITY_MODEL: ${UTILITY_MODEL:-}
       PLANNER_SERVICE_URL: ${PLANNER_SERVICE_URL:-http://host.docker.internal:8001}
+      ERROR_POLICY: ${ERROR_POLICY:-continue_on_error}
 
       # Grounding
       GROUNDING_SERVICE_URL: ${GROUNDING_SERVICE_URL:-http://host.docker.internal:8000}

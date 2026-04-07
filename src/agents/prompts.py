@@ -36,22 +36,6 @@ PLANNER_ACTION_SCHEMA: dict[str, Any] = {
     "additionalProperties": False
 }
 
-# Appended to prompts when backend doesn't support structured outputs (Qwen)
-PLANNER_QWEN_JSON_INSTRUCTION = """
-
-You MUST respond with ONLY a valid JSON object. No markdown, no explanation, no extra text.
-
-Required format:
-{"action_type": "ACTION", "target_description": "...", "input_value": "...", "reasoning": "...", "outcome_mismatch": "..."}
-
-Rules:
-- action_type must be one of: CLICK, TYPE, SCROLL_UP, SCROLL_DOWN, HOVER, DRAG_AND_DROP, PRESS_KEY, BACK, FORWARD, DONE
-- All 5 fields are required. Use empty string "" for unused fields.
-- reasoning cannot be empty.
-- For DRAG_AND_DROP: target_description = source element, input_value = destination element.
-- Respond with ONLY the JSON object, nothing else."""
-
-
 # ============================================================================
 # SYSTEM / USER PROMPT TEMPLATES
 # ============================================================================

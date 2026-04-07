@@ -50,14 +50,21 @@ class EvaluationRunner:
                 "status": "RUNNING",
                 "message": "Evaluation started",
             })
-            await self._execute(evaluation_id)
+            evaluation_failed = await self._execute(evaluation_id)
             if not evaluation_cancellation.get(evaluation_id, False):
                 await broadcast_progress(evaluation_id, {"type": "progress", "percentage": 100})
-                await broadcast_progress(evaluation_id, {
-                    "type": "status",
-                    "status": "COMPLETED",
-                    "message": "Evaluation completed successfully",
-                })
+                if evaluation_failed:
+                    await broadcast_progress(evaluation_id, {
+                        "type": "status",
+                        "status": "FAILED",
+                        "message": "Evaluation completed with errors",
+                    })
+                else:
+                    await broadcast_progress(evaluation_id, {
+                        "type": "status",
+                        "status": "COMPLETED",
+                        "message": "Evaluation completed successfully",
+                    })
         except Exception as e:
             await broadcast_progress(evaluation_id, {
                 "type": "error",
@@ -109,8 +116,8 @@ class EvaluationRunner:
                 logger.warning("Failed to broadcast progress: %s", e)
             await asyncio.sleep(10)
 
-    async def _execute(self, evaluation_id: UUID):
-        """Run a complete evaluation."""
+    async def _execute(self, evaluation_id: UUID) -> bool:
+        """Run a complete evaluation. Returns True if any clone failed."""
 
         async with AsyncSessionLocal() as session:
             eval_repo = EvaluationRepository(session)
@@ -152,18 +159,20 @@ class EvaluationRunner:
                         await self._abort_and_cleanup(evaluation_id, session, eval_repo)
                         return
 
+                final_status = EvaluationStatus.FAILED if evaluation_failed else EvaluationStatus.COMPLETED
                 await eval_repo.update_status(
                     evaluation,
-                    EvaluationStatus.COMPLETED,
+                    final_status,
                     finished_at=datetime.utcnow(),
                 )
                 logger.info("Evaluation completed %s", "with failures" if evaluation_failed else "successfully")
+                return evaluation_failed
 
             except Exception as e:
-                logger.error("Evaluation aborted due to exception: %s", e)
+                logger.error("Evaluation failed due to exception: %s", e)
                 await eval_repo.update_status(
                     evaluation,
-                    EvaluationStatus.ABORTED,
+                    EvaluationStatus.FAILED,
                     finished_at=datetime.utcnow(),
                 )
                 raise

@@ -2,14 +2,12 @@
 Agent self-report collection for SEQ and SUS scores.
 """
 
-import os
 import json
 from typing import Dict, Any, Optional, List
 
 from src.agents.llm_client import get_utility_client
 from src.evaluation.prompts import (
     SEQ_SCHEMA, SUS_SCHEMA,
-    SEQ_JSON_INSTRUCTION, SUS_JSON_INSTRUCTION,
     SEQ_SYSTEM_PROMPT_TEMPLATE, SUS_SYSTEM_PROMPT_TEMPLATE,
     NARRATIVE_SYSTEM_PROMPT_TEMPLATE,
     build_seq_user_prompt, build_sus_user_prompt, build_narrative_user_prompt,
@@ -28,16 +26,11 @@ class SelfReportCollector:
         self.temperature = temperature
         self._client = None
         self._model = None
-        self._backend = None
 
     def _ensure_client(self):
         """Lazy-initialize the LLM client."""
         if self._client is None:
             self._client, self._model = get_utility_client()
-            self._backend = os.getenv("UTILITY_BACKEND", "openai").lower()
-
-    def _is_local(self) -> bool:
-        return self._backend == "local"
 
     def _clean_json_response(self, content: str) -> str:
         """Strip markdown fences and whitespace from model response."""
@@ -81,9 +74,6 @@ class SelfReportCollector:
             task_outcome=task_outcome,
         )
 
-        if self._is_local():
-            user_prompt += SEQ_JSON_INSTRUCTION
-
         try:
             kwargs = {
                 "model": self._model,
@@ -93,17 +83,14 @@ class SelfReportCollector:
                 ],
                 "temperature": self.temperature,
                 "max_tokens": 512,
-            }
-
-            if not self._is_local():
-                kwargs["response_format"] = {
+                "response_format": {
                     "type": "json_schema",
                     "json_schema": {
                         "name": "seq_response",
-                        "strict": True,
                         "schema": SEQ_SCHEMA,
                     },
-                }
+                },
+            }
 
             response = await self._client.chat.completions.create(**kwargs)
 
@@ -227,9 +214,6 @@ class SelfReportCollector:
         system_prompt = SUS_SYSTEM_PROMPT_TEMPLATE.format(persona_context=persona_context)
         user_prompt = build_sus_user_prompt(final_summaries)
 
-        if self._is_local():
-            user_prompt += SUS_JSON_INSTRUCTION
-
         try:
             kwargs = {
                 "model": self._model,
@@ -239,17 +223,14 @@ class SelfReportCollector:
                 ],
                 "temperature": self.temperature,
                 "max_tokens": 1024,
-            }
-
-            if not self._is_local():
-                kwargs["response_format"] = {
+                "response_format": {
                     "type": "json_schema",
                     "json_schema": {
                         "name": "sus_response",
-                        "strict": True,
                         "schema": SUS_SCHEMA,
                     },
-                }
+                },
+            }
 
             response = await self._client.chat.completions.create(**kwargs)
 

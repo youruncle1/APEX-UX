@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     app_port: int = 5000
 
     # AI backends
+    # Error policy for the evaluation runner: "continue_on_error" | "fail_fast"
+    # continue_on_error: clone errors are logged and skipped, evaluation ends as FAILED
+    # fail_fast: first clone error stops the entire evaluation immediately
+    error_policy: str = "continue_on_error"
+
     # Which LLM backend to use for the planner agent: "openai" | "local"
     planner_backend: str = "openai"
 

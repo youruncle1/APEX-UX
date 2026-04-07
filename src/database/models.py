@@ -13,6 +13,7 @@ class EvaluationStatus(str, enum.Enum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
     ABORTED = "ABORTED"
 
 class TaskRunStatus(str, enum.Enum):

@@ -5,7 +5,6 @@ from src.agents.models.data_models import PlannerAction
 from src.agents.llm_client import get_planner_client
 from src.agents.prompts import (
     PLANNER_ACTION_SCHEMA,
-    PLANNER_QWEN_JSON_INSTRUCTION,
     SYSTEM_PROMPT_TEMPLATE,
     USER_PROMPT_TEMPLATE,
     HISTORY_WITH_SUMMARY_TEMPLATE,
@@ -67,9 +66,6 @@ class PlannerAgent:
             outcome_mismatches=outcome_mismatches,
         )
 
-        if self.backend == "local":
-            user_message += PLANNER_QWEN_JSON_INSTRUCTION
-
         messages = [
             {"role": "system", "content": self.system_prompt},
             {
@@ -91,17 +87,14 @@ class PlannerAgent:
                 "messages": messages,
                 "temperature": self.temperature,
                 "max_tokens": 512,
-            }
-
-            if self.backend != "local":
-                kwargs["response_format"] = {
+                "response_format": {
                     "type": "json_schema",
                     "json_schema": {
                         "name": "action_response",
-                        "strict": True,
                         "schema": PLANNER_ACTION_SCHEMA,
                     },
-                }
+                },
+            }
 
             response = await self.client.chat.completions.create(**kwargs)
             content = response.choices[0].message.content

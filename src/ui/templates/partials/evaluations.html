@@ -76,6 +76,8 @@
                         <span class="inline-block px-[14px] py-[6px] text-[12px] font-semibold tracking-[0.04em] uppercase rounded-full bg-brand-blue text-white animate-pulse">Running</span>
                         {% elif ev.status == 'COMPLETED' %}
                         <span class="inline-block px-[14px] py-[6px] text-[12px] font-semibold tracking-[0.04em] uppercase rounded-full bg-success-green text-success-dark">Completed</span>
+                        {% elif ev.status == 'FAILED' %}
+                        <span class="inline-block px-[14px] py-[6px] text-[12px] font-semibold tracking-[0.04em] uppercase rounded-full bg-error-red text-white">Failed</span>
                         {% elif ev.status == 'ABORTED' %}
                         <span class="inline-block px-[14px] py-[6px] text-[12px] font-semibold tracking-[0.04em] uppercase rounded-full bg-error-red text-error-dark animate-pulse">Aborting</span>
                         {% endif %}

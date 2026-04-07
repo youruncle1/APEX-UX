@@ -277,9 +277,10 @@ class EvaluationService:
             raise ValueError(f"Evaluation already {evaluation.status.value}")
 
         from src.evaluation.runner import EvaluationRunner
+        from src.config import get_settings
         evaluation_cancellation[evaluation_id] = False
         await self.eval_repo.update_status(evaluation, EvaluationStatus.RUNNING, started_at=datetime.utcnow())
-        asyncio.create_task(EvaluationRunner(error_policy="continue_on_error").run(evaluation_id))
+        asyncio.create_task(EvaluationRunner(error_policy=get_settings().error_policy).run(evaluation_id))
 
         return {
             "evaluation_id": str(evaluation_id),

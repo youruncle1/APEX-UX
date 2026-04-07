@@ -69,31 +69,6 @@ SUS_SCHEMA: Dict[str, Any] = {
 }
 
 
-# ============================================================================
-# JSON INSTRUCTIONS (appended to prompts when backend lacks structured outputs)
-# ============================================================================
-
-SEQ_JSON_INSTRUCTION = """
-
-You MUST respond with ONLY a valid JSON object. No markdown, no explanation, no extra text.
-
-Required format:
-{"rating": <number 1-7>, "reasoning": "<detailed explanation>"}
-
-Respond with ONLY the JSON object, nothing else."""
-
-SUS_JSON_INSTRUCTION = """
-
-You MUST respond with ONLY a valid JSON object. No markdown, no explanation, no extra text.
-
-Required format:
-{"ratings": [<int>, <int>, <int>, <int>, <int>, <int>, <int>, <int>, <int>, <int>], "reasoning": "<detailed overall impression>"}
-
-Rules:
-- ratings must be an array of exactly 10 integers, each between 1 and 5
-- The ratings correspond to the 10 SUS items in order
-- Respond with ONLY the JSON object, nothing else."""
-
 
 # ============================================================================
 # SYSTEM PROMPT TEMPLATES
