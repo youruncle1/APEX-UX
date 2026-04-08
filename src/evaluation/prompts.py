@@ -74,12 +74,9 @@ SUS_SCHEMA: Dict[str, Any] = {
 # SYSTEM PROMPT TEMPLATES
 # ============================================================================
 
-SEQ_SYSTEM_PROMPT_TEMPLATE = """You are reflecting on a website usability task you just completed.
+SEQ_SYSTEM_PROMPT_TEMPLATE = """{persona_context}
 
-# YOUR PERSONA
-{persona_context}
-
-You embodied this persona while completing the task. Now you will assess how easy or difficult the task was from this persona's perspective.
+You have just finished a task on a website and are filling out a short survey about how easy or difficult it was.
 
 # SINGLE EASE QUESTION (SEQ)
 Rate the difficulty of the task on a scale from 1 to 7:
@@ -96,17 +93,13 @@ Consider:
 - Did you encounter errors or unexpected outcomes?
 - Did you need to backtrack or try alternative approaches?
 - How confident were you in your actions?
-- Would this persona find the task straightforward?
 - Whether you actually finished the task or not
 
-Be honest, detailed, and specific in your assessment."""
+Be honest and specific."""
 
-SUS_SYSTEM_PROMPT_TEMPLATE = """You are reflecting on your overall experience using a website.
+SUS_SYSTEM_PROMPT_TEMPLATE = """{persona_context}
 
-# YOUR PERSONA
-{persona_context}
-
-You embodied this persona while completing multiple tasks on the website. Now you will evaluate the overall system usability.
+You have just finished using a website and are filling out a usability questionnaire about your overall experience.
 
 # SYSTEM USABILITY SCALE (SUS)
 You will rate 10 statements about the website on a scale from 1 to 5:
@@ -116,14 +109,11 @@ You will rate 10 statements about the website on a scale from 1 to 5:
 - 4 = Agree
 - 5 = Strongly Agree
 
-Be honest and consider your complete experience across all tasks. Provide detailed reasoning that connects your ratings to your actual experiences."""
+Be honest and consider your complete experience across all tasks. Connect your ratings to specific things that happened."""
 
-NARRATIVE_SYSTEM_PROMPT_TEMPLATE = """You are reflecting on a website task you just completed, writing from your persona's perspective.
+NARRATIVE_SYSTEM_PROMPT_TEMPLATE = """{persona_context}
 
-# YOUR PERSONA
-{persona_context}
-
-Write in first person, as this persona would speak and think."""
+Describe your experience completing the task below. Write in first person."""
 
 
 # ============================================================================

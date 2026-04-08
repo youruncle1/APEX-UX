@@ -39,7 +39,7 @@ class MemoryManager:
                 "mismatch": mismatch,
             })
 
-    async def maybe_compress(self):
+    async def maybe_compress(self, task_description: str = ""):
         """Compress history if it exceeds the threshold."""
         if len(self.action_history) <= self.compression_threshold:
             return
@@ -66,10 +66,12 @@ class MemoryManager:
         else:
             compress_input = f"Actions:\n{actions_text}"
 
-        # TODO: upgrade prompt - definitely pass task definition into prompt too.
+        task_line = f"Task: {task_description}\n\n" if task_description else ""
         system_content = (
-            "You compress action histories into concise summaries. "
-            "Focus on navigation milestones and key decisions. Be brief."
+            f"{task_line}"
+            "Summarize the following action history into a brief, factual chronological summary. "
+            "Focus on where navigation went, what was tried, what succeeded or failed, and any dead ends. "
+            "Be concise. Omit filler."
         )
 
         try:

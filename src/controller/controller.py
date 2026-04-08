@@ -111,7 +111,7 @@ class TwoAgentController:
             logger.debug("Screenshot saved: %s", screenshot_url)
 
             # compress memory if threshold reached
-            await memory.maybe_compress()
+            await memory.maybe_compress(task_description=task_description)
 
             # Plan next action
             planner_action = None
