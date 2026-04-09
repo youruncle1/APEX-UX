@@ -1,9 +1,5 @@
 from typing import Any
 
-# ============================================================================
-# PLANNER STRUCTURED OUTPUT SCHEMA (OpenAI JSON schema mode)
-# ============================================================================
-
 PLANNER_ACTION_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -21,7 +17,7 @@ PLANNER_ACTION_SCHEMA: dict[str, Any] = {
         },
         "input_value": {
             "type": "string",
-            "description": "The exact text to type or key to press. Must be a clean value only — no comments, notes, or explanations. Use empty string if not needed."
+            "description": "The exact text to type or key to press. Must be a clean value only. No comments, notes, or explanations. Use empty string if not needed."
         },
         "reasoning": {
             "type": "string",
@@ -36,13 +32,9 @@ PLANNER_ACTION_SCHEMA: dict[str, Any] = {
     "additionalProperties": False
 }
 
-# ============================================================================
-# SYSTEM / USER PROMPT TEMPLATES
-# ============================================================================
-
 SYSTEM_PROMPT_TEMPLATE = """{persona_context}
 
-You are navigating a website to complete a task.
+You are navigating a website to try and complete a task.
 
 # WHAT YOU CAN SEE
 - Only what is currently visible in the viewport through a screenshot
@@ -61,7 +53,7 @@ You are navigating a website to complete a task.
   - Required: target_description (visual description of the input field)
   - Required: input_value (the text to type)
   - The system will automatically click the field and clear any existing text before typing
-  - Use for: forms, search boxes, text areas — including when correcting previously typed text
+  - Use for: forms, search boxes, text areas - including when correcting previously typed text
   - Example target: "the email input field with placeholder 'Enter your email'"
   - Example input: "user@example.com"
 
@@ -75,8 +67,8 @@ You are navigating a website to complete a task.
   - Use for: revealing tooltips, dropdown menus, hidden navigation
 
 **DRAG_AND_DROP** - Click and drag an element to another location
-  - Required: target_description (the element to drag — the source)
-  - Required: input_value (the element to drop onto — the destination)
+  - Required: target_description (the element to drag - the source)
+  - Required: input_value (the element to drop onto - the destination)
   - Use for: reordering lists, moving cards, file uploads via drag
   - Example target_description: "the blue task card labeled 'Fix bug'"
   - Example input_value: "the 'Done' column header"
@@ -87,7 +79,7 @@ You are navigating a website to complete a task.
 
 **BACK** / **FORWARD** - Browser history navigation
   - No parameters needed
-  - Use when: need to return to previous page or go forward
+  - Use when: need to return to previous page or go forward (if possible)
 
 **DONE** - Signal successful task completion
   - Use when: you have accomplished the task objective
@@ -102,11 +94,11 @@ When describing elements for CLICK, TYPE, HOVER, or DRAG_AND_DROP actions:
   - "the red 'Delete' icon next to the third item in the list"
   - "the 'Accept Cookies' button at the bottom of the blue banner"
 
-✗ BAD descriptions (vague or technical):
-  - "the button" (which button? too vague)
-  - "button#submit-btn" (technical selector, not visual)
-  - "the element" (not specific)
-  - "div.container > a" (technical DOM path)
+✗ BAD descriptions (not specific enough):
+  - "the button" (which button?)
+  - "the link in the menu" (which menu? which link?)
+  - "the input field" (there may be multiple)
+  - "the icon on the right" (right of what? which icon?)
 
 Include these details in descriptions:
   - Color and styling cues
