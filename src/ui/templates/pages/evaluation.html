@@ -3,7 +3,7 @@
 {% block title %}{{ evaluation.name or 'Evaluation Report' }}{% endblock %}
 
 {% block header_title %}
-<h1 class="text-base font-semibold text-brand-navy">{{ evaluation.name or 'Evaluation Report' }}</h1>
+<h1 class="text-base font-semibold text-brand-navy max-w-sm truncate" title="{{ evaluation.name or 'Evaluation Report' }}">{{ evaluation.name or 'Evaluation Report' }}</h1>
 {% if evaluation.status == 'PENDING' %}
 <span class="inline-block px-[10px] py-[3px] text-[11px] font-semibold tracking-[0.04em] uppercase rounded-full bg-warn-yellow text-warn-yellow-dark">Pending</span>
 {% elif evaluation.status == 'RUNNING' %}
@@ -301,7 +301,7 @@
                                 {% set bt_pct = ((task.backtracking_count or 0) / steps * 100) | round | int if steps > 0 else 0 %}
                                 <tr class="border-b border-border-gray last:border-b-0 hover:bg-hover-gray transition-colors">
                                     <td class="px-3 py-2 text-sm">
-                                        <div class="text-body-dark break-words">{{ task.task_description }}</div>
+                                        <a href="/task-run/{{ task.id }}" class="text-body-dark break-words hover:underline hover:font-semibold transition-all">{{ task.task_description }}</a>
                                     </td>
                                     <td class="px-3 py-2 text-sm">
                                         {% if task.agent_done %}
