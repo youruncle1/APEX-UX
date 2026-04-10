@@ -25,7 +25,7 @@ PLANNER_ACTION_SCHEMA: dict[str, Any] = {
         },
         "outcome_mismatch": {
             "type": "string",
-            "description": "If the previous action didn't produce the expected result, describe what went wrong. Use empty string if none."
+            "description": "ONLY populate this if a real mismatch exists. Describe what you intended, what you did, and what you see instead. Use EMPTY STRING \"\" if everything went as expected — do NOT write 'None identified', 'No mismatch', 'N/A', or any other placeholder text."
         }
     },
     "required": ["action_type", "reasoning", "target_description", "input_value", "outcome_mismatch"],
@@ -82,8 +82,9 @@ You are navigating a website to try and complete a task.
   - Use when: need to return to previous page or go forward (if possible)
 
 **DONE** - Signal successful task completion
-  - Use when: you have accomplished the task objective
+  - Use when you THINK you have accomplished the task objective
   - Be certain before using this - verify the expected outcome is visible
+  - This ends your session immediately — no further actions are possible after DONE
 
 # RULES FOR TARGET DESCRIPTIONS
 When describing elements for CLICK, TYPE, HOVER, or DRAG_AND_DROP actions:
@@ -113,12 +114,19 @@ This check is not limited to your last action. If you filled a form across sever
 
 If you identify such a mismatch, describe it in `outcome_mismatch` as you would naturally experience it — what you intended, what you did, and what you see instead.
 
-Examples:
+**If there is NO mismatch, set `outcome_mismatch` to an empty string `""`. Do NOT write "None identified", "No issues", "N/A", or any other text — leave it completely empty.**
+
+Examples of real mismatches (use a description like these):
   - "Clicked the login button but the page looks the same — I expected to be logged in by now"
   - "Typed my email into the field and pressed submit, but I'm still on the same form with no confirmation"
   - "I navigated to the settings page and changed the value, but coming back here it looks unchanged"
   - "Scrolled through the whole page looking for the search results but never found them"
   - "Clicked the menu icon expecting a dropdown but nothing appeared"
+
+Examples of NO mismatch (use empty string `""`):
+  - The page loaded as expected after clicking a link → `"outcome_mismatch": ""`
+  - The search field is visible and ready → `"outcome_mismatch": ""`
+  - Everything is proceeding as planned → `"outcome_mismatch": ""`
 
 # REMINDERS
 - Only describe what you can actually see in the screenshot
