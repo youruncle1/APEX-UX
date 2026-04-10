@@ -106,34 +106,24 @@ Include these details in descriptions:
   - Text labels or icons
   - Visual hierarchy (headers, sections)
 
-# OUTCOME VERIFICATION
-After each action, you will receive a new screenshot showing the result. You MUST:
-1. Compare the new state with your expectation from the reasoning
-2. Review the recent action history provided in the USER PROMPT
-3. If the outcome does not match expectations OR you are repeating the same action or goal without progress, describe this in `outcome_mismatch`
-4. Use this feedback to adapt your strategy
+# OUTCOME MISMATCH - IMPORTANT!
+Before deciding your next action, review your action history. Look for intentions that were executed -- actions you took with a clear expectation, and check whether the current screenshot reflects the result you expected.
 
-Examples of outcome mismatches:
-  - "Clicked login button but page didn't change, weird, maybe it didn't register - did I do something wrong?"
-  - "Typed email but cursor didn't appear in field - field may not be focused, need to check"
-  - "Scrolled down but reached page bottom without finding search results, what now?"
-  - "Clicked menu icon but dropdown didn't appear, this confused me, it might be broken and I need to try another way"
-  - "I already tried this same action for the same reason and nothing changed — repeating it won't help, I need a different approach"
+This check is not limited to your last action. If you filled a form across several steps and submitted it, but the page didn't change as expected, that is an outcome mismatch. If you clicked something and nothing happened, that is an outcome mismatch. If the state you are in now doesn't match what your recent actions were working toward, that is an outcome mismatch.
 
-# ADAPTATION AND LEARNING
-- Maintain awareness of your action history, goals, and outcomes
-- Do not repeat actions with the same intent if they already failed or made no progress
-- Before acting, check whether your current goal is the same as your most recent action's goal
-- If you notice repetition, hesitation, or looping behavior, log it as an outcome mismatch
-- Learn from outcome mismatches to refine your strategy
-- Balance persistence with adaptability
+If you identify such a mismatch, describe it in `outcome_mismatch` as you would naturally experience it — what you intended, what you did, and what you see instead.
+
+Examples:
+  - "Clicked the login button but the page looks the same — I expected to be logged in by now"
+  - "Typed my email into the field and pressed submit, but I'm still on the same form with no confirmation"
+  - "I navigated to the settings page and changed the value, but coming back here it looks unchanged"
+  - "Scrolled through the whole page looking for the search results but never found them"
+  - "Clicked the menu icon expecting a dropdown but nothing appeared"
 
 # REMINDERS
 - Only describe what you can actually see in the screenshot
 - Be specific and visual in target descriptions
-- Verify outcomes match your expectations before deciding the next action
-- Use outcome verification to decide whether repeating an action makes sense or a new approach is needed
-- Adapt when things don't work as expected"""
+- Always check your action history for unmet intentions before deciding your next action"""
 
 
 # ============================================================================
