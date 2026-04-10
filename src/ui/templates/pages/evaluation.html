@@ -186,7 +186,7 @@
                     {% for clone in clones %}
                     <span class="inline-flex items-center gap-1.5 px-3 py-1 text-sm rounded-full border border-border-gray" class="bg-page-gray text-body-dark">
                         <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                        {{ clone.clone_id }}
+                        {{ clone.persona_name }}
                     </span>
                     {% endfor %}
                 </div>
@@ -225,7 +225,7 @@
                         <div>
                             <h3 class="text-sm font-semibold text-brand-navy flex items-center gap-1.5">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                {{ persona.clone.clone_id }}
+                                {{ persona.clone.persona_name }}
                             </h3>
                         </div>
                         <div>
@@ -535,7 +535,7 @@
         function showSUSModal(btn) {
             const clone = JSON.parse(btn.dataset.clone);
             if (!clone.sus_score) { alert('SUS data not available'); return; }
-            document.getElementById('sus-persona-name').textContent = clone.clone_id;
+            document.getElementById('sus-persona-name').textContent = clone.persona_name;
             document.getElementById('sus-score').textContent = parseFloat(clone.sus_score).toFixed(1);
             const interp = getSUSInterpretation(clone.sus_score);
             const badge = document.getElementById('sus-badge');

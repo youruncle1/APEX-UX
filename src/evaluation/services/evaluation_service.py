@@ -92,8 +92,7 @@ class EvaluationService:
         for clone in evaluation.clones:
             clone_dict = {
                 "id": str(clone.id),
-                "clone_id": clone.clone_id,
-                "persona_name": clone.persona_cache.get("name", "Unknown"),
+                "persona_name": clone.persona.name,
                 "sus_score": clone.sus_score,
                 "sus_ratings": clone.sus_ratings,
                 "sus_reasoning": clone.sus_reasoning,
@@ -136,7 +135,8 @@ class EvaluationService:
                 task_runs_data.append({
                     "id": str(task_run.id),
                     "task_description": task_def.description if task_def else "Unknown",
-                    "clone_id": clone.clone_id,
+                    "clone_uuid": str(clone.id),
+                    "persona_name": clone.persona.name,
                     "status": task_run.status.value,
                     "steps_taken": steps_taken,
                     "seq_score": seq_score,

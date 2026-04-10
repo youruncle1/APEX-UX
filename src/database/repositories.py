@@ -33,6 +33,7 @@ class EvaluationRepository:
             .where(Evaluation.id == evaluation_id)
             .options(
                 selectinload(Evaluation.clones).selectinload(EvaluationClone.task_runs),
+                selectinload(Evaluation.clones).selectinload(EvaluationClone.persona),
                 selectinload(Evaluation.tasks),
             )
         )
@@ -42,7 +43,10 @@ class EvaluationRepository:
         result = await self.session.execute(
             select(Evaluation)
             .where(Evaluation.id == evaluation_id)
-            .options(selectinload(Evaluation.tasks), selectinload(Evaluation.clones))
+            .options(
+                selectinload(Evaluation.tasks),
+                selectinload(Evaluation.clones).selectinload(EvaluationClone.persona),
+            )
         )
         return result.scalar_one_or_none()
 
@@ -83,9 +87,7 @@ class EvaluationRepository:
             persona = by_id[persona_id]
             clone = EvaluationClone(
                 evaluation_id=evaluation.id,
-                clone_id=persona.id,
                 persona_id=persona.id,
-                persona_cache={"id": persona.id, "name": persona.name},
             )
             self.session.add(clone)
 
@@ -123,9 +125,7 @@ class EvaluationRepository:
         for clone in source.clones:
             self.session.add(EvaluationClone(
                 evaluation_id=new_eval.id,
-                clone_id=clone.clone_id,
                 persona_id=clone.persona_id,
-                persona_cache=clone.persona_cache,
             ))
 
         for task in source.tasks:
@@ -173,9 +173,7 @@ class EvaluationRepository:
             persona = by_id[persona_id]
             clone = EvaluationClone(
                 evaluation_id=evaluation.id,
-                clone_id=persona.id,
                 persona_id=persona.id,
-                persona_cache={"id": persona.id, "name": persona.name},
             )
             self.session.add(clone)
 
@@ -251,7 +249,7 @@ class TaskRunRepository:
             .where(TaskRun.id == task_run_id)
             .options(
                 selectinload(TaskRun.task_definition),
-                selectinload(TaskRun.clone),
+                selectinload(TaskRun.clone).selectinload(EvaluationClone.persona),
                 selectinload(TaskRun.metrics),
                 selectinload(TaskRun.actions),
             )
@@ -354,10 +352,10 @@ class PersonaRepository:
         result = await self.session.execute(select(Persona).order_by(Persona.name))
         return list(result.scalars().all())
 
-    async def get_by_id(self, persona_id: str) -> Optional[Persona]:
+    async def get_by_id(self, persona_id: UUID) -> Optional[Persona]:
         result = await self.session.execute(select(Persona).where(Persona.id == persona_id))
         return result.scalar_one_or_none()
 
-    async def get_by_ids(self, persona_ids: list[str]) -> list[Persona]:
+    async def get_by_ids(self, persona_ids: list[UUID]) -> list[Persona]:
         result = await self.session.execute(select(Persona).where(Persona.id.in_(persona_ids)))
         return list(result.scalars().all())

@@ -33,7 +33,7 @@ class TaskDefinitionCreate(BaseModel):
 
 
 class PersonaResponse(BaseModel):
-    id: str
+    id: UUID
     name: str
     description: str
 
@@ -43,7 +43,7 @@ class EvaluationCreate(BaseModel):
     base_url: str
     browser: str = "chromium"
     viewport: Optional[dict] = None
-    persona_ids: List[str]
+    persona_ids: List[UUID]
     tasks: List[TaskDefinitionCreate]
 
 
@@ -62,7 +62,7 @@ class EvaluationSummary(BaseModel):
 class TaskRunSummary(BaseModel):
     id: UUID
     task_description: str
-    clone_id: str
+    persona_name: str
     status: str
     steps_taken: int
     seq_score: Optional[float] = None
@@ -98,7 +98,7 @@ class ActionRecordDetail(BaseModel):
 class TaskRunDetail(BaseModel):
     id: UUID
     task_description: str
-    clone_id: str
+    persona_name: str
     status: str
     agent_done: bool
     verification_result: Optional[str]

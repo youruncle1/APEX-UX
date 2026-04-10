@@ -298,10 +298,10 @@ async def evaluation_report_page(
     else:
         metrics = {k: "-" for k in ("success_rate", "tasks_passed", "avg_steps", "avg_seq", "avg_sus")}
 
-    tasks_by_clone = {c["clone_id"]: {"clone": c, "tasks": []} for c in report["clones"]}
+    tasks_by_clone = {c["id"]: {"clone": c, "tasks": []} for c in report["clones"]}
     for t in task_runs:
-        if t["clone_id"] in tasks_by_clone:
-            tasks_by_clone[t["clone_id"]]["tasks"].append(t)
+        if t["clone_uuid"] in tasks_by_clone:
+            tasks_by_clone[t["clone_uuid"]]["tasks"].append(t)
 
     return templates.TemplateResponse(request, "pages/evaluation.html", {
         "evaluation":       ev,

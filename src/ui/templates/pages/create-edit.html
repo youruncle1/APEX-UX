@@ -230,10 +230,6 @@
         let personaShowAll = false;
         const PERSONAS_PER_PAGE = 6;
 
-        function _personaLabel(id) {
-            return id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-        }
-
         async function loadPersonas(preselectIds = []) {
             try {
                 const resp = await fetch('/api/personas');
@@ -244,7 +240,6 @@
                 grid.innerHTML = '';
 
                 allPersonas.forEach(p => {
-                    const label = _personaLabel(p.id);
                     const initial = p.name.charAt(0).toUpperCase();
                     const card = document.createElement('div');
                     card.className = 'persona-card relative rounded border border-border-gray bg-white cursor-pointer select-none overflow-hidden h-[180px] flex flex-col items-center justify-center gap-2 p-3 text-center';
@@ -258,7 +253,6 @@
                             <div class="persona-fallback hidden absolute inset-0 items-center justify-center text-lg font-semibold text-muted-gray">${initial}</div>
                         </div>
                         <div>
-                            <div class="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-gray leading-tight mb-0.5">${label}</div>
                             <div class="text-sm font-medium text-body-dark leading-tight">${p.name}</div>
                         </div>
                         <div class="persona-desc absolute inset-0 flex items-center p-3" style="background:rgba(9,9,71,0.94)">

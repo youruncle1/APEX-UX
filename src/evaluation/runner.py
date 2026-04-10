@@ -137,25 +137,25 @@ class EvaluationRunner:
                 for clone in evaluation.clones:
                     # Check cancellation between clones
                     if self._is_cancelled(evaluation_id):
-                        logger.warning("Abort requested before clone %s, stopping.", clone.clone_id)
+                        logger.warning("Abort requested before clone %s, stopping.", clone.id)
                         await self._abort_and_cleanup(evaluation_id, session, eval_repo)
                         return
 
                     try:
                         await self._run_clone(session, evaluation, clone, evaluation_id)
                     except TaskAbortedError:
-                        logger.warning("Clone %s aborted mid-task.", clone.clone_id)
+                        logger.warning("Clone %s aborted mid-task.", clone.id)
                         await self._abort_and_cleanup(evaluation_id, session, eval_repo)
                         return
                     except Exception as e:
-                        logger.error("Clone %s failed: %s", clone.clone_id, e)
+                        logger.error("Clone %s failed: %s", clone.id, e)
                         if self.error_policy == "fail_fast":
                             raise
                         evaluation_failed = True
 
                     # Check cancellation after each clone completes
                     if self._is_cancelled(evaluation_id):
-                        logger.warning("Abort requested after clone %s, stopping.", clone.clone_id)
+                        logger.warning("Abort requested after clone %s, stopping.", clone.id)
                         await self._abort_and_cleanup(evaluation_id, session, eval_repo)
                         return
 
@@ -265,13 +265,10 @@ class EvaluationRunner:
     ):
         """Run all tasks for a single clone, then collect SUS score."""
 
-        logger.info("Running clone: %s", clone.clone_id)
-
         persona = await PersonaRepository(session).get_by_id(clone.persona_id)
         if not persona:
-            raise ValueError(f"Persona '{clone.persona_id}' not found for clone {clone.clone_id}")
-        clone.persona_cache = {"id": persona.id, "name": persona.name, "description": persona.description}
-        await session.commit()
+            raise ValueError(f"Persona '{clone.persona_id}' not found")
+        logger.info("Running clone: %s", persona.name)
         persona_context = persona.narrative
 
         vp = evaluation.viewport or {"width": 1280, "height": 720}
@@ -329,7 +326,7 @@ class EvaluationRunner:
                     return  # Caller will handle cleanup
 
             # Only collect SUS if we completed all tasks without abort
-            logger.debug("Collecting SUS for clone %s...", clone.clone_id)
+            logger.debug("Collecting SUS for clone %s...", persona.name)
 
             await eval_repo.refresh_clone_task_runs(clone)
             task_summaries = []
