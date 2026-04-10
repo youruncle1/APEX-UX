@@ -184,10 +184,14 @@
                 <h3 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-muted-gray mb-3">Personas ({{ clones|length }})</h3>
                 <div class="flex flex-wrap gap-2">
                     {% for clone in clones %}
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1 text-sm rounded-full border border-border-gray" class="bg-page-gray text-body-dark">
+                    <button hx-get="/partials/persona/{{ clone.persona_id }}"
+                            hx-target="#persona-modal-body"
+                            hx-swap="innerHTML"
+                            hx-on::after-request="document.getElementById('persona-modal').classList.remove('hidden')"
+                            class="inline-flex items-center gap-1.5 px-3 py-1 text-sm rounded-full border border-border-gray bg-page-gray text-body-dark hover:border-brand-blue hover:text-brand-blue transition-colors cursor-pointer">
                         <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                         {{ clone.persona_name }}
-                    </span>
+                    </button>
                     {% endfor %}
                 </div>
                 <p class="text-xs text-muted-gray mt-2">Each persona will complete all {{ task_definitions|length }} task(s) above.</p>
@@ -224,8 +228,14 @@
                     <div class="flex items-center justify-between mb-3">
                         <div>
                             <h3 class="text-sm font-semibold text-brand-navy flex items-center gap-1.5">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                {{ persona.clone.persona_name }}
+                                <button hx-get="/partials/persona/{{ persona.clone.persona_id }}"
+                                        hx-target="#persona-modal-body"
+                                        hx-swap="innerHTML"
+                                        hx-on::after-request="document.getElementById('persona-modal').classList.remove('hidden')"
+                                        class="inline-flex items-center gap-1.5 hover:text-brand-blue transition-colors cursor-pointer">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:inline"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                    {{ persona.clone.persona_name }}
+                                </button>
                             </h3>
                         </div>
                         <div>
@@ -395,6 +405,7 @@
 
     {% include 'partials/sus_modal.html' %}
     {% include 'partials/seq_modal.html' %}
+    {% include 'partials/persona_modal.html' %}
 
     <!-- Verification Modal -->
     <div id="verification-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50">
@@ -562,6 +573,7 @@
         }
 
         function closeSUSModal() { document.getElementById('sus-modal').classList.add('hidden'); }
+        function closePersonaModal() { document.getElementById('persona-modal').classList.add('hidden'); }
 
         function getSUSInterpretation(score) {
             if (score >= 80) return { label: 'Excellent', color: C.successGreen };

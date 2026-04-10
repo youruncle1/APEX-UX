@@ -50,6 +50,7 @@ class TaskRunService:
         return TaskRunDetail(
             id=task_run.id,
             task_description=task_run.task_definition.description,
+            persona_id=task_run.clone.persona_id,
             persona_name=task_run.clone.persona.name,
             status=task_run.status.value,
             agent_done=task_run.agent_done,

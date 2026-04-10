@@ -92,6 +92,7 @@ class EvaluationService:
         for clone in evaluation.clones:
             clone_dict = {
                 "id": str(clone.id),
+                "persona_id": str(clone.persona_id),
                 "persona_name": clone.persona.name,
                 "sus_score": clone.sus_score,
                 "sus_ratings": clone.sus_ratings,

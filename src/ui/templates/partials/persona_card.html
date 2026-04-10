@@ -1,0 +1,29 @@
+<!-- Persona card content — loaded into #persona-modal-body via HTMX -->
+<div class="text-white px-6 py-4 flex justify-between items-center rounded-t-lg" style="background:linear-gradient(to right,#090947,#0A66FF)">
+    <h2 class="text-xl font-bold">Persona</h2>
+    <button onclick="closePersonaModal()" class="text-white hover:text-gray-200 text-3xl leading-none">&times;</button>
+</div>
+
+<div class="px-6 py-6 flex items-center gap-5 border-b border-border-gray" style="background:linear-gradient(to right,rgba(9,9,71,0.05),rgba(10,102,255,0.05))">
+    <div class="w-20 h-20 rounded-full overflow-hidden bg-[#EDEDF5] flex-shrink-0 border border-border-gray shadow-sm">
+        <img src="/static/personas/{{ persona.id }}.webp" alt="{{ persona.name }}"
+             class="w-full h-full object-cover"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <div class="hidden w-full h-full items-center justify-center text-2xl font-semibold text-muted-gray">
+            {{ persona.name[0] | upper }}
+        </div>
+    </div>
+    <div>
+        <div class="text-xl font-bold text-brand-navy">{{ persona.name }}</div>
+        <div class="text-sm text-muted-gray mt-1">{{ persona.description }}</div>
+    </div>
+</div>
+
+<div class="px-6 py-5 max-h-[50vh] overflow-y-auto">
+    <h3 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-brand-blue mb-3">Persona Narrative</h3>
+    <div class="text-sm text-body-dark leading-relaxed whitespace-pre-line">{{ persona.narrative }}</div>
+</div>
+
+<div class="px-6 py-3 flex justify-end border-t border-border-gray bg-page-gray rounded-b-lg">
+    <button onclick="closePersonaModal()" class="px-4 py-2 text-sm font-medium border rounded border-brand-navy text-brand-navy bg-transparent hover:opacity-80 transition-opacity">Close</button>
+</div>

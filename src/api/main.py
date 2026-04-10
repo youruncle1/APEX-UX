@@ -232,6 +232,17 @@ async def delete_evaluation_from_detail(evaluation_id: UUID, db: AsyncSession = 
     return Response(status_code=200, headers={"HX-Redirect": "/"})
 
 
+@partials_router.get("/persona/{persona_id}", response_class=HTMLResponse)
+async def persona_partial(
+    request: Request, persona_id: UUID, db: AsyncSession = Depends(get_db)
+):
+    from src.database.repositories import PersonaRepository
+    persona = await PersonaRepository(db).get_by_id(persona_id)
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona not found")
+    return templates.TemplateResponse(request, "partials/persona_card.html", {"persona": persona})
+
+
 @partials_router.get("/task-run/{task_run_id}/verification", response_class=HTMLResponse)
 async def verification_partial(
     request: Request, task_run_id: UUID, db: AsyncSession = Depends(get_db)

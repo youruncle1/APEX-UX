@@ -98,6 +98,7 @@ class ActionRecordDetail(BaseModel):
 class TaskRunDetail(BaseModel):
     id: UUID
     task_description: str
+    persona_id: UUID
     persona_name: str
     status: str
     agent_done: bool
