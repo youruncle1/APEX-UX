@@ -82,7 +82,7 @@ class SelfReportCollector:
                     {"role": "user", "content": user_prompt},
                 ],
                 "temperature": self.temperature,
-                "max_tokens": 512,
+                "max_completion_tokens": 1024,
                 "response_format": {
                     "type": "json_schema",
                     "json_schema": {
@@ -136,7 +136,7 @@ class SelfReportCollector:
                 {"role": "user", "content": user_prompt},
             ],
             temperature=self.temperature,
-            max_tokens=512,
+            max_completion_tokens=1024,
         )
         return response.choices[0].message.content.strip()
 
@@ -222,7 +222,7 @@ class SelfReportCollector:
                     {"role": "user", "content": user_prompt},
                 ],
                 "temperature": self.temperature,
-                "max_tokens": 1024,
+                "max_completion_tokens": 1024,
                 "response_format": {
                     "type": "json_schema",
                     "json_schema": {

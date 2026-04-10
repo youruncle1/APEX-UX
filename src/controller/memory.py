@@ -82,7 +82,7 @@ class MemoryManager:
                     {"role": "user", "content": compress_input},
                 ],
                 temperature=0.3,
-                max_tokens=200,
+                max_completion_tokens=512,
             )
             self.action_summary = response.choices[0].message.content.strip()
             logger.debug("Compressed %d actions into summary", len(to_compress))

@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     openai_api_key: Optional[pydantic.SecretStr] = None
 
     # Model names - required when using the "local" backend, optional for "openai"
-    # (openai defaults to gpt-4o for planner and gpt-4o-mini for utility)
+    # (openai defaults to gpt-5.4 for planner and gpt-4o-mini for utility)
     # PLANNER_BACKEND=local requires a vision-capable model (multimodal)
     # UTILITY_BACKEND=local works with any text model
     planner_model: Optional[str] = None

@@ -26,7 +26,7 @@ For evaluations to work, two model services must be reachable from the container
 
 **Planner** - set `PLANNER_BACKEND=local` or `PLANNER_BACKEND=openai` in `.env`.
 - `local`: any vision-capable (multimodal) model behind an OpenAI-compatible API server. Set `PLANNER_MODEL=<model-name>` and configure the server URL via `PLANNER_SERVICE_URL`. The server must support `response_format` with `json_schema` type (llama.cpp b3670+, Ollama 0.5+, vLLM 0.4+).
-- `openai`: set `OPENAI_API_KEY` in `.env`. `PLANNER_MODEL` is optional (defaults to `gpt-4o`).
+- `openai`: set `OPENAI_API_KEY` in `.env`. `PLANNER_MODEL` is optional (defaults to `gpt-5.4`).
 
 **Utility model** (memory compression, self-report) - set via `UTILITY_BACKEND=local` or `UTILITY_BACKEND=openai`. If set to `local`, it reuses the same server endpoint as the planner. Set `UTILITY_MODEL=<model-name>` (any text model works, vision not required).
 

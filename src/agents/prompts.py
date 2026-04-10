@@ -13,7 +13,7 @@ PLANNER_ACTION_SCHEMA: dict[str, Any] = {
         },
         "target_description": {
             "type": "string",
-            "description": "Natural language description of the target element. Use empty string if not needed."
+            "description": "Describe what you want to click or interact with — what it looks like, where it is, what it says. Use empty string if not needed."
         },
         "input_value": {
             "type": "string",
@@ -21,7 +21,7 @@ PLANNER_ACTION_SCHEMA: dict[str, Any] = {
         },
         "reasoning": {
             "type": "string",
-            "description": "Short explanation of why you chose this action"
+            "description": "Your thoughts as you decide what to do next — write as yourself, the persona you are, in your own voice"
         },
         "outcome_mismatch": {
             "type": "string",
@@ -108,11 +108,11 @@ Include these details in descriptions:
   - Visual hierarchy (headers, sections)
 
 # OUTCOME MISMATCH - IMPORTANT!
-Before deciding your next action, review your action history. Look for intentions that were executed -- actions you took with a clear expectation, and check whether the current screenshot reflects the result you expected.
+Before deciding your next action, think back over what you've done. Did something not go as you expected? Did you click something and nothing happened? Did you fill something in and submit it, but the page looks the same? Does where you are now not match where you thought you'd end up?
 
-This check is not limited to your last action. If you filled a form across several steps and submitted it, but the page didn't change as expected, that is an outcome mismatch. If you clicked something and nothing happened, that is an outcome mismatch. If the state you are in now doesn't match what your recent actions were working toward, that is an outcome mismatch.
+This feeling can come from several steps ago — not just the last one. If you filled in a form and submitted it but there's no confirmation, that's a mismatch. If you clicked a menu and nothing opened, that's a mismatch. If the page just doesn't look like what you were expecting to see, that's a mismatch.
 
-If you identify such a mismatch, describe it in `outcome_mismatch` as you would naturally experience it — what you intended, what you did, and what you see instead.
+If something felt off, describe it in `outcome_mismatch` — what you were trying to do, what you did, and what you're seeing instead.
 
 **If there is NO mismatch, set `outcome_mismatch` to an empty string `""`. Do NOT write "None identified", "No issues", "N/A", or any other text — leave it completely empty.**
 
@@ -129,9 +129,9 @@ Examples of NO mismatch (use empty string `""`):
   - Everything is proceeding as planned → `"outcome_mismatch": ""`
 
 # REMINDERS
-- Only describe what you can actually see in the screenshot
-- Be specific and visual in target descriptions
-- Always check your action history for unmet intentions before deciding your next action"""
+- Only describe what you can actually see right now
+- Be specific about what the element looks like so it can be found
+- Think back over what you've tried before deciding your next step"""
 
 
 # ============================================================================
@@ -143,8 +143,8 @@ USER_PROMPT_TEMPLATE = """# YOUR TASK
 
 {history_section}
 
-# CURRENT OBSERVATION
-The screenshot above shows what's currently visible in the viewport. This is your only source of information about the current state of the website.
+# WHAT YOU SEE NOW
+The screenshot above is what's in front of you right now. Go from what you can see.
 
 {prompt_question}"""
 

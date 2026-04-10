@@ -15,7 +15,7 @@ def get_planner_client(
     return _build_client(
         backend=backend,
         model=model,
-        default_openai_model="gpt-4o",
+        default_openai_model="gpt-5.4",
         planner_service_url=settings.planner_service_url,
         settings=settings,
     )

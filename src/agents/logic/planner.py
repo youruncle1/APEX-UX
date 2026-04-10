@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 class PlannerAgent:
     """
     Planner Agent that supports multiple backends:
-    - OpenAI GPT-4o with structured JSON schema outputs
+    - OpenAI GPT-5.4 with structured JSON schema outputs
     - Self-hosted Qwen-3-VL via llama-server (OpenAI-compatible API)
 
     Backend selection via PLANNER_BACKEND environment variable.
@@ -86,7 +86,7 @@ class PlannerAgent:
                 "model": self.model,
                 "messages": messages,
                 "temperature": self.temperature,
-                "max_tokens": 512,
+                "max_completion_tokens": 1024,
                 "response_format": {
                     "type": "json_schema",
                     "json_schema": {
