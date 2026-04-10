@@ -96,7 +96,7 @@ class SelfReportCollector:
 
             content = response.choices[0].message.content
             content = self._clean_json_response(content)
-            result = json.loads(content)
+            result, _ = json.JSONDecoder().raw_decode(content)
 
             logger.debug("SEQ rating: %s/7", result["rating"])
             logger.debug("SEQ reasoning: %s", result["reasoning"][:100])
@@ -236,7 +236,7 @@ class SelfReportCollector:
 
             content = response.choices[0].message.content
             content = self._clean_json_response(content)
-            result = json.loads(content)
+            result, _ = json.JSONDecoder().raw_decode(content)
 
             ratings = result["ratings"]
             if len(ratings) != 10 or not all(1 <= r <= 5 for r in ratings):

@@ -108,7 +108,7 @@ class PlannerAgent:
                 lines = [l for l in content.split("\n") if not l.strip().startswith("```")]
                 content = "\n".join(lines).strip()
 
-            action_data = json.loads(content)
+            action_data, _ = json.JSONDecoder().raw_decode(content)
 
             return PlannerAction(
                 action_type=action_data["action_type"],
