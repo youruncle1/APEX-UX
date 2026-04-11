@@ -59,7 +59,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-body-dark mb-1">
-                    Profile Image <span class="text-muted-gray font-normal">(optional — .webp only)</span>
+                    Profile Image <span class="text-muted-gray font-normal">(optional - .webp, .jpg, .png allowed)</span>
                 </label>
                 {% if mode == 'edit' %}
                 <div class="flex items-center gap-4 mb-3">
@@ -75,7 +75,7 @@
                     <span class="text-xs text-muted-gray">Current image. Upload a new .webp to replace it.</span>
                 </div>
                 {% endif %}
-                <input type="file" name="image" accept=".webp,image/webp"
+                <input type="file" name="image" accept=".webp,.jpg,.jpeg,.png,image/webp,image/jpeg,image/png"
                        class="block w-full text-sm text-muted-gray
                               file:mr-3 file:py-1.5 file:px-3 file:rounded
                               file:border file:border-border-gray

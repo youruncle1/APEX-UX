@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import time
@@ -45,6 +46,19 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="src/ui/static"), name="static")
 
 PERSONAS_DIR = Path("src/ui/static/personas")
+_ALLOWED_IMAGE_EXTS = {".webp", ".jpg", ".jpeg", ".png"}
+
+
+async def _save_persona_image(image: UploadFile, persona_id: UUID) -> None:
+    ext = Path(image.filename).suffix.lower()
+    if ext not in _ALLOWED_IMAGE_EXTS:
+        return
+    content = await image.read()
+    if not content:
+        return
+    from PIL import Image
+    img = Image.open(io.BytesIO(content))
+    img.save(PERSONAS_DIR / f"{persona_id}.webp", "WEBP")
 
 app.include_router(evaluation_router)
 
@@ -403,10 +417,8 @@ async def create_persona(
 
     persona = await PersonaRepository(db).create(name, description, narrative)
 
-    if image and image.filename and image.filename.lower().endswith(".webp"):
-        content = await image.read()
-        if content:
-            (PERSONAS_DIR / f"{persona.id}.webp").write_bytes(content)
+    if image and image.filename:
+        await _save_persona_image(image, persona.id)
 
     return RedirectResponse("/#personas", status_code=303)
 
@@ -434,10 +446,8 @@ async def update_persona(
     if not persona:
         raise HTTPException(status_code=404, detail="Persona not found")
 
-    if image and image.filename and image.filename.lower().endswith(".webp"):
-        content = await image.read()
-        if content:
-            (PERSONAS_DIR / f"{persona_id}.webp").write_bytes(content)
+    if image and image.filename:
+        await _save_persona_image(image, persona_id)
 
     return RedirectResponse("/#personas", status_code=303)
 
