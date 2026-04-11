@@ -1,6 +1,6 @@
 import asyncio
 from uuid import UUID
-from typing import Literal
+from typing import Literal, Callable, Awaitable, Optional
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -17,56 +17,71 @@ from src.browser_connector.connector import BrowserConnector
 from src.controller.controller import TwoAgentController, TaskAbortedError
 from src.evaluation.logic.metrics import MetricsCalculator
 from src.evaluation.self_report import SelfReportCollector
-from src.evaluation.api.websocket import evaluation_cancellation, broadcast_progress
 from src.storage import create_screenshot_storage
 from src.log import get_logger
 
 logger = get_logger(__name__)
 
+# Cancellation flags for in-progress evaluations. Written by EvaluationService, read by EvaluationRunner.
+evaluation_cancellation: dict[UUID, bool] = {}
+
+ProgressCallback = Callable[[UUID, dict], Awaitable[None]]
+
 
 class EvaluationRunner:
     """
     Main orchestrator for running evaluations.
+
+    Progress events are emitted via an optional callback so the runner
+    stays decoupled from the transport layer (WebSocket, CLI, etc.).
+    Pass `on_progress=broadcast_progress` from the service layer.
     """
 
     def __init__(
         self,
-        error_policy: Literal["fail_fast", "continue_on_error"] = "continue_on_error"
+        error_policy: Literal["fail_fast", "continue_on_error"] = "continue_on_error",
+        on_progress: Optional[ProgressCallback] = None,
     ):
         self.error_policy = error_policy
+        self._on_progress = on_progress
         self.metrics_calculator = MetricsCalculator()
         self.self_report_collector = SelfReportCollector()
         self.screenshot_storage = create_screenshot_storage()
+
+    async def _emit(self, evaluation_id: UUID, message: dict):
+        """Forward a progress event to the caller-supplied callback, if any."""
+        if self._on_progress:
+            await self._on_progress(evaluation_id, message)
 
     def _is_cancelled(self, evaluation_id: UUID) -> bool:
         return evaluation_cancellation.get(evaluation_id, False)
 
     async def run(self, evaluation_id: UUID):
-        """Run a complete evaluation, managing WebSocket lifecycle."""
+        """Run a complete evaluation, emitting progress events along the way."""
         progress_task = asyncio.create_task(self._broadcast_progress_loop(evaluation_id))
         try:
-            await broadcast_progress(evaluation_id, {
+            await self._emit(evaluation_id, {
                 "type": "status",
                 "status": "RUNNING",
                 "message": "Evaluation started",
             })
             evaluation_failed = await self._execute(evaluation_id)
             if not evaluation_cancellation.get(evaluation_id, False):
-                await broadcast_progress(evaluation_id, {"type": "progress", "percentage": 100})
+                await self._emit(evaluation_id, {"type": "progress", "percentage": 100})
                 if evaluation_failed:
-                    await broadcast_progress(evaluation_id, {
+                    await self._emit(evaluation_id, {
                         "type": "status",
                         "status": "FAILED",
                         "message": "Evaluation completed with errors",
                     })
                 else:
-                    await broadcast_progress(evaluation_id, {
+                    await self._emit(evaluation_id, {
                         "type": "status",
                         "status": "COMPLETED",
                         "message": "Evaluation completed successfully",
                     })
         except Exception as e:
-            await broadcast_progress(evaluation_id, {
+            await self._emit(evaluation_id, {
                 "type": "error",
                 "message": f"Evaluation failed: {str(e)}",
             })
@@ -102,13 +117,12 @@ class EvaluationRunner:
 
             return round(min(finished / total_expected * 100, 99.0), 1)
 
-    @staticmethod
-    async def _broadcast_progress_loop(evaluation_id: UUID):
-        """Broadcast progress percentage every 10 seconds until cancelled."""
+    async def _broadcast_progress_loop(self, evaluation_id: UUID):
+        """Emit a progress percentage every 10 seconds until cancelled."""
         while True:
             try:
                 percentage = await EvaluationRunner._calculate_progress(evaluation_id)
-                await broadcast_progress(evaluation_id, {
+                await self._emit(evaluation_id, {
                     "type": "progress",
                     "percentage": percentage,
                 })
@@ -228,8 +242,8 @@ class EvaluationRunner:
 
         await session.commit()
 
-        # Broadcast reset to clients
-        await broadcast_progress(evaluation_id, {
+        # Notify clients that the evaluation was reset
+        await self._emit(evaluation_id, {
             "type": "status",
             "status": "ABORTED_RESET",
             "message": "Evaluation aborted. All data cleared, returned to Pending.",

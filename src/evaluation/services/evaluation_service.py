@@ -6,13 +6,11 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.models import EvaluationStatus
-from src.database.repositories import EvaluationRepository
-from src.evaluation.api.websocket import (
-    evaluation_cancellation,
-    broadcast_progress,
-)
+from src.database.repositories import EvaluationRepository, PersonaRepository
+from src.evaluation.api.websocket import broadcast_progress
+from src.evaluation.runner import EvaluationRunner, evaluation_cancellation
 from src.evaluation.models.api_models import (
-    EvaluationCreate, EvaluationSummary, EvaluationReport,
+    EvaluationCreate, EvaluationSummary, EvaluationReport, PersonaResponse,
 )
 from src.evaluation.prompts import SUS_ITEMS
 from src.storage import create_screenshot_storage
@@ -277,17 +275,35 @@ class EvaluationService:
         if evaluation.status != EvaluationStatus.PENDING:
             raise ValueError(f"Evaluation already {evaluation.status.value}")
 
-        from src.evaluation.runner import EvaluationRunner
         from src.config import get_settings
         evaluation_cancellation[evaluation_id] = False
         await self.eval_repo.update_status(evaluation, EvaluationStatus.RUNNING, started_at=datetime.utcnow())
-        asyncio.create_task(EvaluationRunner(error_policy=get_settings().error_policy).run(evaluation_id))
+        asyncio.create_task(
+            EvaluationRunner(
+                error_policy=get_settings().error_policy,
+                on_progress=broadcast_progress,
+            ).run(evaluation_id)
+        )
 
         return {
             "evaluation_id": str(evaluation_id),
             "status": "started",
             "message": "Evaluation started in background. Connect to WebSocket for progress.",
         }
+
+    async def list_personas(self) -> list[PersonaResponse]:
+        personas = await PersonaRepository(self.session).list_all()
+        return [PersonaResponse(id=p.id, name=p.name, description=p.description) for p in personas]
+
+    async def copy_evaluation(self, evaluation_id: UUID) -> Optional[dict]:
+        new_eval = await self.eval_repo.copy(evaluation_id)
+        if not new_eval:
+            return None
+        return {"evaluation_id": str(new_eval.id), "status": "copied"}
+
+    @staticmethod
+    async def get_evaluation_progress(evaluation_id: UUID) -> float:
+        return await EvaluationRunner._calculate_progress(evaluation_id)
 
     async def abort_evaluation(self, evaluation_id: UUID) -> Optional[dict]:
         evaluation = await self.eval_repo.get_with_relations(evaluation_id)

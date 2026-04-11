@@ -7,13 +7,11 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.connection import AsyncSessionLocal
-from src.database.repositories import EvaluationRepository, PersonaRepository
 from src.evaluation.api.websocket import active_connections
 from src.evaluation.models.api_models import (
     EvaluationCreate, EvaluationSummary, EvaluationReport,
     TaskRunDetail, PersonaResponse,
 )
-from src.evaluation.runner import EvaluationRunner
 from src.evaluation.services.evaluation_service import EvaluationService
 from src.evaluation.services.task_run_service import TaskRunService
 from src.storage import create_screenshot_storage
@@ -41,8 +39,7 @@ async def get_db() -> AsyncSession:
 
 @router.get("/personas", response_model=List[PersonaResponse])
 async def list_personas(db: AsyncSession = Depends(get_db)):
-    personas = await PersonaRepository(db).list_all()
-    return [PersonaResponse(id=p.id, name=p.name, description=p.description) for p in personas]
+    return await EvaluationService(db).list_personas()
 
 
 @router.get("/evaluations", response_model=List[EvaluationSummary])
@@ -63,11 +60,10 @@ async def copy_evaluation(
     evaluation_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    repo = EvaluationRepository(db)
-    new_eval = await repo.copy(evaluation_id)
-    if not new_eval:
+    result = await EvaluationService(db).copy_evaluation(evaluation_id)
+    if not result:
         raise HTTPException(status_code=404, detail="Evaluation not found")
-    return {"evaluation_id": str(new_eval.id), "status": "copied"}
+    return result
 
 
 @router.post("/evaluations/{evaluation_id}/start")
@@ -199,7 +195,7 @@ async def evaluation_progress_websocket(
     active_connections[evaluation_id].append(websocket)
 
     # Send current progress immediately so the client doesn't wait for the next broadcast
-    percentage = await EvaluationRunner._calculate_progress(evaluation_id)
+    percentage = await EvaluationService.get_evaluation_progress(evaluation_id)
     await websocket.send_text(json.dumps({"type": "progress", "percentage": percentage}))
 
     try:

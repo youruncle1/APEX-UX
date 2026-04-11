@@ -7,9 +7,6 @@ from fastapi import WebSocket
 # WebSocket connections for live progress updates
 active_connections: dict[UUID, list[WebSocket]] = {}
 
-# Cancellation tokens for running evaluations
-evaluation_cancellation: dict[UUID, bool] = {}
-
 
 async def broadcast_progress(evaluation_id: UUID, message: dict):
     if evaluation_id not in active_connections:
