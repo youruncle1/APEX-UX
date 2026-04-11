@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database.connection import AsyncSessionLocal
 from src.database.repositories import EvaluationRepository, PersonaRepository
 from src.evaluation.api.router import router as evaluation_router
+from src.evaluation.api.websocket import broadcast_progress
 from src.evaluation.services.evaluation_service import EvaluationService
 from src.evaluation.services.task_run_service import TaskRunService
 
@@ -205,7 +206,7 @@ async def evaluations_partial(request: Request, db: AsyncSession = Depends(get_d
 
 @partials_router.post("/evaluations/{evaluation_id}/start", response_class=HTMLResponse)
 async def start_evaluation_partial(request: Request, evaluation_id: UUID, db: AsyncSession = Depends(get_db)):
-    result = await EvaluationService(db).start_evaluation(evaluation_id)
+    result = await EvaluationService(db).start_evaluation(evaluation_id, broadcast_progress)
     if not result:
         raise HTTPException(status_code=404, detail="Evaluation not found")
     return await _evaluations_template(request, db)
@@ -214,7 +215,7 @@ async def start_evaluation_partial(request: Request, evaluation_id: UUID, db: As
 @partials_router.post("/evaluations/{evaluation_id}/abort", response_class=HTMLResponse)
 async def abort_evaluation_partial(request: Request, evaluation_id: UUID, db: AsyncSession = Depends(get_db)):
     try:
-        result = await EvaluationService(db).abort_evaluation(evaluation_id)
+        result = await EvaluationService(db).abort_evaluation(evaluation_id, broadcast_progress)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     if not result:

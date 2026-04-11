@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.connection import AsyncSessionLocal
-from src.evaluation.api.websocket import active_connections
+from src.evaluation.api.websocket import active_connections, broadcast_progress
 from src.evaluation.models.api_models import (
     EvaluationCreate, EvaluationSummary, EvaluationReport,
     TaskRunDetail, PersonaResponse,
@@ -71,7 +71,7 @@ async def start_evaluation(
     evaluation_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    result = await EvaluationService(db).start_evaluation(evaluation_id)
+    result = await EvaluationService(db).start_evaluation(evaluation_id, broadcast_progress)
     if not result:
         raise HTTPException(status_code=404, detail="Evaluation not found")
     return result
@@ -83,7 +83,7 @@ async def abort_evaluation(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        result = await EvaluationService(db).abort_evaluation(evaluation_id)
+        result = await EvaluationService(db).abort_evaluation(evaluation_id, broadcast_progress)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     if not result:

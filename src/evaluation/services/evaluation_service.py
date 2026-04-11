@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.models import EvaluationStatus
 from src.database.repositories import EvaluationRepository, PersonaRepository
-from src.evaluation.api.websocket import broadcast_progress
 from src.evaluation.runner import EvaluationRunner, evaluation_cancellation
 from src.evaluation.models.api_models import (
     EvaluationCreate, EvaluationSummary, EvaluationReport, PersonaResponse,
@@ -266,7 +265,7 @@ class EvaluationService:
             "status": "deleted",
         }
 
-    async def start_evaluation(self, evaluation_id: UUID) -> Optional[dict]:
+    async def start_evaluation(self, evaluation_id: UUID, on_progress) -> Optional[dict]:
         evaluation = await self.eval_repo.get_with_relations(evaluation_id)
 
         if not evaluation:
@@ -281,7 +280,7 @@ class EvaluationService:
         asyncio.create_task(
             EvaluationRunner(
                 error_policy=get_settings().error_policy,
-                on_progress=broadcast_progress,
+                on_progress=on_progress,
             ).run(evaluation_id)
         )
 
@@ -305,7 +304,7 @@ class EvaluationService:
     async def get_evaluation_progress(evaluation_id: UUID) -> float:
         return await EvaluationRunner._calculate_progress(evaluation_id)
 
-    async def abort_evaluation(self, evaluation_id: UUID) -> Optional[dict]:
+    async def abort_evaluation(self, evaluation_id: UUID, on_progress) -> Optional[dict]:
         evaluation = await self.eval_repo.get_with_relations(evaluation_id)
 
         if not evaluation:
@@ -317,7 +316,7 @@ class EvaluationService:
         evaluation_cancellation[evaluation_id] = True
         await self.eval_repo.update_status(evaluation, EvaluationStatus.ABORTED)
 
-        await broadcast_progress(evaluation_id, {
+        await on_progress(evaluation_id, {
             "type": "status",
             "status": "ABORTING",
             "message": "Aborting... (finishing current task)",
