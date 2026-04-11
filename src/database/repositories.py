@@ -359,3 +359,34 @@ class PersonaRepository:
     async def get_by_ids(self, persona_ids: list[UUID]) -> list[Persona]:
         result = await self.session.execute(select(Persona).where(Persona.id.in_(persona_ids)))
         return list(result.scalars().all())
+
+    async def create(self, name: str, description: str, narrative: str) -> Persona:
+        persona = Persona(name=name, description=description, narrative=narrative)
+        self.session.add(persona)
+        await self.session.commit()
+        await self.session.refresh(persona)
+        return persona
+
+    async def update(self, persona_id: UUID, name: str, description: str, narrative: str) -> Optional[Persona]:
+        persona = await self.get_by_id(persona_id)
+        if not persona:
+            return None
+        persona.name = name
+        persona.description = description
+        persona.narrative = narrative
+        await self.session.commit()
+        await self.session.refresh(persona)
+        return persona
+
+    async def delete(self, persona_id: UUID) -> tuple[bool, str]:
+        result = await self.session.execute(
+            select(EvaluationClone).where(EvaluationClone.persona_id == persona_id).limit(1)
+        )
+        if result.scalar_one_or_none():
+            return False, "in_use"
+        persona = await self.get_by_id(persona_id)
+        if not persona:
+            return False, "not_found"
+        await self.session.delete(persona)
+        await self.session.commit()
+        return True, "ok"

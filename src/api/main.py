@@ -1,5 +1,7 @@
 import json
 import os
+import time
+from pathlib import Path
 from uuid import UUID
 
 from src.log import initialize_logging, get_logger
@@ -7,9 +9,9 @@ from src.log import initialize_logging, get_logger
 initialize_logging(os.getenv("LOG_LEVEL", "INFO"))
 logger = get_logger(__name__)
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup, escape
@@ -17,7 +19,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.connection import AsyncSessionLocal
-from src.database.repositories import EvaluationRepository
+from src.database.repositories import EvaluationRepository, PersonaRepository
 from src.evaluation.api.router import router as evaluation_router
 from src.evaluation.services.evaluation_service import EvaluationService
 from src.evaluation.services.task_run_service import TaskRunService
@@ -41,6 +43,8 @@ app.add_middleware(
 )
 
 app.mount("/static", StaticFiles(directory="src/ui/static"), name="static")
+
+PERSONAS_DIR = Path("src/ui/static/personas")
 
 app.include_router(evaluation_router)
 
@@ -236,11 +240,33 @@ async def delete_evaluation_from_detail(evaluation_id: UUID, db: AsyncSession = 
 async def persona_partial(
     request: Request, persona_id: UUID, db: AsyncSession = Depends(get_db)
 ):
-    from src.database.repositories import PersonaRepository
     persona = await PersonaRepository(db).get_by_id(persona_id)
     if not persona:
         raise HTTPException(status_code=404, detail="Persona not found")
     return templates.TemplateResponse(request, "partials/persona_card.html", {"persona": persona})
+
+
+@partials_router.get("/personas", response_class=HTMLResponse)
+async def personas_pool_partial(request: Request, db: AsyncSession = Depends(get_db)):
+    personas = await PersonaRepository(db).list_all()
+    return templates.TemplateResponse(request, "partials/persona_pool.html", {"personas": personas})
+
+
+@partials_router.delete("/personas/{persona_id}", response_class=HTMLResponse)
+async def delete_persona_partial(
+    request: Request, persona_id: UUID, db: AsyncSession = Depends(get_db)
+):
+    repo = PersonaRepository(db)
+    ok, reason = await repo.delete(persona_id)
+    if not ok:
+        if reason == "in_use":
+            raise HTTPException(status_code=409, detail="Persona is assigned to one or more evaluations")
+        raise HTTPException(status_code=404, detail="Persona not found")
+    img_path = PERSONAS_DIR / f"{persona_id}.webp"
+    if img_path.exists():
+        img_path.unlink()
+    personas = await repo.list_all()
+    return templates.TemplateResponse(request, "partials/persona_pool.html", {"personas": personas})
 
 
 @partials_router.get("/task-run/{task_run_id}/verification", response_class=HTMLResponse)
@@ -341,6 +367,79 @@ async def create_evaluation_page(request: Request):
 @pages_router.get("/edit/{evaluation_id}", include_in_schema=False)
 async def edit_evaluation_page(request: Request, evaluation_id: UUID):
     return templates.TemplateResponse(request, "pages/create-edit.html", {"mode": "edit", "eval_id": str(evaluation_id)})
+
+
+@pages_router.get("/personas/new", include_in_schema=False)
+async def new_persona_page(request: Request):
+    return templates.TemplateResponse(request, "pages/persona-form.html", {
+        "mode": "create", "persona": None, "error": None, "cache_bust": 0,
+    })
+
+
+@pages_router.get("/personas/{persona_id}/edit", include_in_schema=False)
+async def edit_persona_page(request: Request, persona_id: UUID, db: AsyncSession = Depends(get_db)):
+    persona = await PersonaRepository(db).get_by_id(persona_id)
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona not found")
+    return templates.TemplateResponse(request, "pages/persona-form.html", {
+        "mode": "edit", "persona": persona, "error": None, "cache_bust": int(time.time()),
+    })
+
+
+@pages_router.post("/personas", include_in_schema=False)
+async def create_persona(
+    request: Request,
+    name: str = Form(...),
+    description: str = Form(...),
+    narrative: str = Form(...),
+    image: UploadFile | None = File(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    name, description, narrative = name.strip(), description.strip(), narrative.strip()
+    if not name or not description or not narrative:
+        return templates.TemplateResponse(request, "pages/persona-form.html", {
+            "mode": "create", "persona": None, "error": "All fields are required.", "cache_bust": 0,
+        }, status_code=422)
+
+    persona = await PersonaRepository(db).create(name, description, narrative)
+
+    if image and image.filename and image.filename.lower().endswith(".webp"):
+        content = await image.read()
+        if content:
+            (PERSONAS_DIR / f"{persona.id}.webp").write_bytes(content)
+
+    return RedirectResponse("/#personas", status_code=303)
+
+
+@pages_router.post("/personas/{persona_id}", include_in_schema=False)
+async def update_persona(
+    request: Request,
+    persona_id: UUID,
+    name: str = Form(...),
+    description: str = Form(...),
+    narrative: str = Form(...),
+    image: UploadFile | None = File(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    name, description, narrative = name.strip(), description.strip(), narrative.strip()
+    repo = PersonaRepository(db)
+
+    if not name or not description or not narrative:
+        persona = await repo.get_by_id(persona_id)
+        return templates.TemplateResponse(request, "pages/persona-form.html", {
+            "mode": "edit", "persona": persona, "error": "All fields are required.", "cache_bust": int(time.time()),
+        }, status_code=422)
+
+    persona = await repo.update(persona_id, name, description, narrative)
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona not found")
+
+    if image and image.filename and image.filename.lower().endswith(".webp"):
+        content = await image.read()
+        if content:
+            (PERSONAS_DIR / f"{persona_id}.webp").write_bytes(content)
+
+    return RedirectResponse("/#personas", status_code=303)
 
 
 app.include_router(pages_router)

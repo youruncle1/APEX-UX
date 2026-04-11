@@ -1,0 +1,53 @@
+<div id="personas-container">
+    <div class="flex justify-end mb-3">
+        <a href="/personas/new" class="bg-brand-blue hover:bg-brand-navy text-white px-5 py-[9px] text-sm font-medium rounded-md no-underline inline-flex items-center gap-1.5 transition-colors">
+            + New Persona
+        </a>
+    </div>
+
+    {% if personas %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {% for persona in personas %}
+        <div class="bg-white border border-border-gray rounded-md p-4 flex flex-col gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-full overflow-hidden bg-[#EDEDF5] flex-shrink-0 border border-border-gray">
+                    <img src="/static/personas/{{ persona.id }}.webp" alt="{{ persona.name }}"
+                         class="w-full h-full object-cover"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                    <div class="hidden w-full h-full items-center justify-center text-lg font-semibold text-muted-gray">
+                        {{ persona.name[0] | upper }}
+                    </div>
+                </div>
+                <div class="min-w-0">
+                    <div class="font-semibold text-brand-navy text-sm truncate">{{ persona.name }}</div>
+                    <div class="text-xs text-muted-gray truncate mt-0.5">{{ persona.description }}</div>
+                </div>
+            </div>
+            <div class="text-xs text-body-dark leading-relaxed flex-1 line-clamp-3">{{ persona.narrative }}</div>
+            <div class="flex gap-2 pt-2 border-t border-border-gray">
+                <a href="/personas/{{ persona.id }}/edit"
+                   class="flex-1 text-center px-3 py-1.5 text-xs font-medium border border-brand-navy text-brand-navy rounded hover:opacity-80 transition-opacity no-underline">
+                    Edit
+                </a>
+                <button hx-delete="/partials/personas/{{ persona.id }}"
+                        hx-target="#personas-container"
+                        hx-swap="outerHTML"
+                        hx-confirm="Delete persona '{{ persona.name }}'? This cannot be undone."
+                        hx-on::response-error="alert('Cannot delete: this persona is assigned to one or more evaluations.')"
+                        class="flex-1 px-3 py-1.5 text-xs font-medium border border-error-red text-error-red rounded hover:opacity-80 transition-opacity bg-transparent cursor-pointer">
+                    Delete
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="text-center py-16 text-muted-gray">
+        <p class="mb-4 text-[15px]">No personas yet.</p>
+        <a href="/personas/new" class="bg-brand-blue hover:bg-brand-navy text-white px-5 py-[9px] text-sm font-medium rounded-md no-underline inline-flex items-center gap-1.5 transition-colors">
+            + New Persona
+        </a>
+    </div>
+    {% endif %}
+</div>

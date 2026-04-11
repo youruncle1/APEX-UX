@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}{% if mode == 'edit' %}Edit Persona{% else %}New Persona{% endif %}{% endblock %}
+
+{% block header_title %}
+<h1 class="text-base font-semibold text-brand-navy">
+    {% if mode == 'edit' %}Edit Persona{% else %}New Persona{% endif %}
+</h1>
+{% if mode == 'edit' %}
+<span class="inline-block px-[10px] py-[3px] text-[11px] font-semibold tracking-[0.04em] uppercase rounded-full bg-warn-yellow text-warn-yellow-dark">Editing</span>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<main class="max-w-2xl mx-auto px-8 py-8">
+
+    {% if error %}
+    <div class="mb-5 px-4 py-3 bg-error-light border border-error-red rounded text-sm text-error-dark">{{ error }}</div>
+    {% endif %}
+
+    <form method="post"
+          action="{% if mode == 'edit' %}/personas/{{ persona.id }}{% else %}/personas{% endif %}"
+          enctype="multipart/form-data"
+          class="space-y-6">
+
+        <div class="bg-white border border-border-gray rounded-md p-6 space-y-4">
+            <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-brand-blue mb-5">Persona Details</h2>
+
+            <div>
+                <label class="block text-sm font-medium text-body-dark mb-1">
+                    Name <span class="text-error-red">*</span>
+                </label>
+                <input type="text" name="name" required
+                       value="{{ persona.name if persona else '' }}"
+                       class="block w-full rounded border border-border-gray bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-blue"
+                       placeholder="E.g., Tech-Savvy Student">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-body-dark mb-1">
+                    Short Description <span class="text-error-red">*</span>
+                </label>
+                <input type="text" name="description" required maxlength="200"
+                       value="{{ persona.description if persona else '' }}"
+                       class="block w-full rounded border border-border-gray bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-blue"
+                       placeholder="E.g., 22-year-old CS student, comfortable with technology">
+                <p class="mt-1 text-xs text-muted-gray">Shown on persona cards. Keep it short.</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-body-dark mb-1">
+                    Narrative <span class="text-error-red">*</span>
+                </label>
+                <textarea name="narrative" required rows="10"
+                          class="block w-full rounded border border-border-gray bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-blue resize-y"
+                          placeholder="Detailed persona narrative used by the AI agent during evaluation...">{{ persona.narrative if persona else '' }}</textarea>
+                <p class="mt-1 text-xs text-muted-gray">This is injected into the agent prompt. Be descriptive about the persona's goals, habits, and tech proficiency.</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-body-dark mb-1">
+                    Profile Image <span class="text-muted-gray font-normal">(optional — .webp only)</span>
+                </label>
+                {% if mode == 'edit' %}
+                <div class="flex items-center gap-4 mb-3">
+                    <div class="w-14 h-14 rounded-full overflow-hidden bg-[#EDEDF5] border border-border-gray flex-shrink-0">
+                        <img src="/static/personas/{{ persona.id }}.webp?t={{ cache_bust }}"
+                             alt="{{ persona.name }}"
+                             class="w-full h-full object-cover"
+                             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                        <div class="hidden w-full h-full items-center justify-center text-xl font-semibold text-muted-gray">
+                            {{ persona.name[0] | upper }}
+                        </div>
+                    </div>
+                    <span class="text-xs text-muted-gray">Current image. Upload a new .webp to replace it.</span>
+                </div>
+                {% endif %}
+                <input type="file" name="image" accept=".webp,image/webp"
+                       class="block w-full text-sm text-muted-gray
+                              file:mr-3 file:py-1.5 file:px-3 file:rounded
+                              file:border file:border-border-gray
+                              file:text-xs file:font-medium file:text-body-dark
+                              file:bg-page-gray hover:file:bg-hover-gray file:cursor-pointer file:transition-colors">
+            </div>
+        </div>
+
+        <div class="flex gap-3 justify-end">
+            <a href="/#personas"
+               class="px-5 py-[9px] text-sm font-medium border border-border-gray text-muted-gray rounded-md hover:border-brand-navy hover:text-brand-navy transition-colors no-underline">
+                Cancel
+            </a>
+            <button type="submit"
+                    class="bg-brand-blue hover:bg-brand-navy text-white px-5 py-[9px] text-sm font-medium rounded-md transition-colors">
+                {% if mode == 'edit' %}Save Changes{% else %}Create Persona{% endif %}
+            </button>
+        </div>
+
+    </form>
+</main>
+{% endblock %}

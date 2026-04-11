@@ -52,18 +52,63 @@
     </header>
 
     <main class="max-w-[1600px] mx-auto px-8 py-8 pb-48">
-        <div hx-get="/partials/evaluations"
+
+        <!-- Tab nav -->
+        <div class="flex gap-0 mb-6 border-b border-border-gray">
+            <button id="tab-evaluations" onclick="switchTab('evaluations')"
+                    class="px-5 py-2.5 text-sm font-medium border-b-2 border-brand-blue text-brand-blue -mb-px bg-transparent cursor-pointer transition-colors">
+                Evaluations
+            </button>
+            <button id="tab-personas" onclick="switchTab('personas')"
+                    class="px-5 py-2.5 text-sm font-medium border-b-2 border-transparent text-muted-gray -mb-px bg-transparent cursor-pointer hover:text-brand-navy transition-colors">
+                Personas
+            </button>
+        </div>
+
+        <!-- Evaluations panel -->
+        <div id="panel-evaluations"
+             hx-get="/partials/evaluations"
              hx-trigger="load"
-             hx-swap="outerHTML"
+             hx-swap="innerHTML"
              hx-on::response-error="this.textContent='Failed to load evaluations. Please refresh the page.'">
             <div class="text-center py-16 text-muted-gray">
                 <div class="w-7 h-7 border-2 border-border-gray border-t-brand-blue rounded-full animate-spin mx-auto mb-4"></div>
                 <p>Loading evaluations...</p>
             </div>
         </div>
+
+        <!-- Personas panel -->
+        <div id="panel-personas" class="hidden"></div>
+
     </main>
 
     <script>
+        function switchTab(tab) {
+            const tabs = ['evaluations', 'personas'];
+            tabs.forEach(function(t) {
+                const btn = document.getElementById('tab-' + t);
+                const panel = document.getElementById('panel-' + t);
+                if (t === tab) {
+                    btn.classList.add('border-brand-blue', 'text-brand-blue');
+                    btn.classList.remove('border-transparent', 'text-muted-gray');
+                    panel.classList.remove('hidden');
+                } else {
+                    btn.classList.remove('border-brand-blue', 'text-brand-blue');
+                    btn.classList.add('border-transparent', 'text-muted-gray');
+                    panel.classList.add('hidden');
+                }
+            });
+
+            if (tab === 'personas' && document.getElementById('panel-personas').children.length === 0) {
+                htmx.ajax('GET', '/partials/personas', {
+                    target: '#panel-personas',
+                    swap: 'innerHTML'
+                });
+            }
+
+            location.hash = tab === 'evaluations' ? '' : tab;
+        }
+
         function toggleMenu(btn) {
             const dropdown = btn.nextElementSibling;
             const isOpen = !dropdown.classList.contains('hidden');
@@ -81,6 +126,11 @@
                 document.querySelectorAll('.dropdown').forEach(d => d.classList.add('hidden'));
             }
         });
+
+        // Restore tab from URL hash (e.g. after redirect from persona create/edit)
+        if (location.hash === '#personas') {
+            switchTab('personas');
+        }
     </script>
 </body>
 </html>
