@@ -306,6 +306,23 @@ async def verification_rules_partial(
     })
 
 
+@partials_router.get("/evaluation/{evaluation_id}/personas", response_class=HTMLResponse)
+async def evaluation_personas_partial(
+    request: Request, evaluation_id: UUID, db: AsyncSession = Depends(get_db)
+):
+    report = await EvaluationService(db).get_evaluation_report(evaluation_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Evaluation not found")
+    tasks_by_clone = {c["id"]: {"clone": c, "tasks": []} for c in report["clones"]}
+    for t in report["task_runs"]:
+        if t["clone_uuid"] in tasks_by_clone:
+            tasks_by_clone[t["clone_uuid"]]["tasks"].append(t)
+    return templates.TemplateResponse(request, "partials/evaluation_personas.html", {
+        "evaluation": report["evaluation"],
+        "personas":   list(tasks_by_clone.values()),
+    })
+
+
 app.include_router(partials_router)
 
 
