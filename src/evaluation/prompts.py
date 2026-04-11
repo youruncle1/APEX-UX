@@ -174,7 +174,7 @@ def _render_actions_with_mismatches(
         lines.append(f"{i}. {action['action_type']}: {action['reasoning']}")
         step_num = action.get("step_number", i)
         if step_num in mismatch_index:
-            lines.append(f"ISSUE ENCOUNTERD AFTER THIS: {mismatch_index[step_num]}")
+            lines.append(f"ISSUE ENCOUNTERED AFTER THIS: {mismatch_index[step_num]}")
     return lines
 
 

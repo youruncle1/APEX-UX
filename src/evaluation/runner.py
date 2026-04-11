@@ -1,7 +1,7 @@
 import asyncio
 from uuid import UUID
 from typing import Literal, Callable, Awaitable, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -18,6 +18,7 @@ from src.controller.controller import TwoAgentController, TaskAbortedError
 from src.evaluation.logic.metrics import MetricsCalculator
 from src.evaluation.self_report import SelfReportCollector
 from src.storage import create_screenshot_storage
+from src.config import get_settings
 from src.log import get_logger
 
 logger = get_logger(__name__)
@@ -144,8 +145,6 @@ class EvaluationRunner:
             logger.info("Tasks: %d, Clones: %d", len(evaluation.tasks), len(evaluation.clones))
             logger.info("Error policy: %s", self.error_policy)
 
-            await eval_repo.update_status(evaluation, EvaluationStatus.RUNNING, started_at=datetime.utcnow(),)
-
             evaluation_failed = False
             try:
                 for clone in evaluation.clones:
@@ -177,7 +176,7 @@ class EvaluationRunner:
                 await eval_repo.update_status(
                     evaluation,
                     final_status,
-                    finished_at=datetime.utcnow(),
+                    finished_at=datetime.now(timezone.utc).replace(tzinfo=None),
                 )
                 logger.info("Evaluation completed %s", "with failures" if evaluation_failed else "successfully")
                 return evaluation_failed
@@ -187,7 +186,7 @@ class EvaluationRunner:
                 await eval_repo.update_status(
                     evaluation,
                     EvaluationStatus.FAILED,
-                    finished_at=datetime.utcnow(),
+                    finished_at=datetime.now(timezone.utc).replace(tzinfo=None),
                 )
                 raise
 
@@ -288,7 +287,7 @@ class EvaluationRunner:
         vp = evaluation.viewport or {"width": 1280, "height": 720}
         grounder = GroundingAgent(viewport_width=vp["width"], viewport_height=vp["height"])
         browser = BrowserConnector(
-            headless=True,
+            headless=get_settings().headless,
             browser_type=evaluation.browser or "chromium",
             viewport_width=vp["width"],
             viewport_height=vp["height"],
@@ -470,7 +469,7 @@ class EvaluationRunner:
                 final_action_history=memory_state.get("action_history"),
                 final_action_summary=memory_state.get("action_summary"),
                 final_outcome_mismatches=memory_state.get("outcome_mismatches"),
-                finished_at=datetime.utcnow(),
+                finished_at=datetime.now(timezone.utc).replace(tzinfo=None),
             )
 
             action_records = result.get("action_records", [])

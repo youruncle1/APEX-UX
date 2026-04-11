@@ -58,8 +58,11 @@ async def _save_persona_image(image: UploadFile, persona_id: UUID) -> None:
     if not content:
         return
     from PIL import Image
-    img = Image.open(io.BytesIO(content))
-    img.save(PERSONAS_DIR / f"{persona_id}.webp", "WEBP")
+    try:
+        img = Image.open(io.BytesIO(content))
+        img.save(PERSONAS_DIR / f"{persona_id}.webp", "WEBP")
+    except Exception:
+        logger.warning("Failed to save persona image for %s — invalid image data", persona_id)
 
 app.include_router(evaluation_router)
 

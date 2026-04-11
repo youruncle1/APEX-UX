@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -261,7 +261,7 @@ class TaskRunRepository:
             task_definition_id=task_definition_id,
             evaluation_clone_id=evaluation_clone_id,
             status=TaskRunStatus.RUNNING,
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc).replace(tzinfo=None),
         )
         self.session.add(task_run)
         await self.session.flush()
@@ -329,7 +329,7 @@ class TaskRunRepository:
                 click_coordinates=action_data.get("click_coordinates"),
                 execution_success=action_data["execution_success"],
                 execution_feedback=action_data.get("execution_feedback"),
-                timestamp=datetime.fromisoformat(action_data["timestamp"]),
+                timestamp=datetime.fromisoformat(action_data["timestamp"]).replace(tzinfo=None),
                 screenshot=action_data.get("screenshot"),
             )
             self.session.add(action_record)
@@ -337,7 +337,7 @@ class TaskRunRepository:
     async def mark_aborted(self, task_run: TaskRun, failure_reason: str) -> None:
         task_run.status = TaskRunStatus.ABORTED
         task_run.failure_reason = failure_reason
-        task_run.finished_at = datetime.utcnow()
+        task_run.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
     async def commit(self) -> None:
         await self.session.commit()

@@ -103,7 +103,7 @@ class BrowserConnector:
                 
                 return ExecutionResult(
                     success=True,
-                    feedback=f"Clicked at ({action.x}, {action.y}) and typed: {action.text[:50]}..."
+                    feedback=f"Clicked at ({action.x}, {action.y}) and typed: {action.text[:50] + '...' if len(action.text) > 50 else action.text}"
                 )
             
             elif action.action_type == ActionType.SCROLL_DOWN:

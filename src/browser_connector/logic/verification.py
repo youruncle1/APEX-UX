@@ -1,3 +1,4 @@
+import re
 from typing import Optional, Dict, Any, Tuple
 
 from src.browser_connector.models.data_models import VerificationResult, VerificationStatus
@@ -51,7 +52,6 @@ class Verifier:
             texts = rule.get("texts", [])
             found = None
 
-            import re
             normalized_page = re.sub(r'\s+', ' ', page_text).lower()
 
             for text in texts:

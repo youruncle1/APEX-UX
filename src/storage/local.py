@@ -78,7 +78,12 @@ class LocalStorage(ScreenshotStorage):
             relative_path = url_or_path
         
         filepath = self.base_path / relative_path
-        
+
+        try:
+            filepath.resolve().relative_to(self.base_path.resolve())
+        except ValueError:
+            raise FileNotFoundError(f"Screenshot not found: {filepath}")
+
         if not filepath.exists():
             raise FileNotFoundError(f"Screenshot not found: {filepath}")
         

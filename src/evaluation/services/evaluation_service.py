@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from uuid import UUID
 
@@ -276,7 +276,7 @@ class EvaluationService:
 
         from src.config import get_settings
         evaluation_cancellation[evaluation_id] = False
-        await self.eval_repo.update_status(evaluation, EvaluationStatus.RUNNING, started_at=datetime.utcnow())
+        await self.eval_repo.update_status(evaluation, EvaluationStatus.RUNNING, started_at=datetime.now(timezone.utc).replace(tzinfo=None))
         asyncio.create_task(
             EvaluationRunner(
                 error_policy=get_settings().error_policy,

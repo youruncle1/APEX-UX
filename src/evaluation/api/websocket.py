@@ -18,7 +18,7 @@ async def broadcast_progress(evaluation_id: UUID, message: dict):
     for websocket in active_connections[evaluation_id]:
         try:
             await websocket.send_text(message_json)
-        except:
+        except Exception:
             dead_connections.append(websocket)
 
     for ws in dead_connections:

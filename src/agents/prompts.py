@@ -131,7 +131,8 @@ Examples of NO mismatch (use empty string `""`):
 # REMINDERS
 - Only describe what you can actually see right now
 - Be specific about what the element looks like so it can be found
-- Think back over what you've tried before deciding your next step"""
+- Think back over what you've tried before deciding your next step
+- Do NOT use CLICK before TYPE on the same input. TYPE already clicks and focuses the field automatically."""
 
 
 # ============================================================================

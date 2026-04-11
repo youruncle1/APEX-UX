@@ -1,5 +1,5 @@
 from typing import Optional, Callable
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from src.agents.logic.planner import PlannerAgent
@@ -157,7 +157,7 @@ class TwoAgentController:
                     "click_coordinates": None,
                     "execution_success": True,
                     "execution_feedback": "Task marked as complete by agent",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "screenshot": screenshot_url
                 })
 
@@ -230,7 +230,7 @@ class TwoAgentController:
                         "click_coordinates": None,
                         "execution_success": False,
                         "execution_feedback": "Grounding failed",
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
                         "screenshot": screenshot_url
                     })
 
@@ -264,7 +264,7 @@ class TwoAgentController:
                 "click_coordinates": {"x": coordinates[0], "y": coordinates[1]} if coordinates else None,
                 "execution_success": result.success,
                 "execution_feedback": result.feedback,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "screenshot": screenshot_url
             }
             action_records.append(action_record)

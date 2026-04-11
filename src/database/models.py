@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from uuid import UUID, uuid4
 from sqlalchemy import Column, String, Integer, Boolean, Float, DateTime, ForeignKey, JSON, Text, Enum as SQLEnum
@@ -40,7 +40,7 @@ class Evaluation(Base):
     browser = Column(String, default="chromium")
     viewport = Column(JSON, default=lambda: {"width": 1280, "height": 720})
     status = Column(SQLEnum(EvaluationStatus), default=EvaluationStatus.PENDING)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
     
@@ -145,7 +145,7 @@ class ActionRecord(Base):
     
     execution_success = Column(Boolean, default=False)
     execution_feedback = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=datetime.now)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     screenshot = Column(String(500), nullable=True)  # URL/path to screenshot
     
     # Relationships
