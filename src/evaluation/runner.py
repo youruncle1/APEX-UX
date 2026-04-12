@@ -67,7 +67,7 @@ class EvaluationRunner:
                 "message": "Evaluation started",
             })
             evaluation_failed = await self._execute(evaluation_id)
-            if not evaluation_cancellation.get(evaluation_id, False):
+            if evaluation_failed != "aborted":
                 await self._emit(evaluation_id, {"type": "progress", "percentage": 100})
                 if evaluation_failed:
                     await self._emit(evaluation_id, {
@@ -152,14 +152,14 @@ class EvaluationRunner:
                     if self._is_cancelled(evaluation_id):
                         logger.warning("Abort requested before clone %s, stopping.", clone.id)
                         await self._abort_and_cleanup(evaluation_id, session, eval_repo)
-                        return
+                        return "aborted"
 
                     try:
                         await self._run_clone(session, evaluation, clone, evaluation_id)
                     except TaskAbortedError:
                         logger.warning("Clone %s aborted mid-task.", clone.id)
                         await self._abort_and_cleanup(evaluation_id, session, eval_repo)
-                        return
+                        return "aborted"
                     except Exception as e:
                         logger.error("Clone %s failed: %s", clone.id, e)
                         if self.error_policy == "fail_fast":
@@ -170,7 +170,7 @@ class EvaluationRunner:
                     if self._is_cancelled(evaluation_id):
                         logger.warning("Abort requested after clone %s, stopping.", clone.id)
                         await self._abort_and_cleanup(evaluation_id, session, eval_repo)
-                        return
+                        return "aborted"
 
                 final_status = EvaluationStatus.FAILED if evaluation_failed else EvaluationStatus.COMPLETED
                 await eval_repo.update_status(
