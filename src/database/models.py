@@ -44,6 +44,8 @@ class Evaluation(Base):
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
     
+    total_pages = Column(Integer, nullable=True)
+
     # Relationships
     clones = relationship("EvaluationClone", back_populates="evaluation", cascade="all, delete-orphan")
     tasks = relationship("TaskDefinition", back_populates="evaluation", cascade="all, delete-orphan")
@@ -125,6 +127,9 @@ class TaskRunMetrics(Base):
     seq_score = Column(Float, nullable=True)
     seq_reasoning = Column(Text, nullable=True)
     time_on_task_seconds = Column(Integer, nullable=True)
+    visited_pages_total = Column(Integer, nullable=True)
+    visited_pages_unique = Column(Integer, nullable=True)
+    lostness = Column(Float, nullable=True)
 
     # Relationships
     task_run = relationship("TaskRun", back_populates="metrics")

@@ -1,6 +1,7 @@
 from typing import Optional, Callable
 from datetime import datetime, timezone
 from uuid import UUID
+from urllib.parse import urlparse
 
 from src.agents.logic.planner import PlannerAgent
 from src.agents.logic.grounder import GroundingAgent
@@ -91,6 +92,12 @@ class TwoAgentController:
         # Action records for database
         action_records = []
 
+        # URL tracking for Lostness metric
+        _initial_url = self._normalize_url(await self.browser.get_current_url())
+        _visited_urls: set[str] = {_initial_url}
+        _visited_pages_total: int = 1
+        _last_url: str = _initial_url
+
         # Main interaction loop
         for step in range(1, max_steps + 1):
             # --- CANCELLATION CHECK at top of every step ---
@@ -139,7 +146,9 @@ class TwoAgentController:
                     "action_records": action_records,
                     "memory_state": memory.get_state(),
                     "failure_reason": "Planner failed to produce valid action",
-                    "agent_done": False
+                    "agent_done": False,
+                    "visited_pages_total": _visited_pages_total,
+                    "visited_pages_unique": len(_visited_urls),
                 }
 
             logger.info("Planner: %s", planner_action.action_type)
@@ -172,7 +181,9 @@ class TwoAgentController:
                     "agent_done": True,
                     "steps_taken": step,
                     "action_records": action_records,
-                    "memory_state": memory.get_state()
+                    "memory_state": memory.get_state(),
+                    "visited_pages_total": _visited_pages_total,
+                    "visited_pages_unique": len(_visited_urls),
                 }
 
 
@@ -248,6 +259,16 @@ class TwoAgentController:
             result = await self.browser.execute_action(browser_action)
             logger.debug("Execution: %s", result.feedback)
 
+            # Track URL change for Lostness metric
+            try:
+                _current_url = self._normalize_url(await self.browser.get_current_url())
+                if _current_url != _last_url:
+                    _visited_pages_total += 1
+                    _visited_urls.add(_current_url)
+                    _last_url = _current_url
+            except Exception:
+                pass  # Non-fatal — URL tracking failure should never break task execution
+
             memory.add_action({
                 "action_type": planner_action.action_type,
                 "reasoning": planner_action.reasoning
@@ -281,8 +302,16 @@ class TwoAgentController:
             "action_records": action_records,
             "memory_state": memory.get_state(),
             "failure_reason": "Maximum steps reached",
-            "agent_done": False
+            "agent_done": False,
+            "visited_pages_total": _visited_pages_total,
+            "visited_pages_unique": len(_visited_urls),
         }
+
+    @staticmethod
+    def _normalize_url(url: str) -> str:
+        """Strip query params and fragment — same page regardless of sort/filter state."""
+        parsed = urlparse(url)
+        return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
     def _needs_grounding(self, action_type: str) -> bool:
         """Check if action needs grounding - now includes TYPE"""

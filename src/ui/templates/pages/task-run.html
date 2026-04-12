@@ -137,6 +137,12 @@
                             </span>
                         </div>
                         {% endif %}
+                        {% if task_run.metrics.lostness is not none %}
+                        <div class="flex justify-between py-1 border-b border-border-gray">
+                            <span class="text-muted-gray" title="Lostness measures navigation confusion (0 = no confusion, higher = more lost)">Lostness</span>
+                            <span class="font-medium text-brand-navy">{{ task_run.metrics.lostness | round(2) }}</span>
+                        </div>
+                        {% endif %}
                         {% endif %}
                         <div id="detail-metrics" class="hidden"></div>
                         <div class="flex justify-between py-1">

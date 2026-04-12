@@ -55,6 +55,7 @@ class EvaluationService:
             viewport=data.viewport,
             persona_ids=data.persona_ids,
             tasks_data=[t.model_dump() for t in data.tasks],
+            total_pages=data.total_pages,
         )
 
         return {
@@ -130,6 +131,7 @@ class EvaluationService:
                 backtracking_count = metrics.backtracking_count if metrics else 0
                 outcome_mismatch_count = metrics.outcome_mismatch_count if metrics else 0
                 time_on_task_seconds = metrics.time_on_task_seconds if metrics else None
+                lostness = metrics.lostness if metrics else None
 
                 task_runs_data.append({
                     "id": str(task_run.id),
@@ -146,6 +148,7 @@ class EvaluationService:
                     "backtracking_count": backtracking_count,
                     "outcome_mismatch_count": outcome_mismatch_count,
                     "time_on_task_seconds": time_on_task_seconds,
+                    "lostness": lostness,
                 })
 
                 if metrics:
@@ -160,6 +163,7 @@ class EvaluationService:
         avg_steps = avg_seq = avg_sus = 0
 
         avg_time = None
+        avg_lostness = None
         if all_metrics:
             avg_steps = sum(m.steps_taken for m in all_metrics) / len(all_metrics)
             seq_scores = [m.seq_score for m in all_metrics if m.seq_score is not None]
@@ -168,6 +172,9 @@ class EvaluationService:
             time_values = [m.time_on_task_seconds for m in all_metrics if m.time_on_task_seconds is not None]
             if time_values:
                 avg_time = round(sum(time_values) / len(time_values))
+            lostness_values = [m.lostness for m in all_metrics if m.lostness is not None]
+            if lostness_values:
+                avg_lostness = round(sum(lostness_values) / len(lostness_values), 4)
 
         sus_scores = [c.sus_score for c in evaluation.clones if c.sus_score is not None]
         if sus_scores:
@@ -181,6 +188,7 @@ class EvaluationService:
             "avg_seq_score": round(avg_seq, 1),
             "avg_sus_score": round(avg_sus, 1),
             "avg_time_on_task_seconds": avg_time,
+            "avg_lostness": avg_lostness,
         }
 
         # Include task definitions for PENDING evaluations (no runs yet)
@@ -217,6 +225,7 @@ class EvaluationService:
             "base_url": evaluation.base_url,
             "browser": evaluation.browser or "chromium",
             "viewport": evaluation.viewport or {"width": 1280, "height": 720},
+            "total_pages": evaluation.total_pages,
             "persona_ids": [c.persona_id for c in evaluation.clones if c.persona_id],
             "tasks": [
                 {
@@ -246,6 +255,7 @@ class EvaluationService:
             viewport=data.viewport,
             persona_ids=data.persona_ids,
             tasks_data=[t.model_dump() for t in data.tasks],
+            total_pages=data.total_pages,
         )
 
         return {

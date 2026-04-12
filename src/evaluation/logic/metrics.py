@@ -1,4 +1,5 @@
-from typing import Dict, List, Any
+import math
+from typing import Dict, List, Any, Optional
 
 
 class MetricsCalculator:
@@ -38,3 +39,21 @@ class MetricsCalculator:
             "outcome_mismatch_count": outcome_mismatch_count,
             "backtracking_count": backtracking_count
         }
+
+    @staticmethod
+    def calculate_lostness(N: int, n: int, R: int) -> Optional[float]:
+        """
+        Calculate Lostness score (Smith & Mosier, 1986).
+
+        Args:
+            N: Total page visits (counting revisits)
+            n: Number of unique pages visited
+            R: Total pages in the site (user-provided)
+
+        Returns:
+            Lostness score (0.0 = perfect navigation), or None if inputs are invalid.
+        """
+        if R <= 0 or n <= 0 or N <= 0:
+            return None
+        lostness = math.sqrt(((N / n) - 1) ** 2 + ((n / R) - 1) ** 2)
+        return round(lostness, 4)

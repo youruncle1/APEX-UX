@@ -321,6 +321,7 @@ class EvaluationRunner:
                         clone=clone,
                         controller=controller,
                         persona_context=persona_context,
+                        total_pages=evaluation.total_pages,
                     )
                 except TaskAbortedError:
                     logger.warning("Task '%s...' aborted mid-step.", task_def.description[:50])
@@ -396,6 +397,7 @@ class EvaluationRunner:
         clone: EvaluationClone,
         controller: TwoAgentController,
         persona_context: str,
+        total_pages: Optional[int] = None,
     ):
         """Run a single task for a clone."""
 
@@ -511,6 +513,16 @@ class EvaluationRunner:
             if task_run.started_at and task_run.finished_at:
                 time_on_task_seconds = int((task_run.finished_at - task_run.started_at).total_seconds())
 
+            visited_pages_total = result.get("visited_pages_total")
+            visited_pages_unique = result.get("visited_pages_unique")
+            lostness = None
+            if total_pages and visited_pages_total and visited_pages_unique:
+                lostness = self.metrics_calculator.calculate_lostness(
+                    N=visited_pages_total,
+                    n=visited_pages_unique,
+                    R=total_pages,
+                )
+
             await task_run_repo.save_metrics(
                 task_run_id=task_run.id,
                 steps_taken=basic_metrics["steps_taken"],
@@ -520,6 +532,9 @@ class EvaluationRunner:
                 seq_score=seq_result["rating"] if seq_result else None,
                 seq_reasoning=seq_result["reasoning"] if seq_result else None,
                 time_on_task_seconds=time_on_task_seconds,
+                visited_pages_total=visited_pages_total,
+                visited_pages_unique=visited_pages_unique,
+                lostness=lostness,
             )
 
             if seq_result:

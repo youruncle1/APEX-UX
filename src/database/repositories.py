@@ -66,6 +66,7 @@ class EvaluationRepository:
         tasks_data: list[dict],
         browser: str = "chromium",
         viewport: Optional[dict] = None,
+        total_pages: Optional[int] = None,
     ) -> Evaluation:
         personas = await PersonaRepository(self.session).get_by_ids(persona_ids)
         by_id = {p.id: p for p in personas}
@@ -79,6 +80,7 @@ class EvaluationRepository:
             browser=browser,
             viewport=viewport or {"width": 1280, "height": 720},
             status=EvaluationStatus.PENDING,
+            total_pages=total_pages,
         )
         self.session.add(evaluation)
         await self.session.flush()
@@ -118,6 +120,7 @@ class EvaluationRepository:
             browser=source.browser,
             viewport=source.viewport,
             status=EvaluationStatus.PENDING,
+            total_pages=source.total_pages,
         )
         self.session.add(new_eval)
         await self.session.flush()
@@ -150,6 +153,7 @@ class EvaluationRepository:
         tasks_data: list[dict],
         browser: str = "chromium",
         viewport: Optional[dict] = None,
+        total_pages: Optional[int] = None,
     ) -> None:
         personas = await PersonaRepository(self.session).get_by_ids(persona_ids)
         by_id = {p.id: p for p in personas}
@@ -161,6 +165,7 @@ class EvaluationRepository:
         evaluation.base_url = base_url
         evaluation.browser = browser
         evaluation.viewport = viewport or {"width": 1280, "height": 720}
+        evaluation.total_pages = total_pages
 
         await self.session.execute(
             delete(TaskDefinition).where(TaskDefinition.evaluation_id == evaluation.id)
@@ -301,6 +306,9 @@ class TaskRunRepository:
         seq_score: Optional[float],
         seq_reasoning: Optional[str],
         time_on_task_seconds: Optional[int] = None,
+        visited_pages_total: Optional[int] = None,
+        visited_pages_unique: Optional[int] = None,
+        lostness: Optional[float] = None,
     ) -> None:
         metrics = TaskRunMetrics(
             task_run_id=task_run_id,
@@ -311,6 +319,9 @@ class TaskRunRepository:
             seq_score=seq_score,
             seq_reasoning=seq_reasoning,
             time_on_task_seconds=time_on_task_seconds,
+            visited_pages_total=visited_pages_total,
+            visited_pages_unique=visited_pages_unique,
+            lostness=lostness,
         )
         self.session.add(metrics)
 

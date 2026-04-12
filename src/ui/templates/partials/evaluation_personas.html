@@ -20,7 +20,7 @@
         {% for persona in personas %}
 
         {# Compute per-clone aggregates for summary strip #}
-        {% set ns = namespace(total_steps=0, total_failed=0, total_backtracks=0, total_mismatches=0, seq_sum=0, seq_count=0, completed=0, time_sum=0, time_count=0) %}
+        {% set ns = namespace(total_steps=0, total_failed=0, total_backtracks=0, total_mismatches=0, seq_sum=0, seq_count=0, completed=0, time_sum=0, time_count=0, lostness_sum=0, lostness_count=0) %}
         {% for task in persona.tasks %}
             {% set ns.total_steps = ns.total_steps + (task.steps_taken or 0) %}
             {% set ns.total_failed = ns.total_failed + (task.failed_action_count or 0) %}
@@ -29,6 +29,7 @@
             {% if task.seq_score %}{% set ns.seq_sum = ns.seq_sum + task.seq_score %}{% set ns.seq_count = ns.seq_count + 1 %}{% endif %}
             {% if task.agent_done %}{% set ns.completed = ns.completed + 1 %}{% endif %}
             {% if task.time_on_task_seconds %}{% set ns.time_sum = ns.time_sum + task.time_on_task_seconds %}{% set ns.time_count = ns.time_count + 1 %}{% endif %}
+            {% if task.lostness %}{% set ns.lostness_sum = ns.lostness_sum + task.lostness %}{% set ns.lostness_count = ns.lostness_count + 1 %}{% endif %}
         {% endfor %}
 
         <div class="border border-border-gray rounded-md p-4">
@@ -100,6 +101,13 @@
                     {% if avg_t >= 60 %}{{ avg_t // 60 }}m {{ avg_t % 60 }}s{% else %}{{ avg_t }}s{% endif %}
                 </span>
                 {% endif %}
+                {% if ns.lostness_count > 0 %}
+                <span class="text-border-gray">|</span>
+                <span title="Average Lostness score (0 = no navigation confusion)">
+                    <span class="font-semibold text-body-dark">Avg Lostness:</span>
+                    {{ (ns.lostness_sum / ns.lostness_count) | round(2) }}
+                </span>
+                {% endif %}
             </div>
 
             <div class="overflow-x-auto">
@@ -108,7 +116,7 @@
                         <tr class="border-b border-border-gray">
                             <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase w-2/5">Task</th>
                             <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase">Status</th>
-                            <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase">Verification</th>
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase whitespace-nowrap">Verification</th>
                             <th class="px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase">SEQ</th>
                             <th class="px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase">Steps</th>
                             <th class="detail-col hidden px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase whitespace-nowrap">Failed</th>
@@ -117,6 +125,7 @@
                             <th class="detail-col hidden px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase whitespace-nowrap">BT %</th>
                             <th class="detail-col hidden px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase whitespace-nowrap">Mismatches</th>
                             <th class="detail-col hidden px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase whitespace-nowrap">Duration</th>
+                            <th class="detail-col hidden px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase whitespace-nowrap">Lostness</th>
                             <th class="px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase">Actions</th>
                         </tr>
                     </thead>
@@ -129,7 +138,7 @@
                             <td class="px-3 py-2 text-sm">
                                 <a href="/task-run/{{ task.id }}" class="text-body-dark break-words hover:underline hover:font-semibold transition-all">{{ task.task_description }}</a>
                             </td>
-                            <td class="px-3 py-2 text-sm">
+                            <td class="px-3 py-2 text-sm whitespace-nowrap">
                                 {% if task.agent_done %}
                                 <span class="font-medium text-success-green">✓ Completed</span>
                                 {% elif task.status == 'TIMEOUT' %}
@@ -141,7 +150,7 @@
                                 <span class="font-medium text-error-red">✗ Failed</span>
                                 {% endif %}
                             </td>
-                            <td class="px-3 py-2 text-sm">
+                            <td class="px-3 py-2 text-sm whitespace-nowrap">
                                 {% if task.agent_done and task.verification_result %}
                                     {% if task.verification_result == 'PASS' %}
                                     <button hx-get="/partials/task-run/{{ task.id }}/verification"
@@ -208,6 +217,9 @@
                                     {% set t = task.time_on_task_seconds %}
                                     {% if t >= 60 %}{{ t // 60 }}m {{ t % 60 }}s{% else %}{{ t }}s{% endif %}
                                 {% else %}-{% endif %}
+                            </td>
+                            <td class="detail-col hidden px-3 py-2 text-sm text-center text-muted-gray">
+                                {% if task.lostness is not none %}{{ task.lostness | round(2) }}{% else %}-{% endif %}
                             </td>
                             <td class="px-3 py-2 text-sm text-center">
                                 <a href="/task-run/{{ task.id }}" class="text-brand-blue hover:underline">View →</a>

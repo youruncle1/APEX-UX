@@ -29,6 +29,7 @@ class TaskRunService:
                 "seq_score": task_run.metrics.seq_score,
                 "seq_reasoning": task_run.metrics.seq_reasoning,
                 "time_on_task_seconds": task_run.metrics.time_on_task_seconds,
+                "lostness": task_run.metrics.lostness,
             }
 
         actions_data = []

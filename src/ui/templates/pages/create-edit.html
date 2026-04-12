@@ -114,6 +114,21 @@
                             <span class="text-muted-gray text-sm">px</span>
                         </div>
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-body-dark mb-1 flex items-center gap-1.5">
+                            Total Site Pages
+                            <span class="text-muted-gray font-normal">(optional)</span>
+                            <span class="relative group cursor-help inline-flex items-center">
+                                <svg class="w-3.5 h-3.5 text-muted-gray" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <span class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 p-2.5 text-xs bg-brand-navy text-white rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 leading-relaxed">
+                                    Total number of unique pages on the tested site. If provided, a <strong>Lostness</strong> score will be calculated per task - a usability metric measuring navigation confusion. Only set this if you know the exact count of unique pages on the site.
+                                </span>
+                            </span>
+                        </label>
+                        <input type="number" id="eval-total-pages" min="1"
+                               class="block w-full rounded border border-border-gray bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-blue"
+                               placeholder="E.g., 42">
+                    </div>
                 </div>
             </div>
 
@@ -493,6 +508,7 @@
                 document.getElementById('eval-url').value = data.base_url;
                 document.getElementById('eval-browser').value = data.browser || 'chromium';
                 setViewport(data.viewport);
+                if (data.total_pages) document.getElementById('eval-total-pages').value = data.total_pages;
                 await loadPersonas(data.persona_ids || []);
 
                 if (data.tasks.length === 0) {
@@ -887,6 +903,7 @@
             const browser = document.getElementById('eval-browser').value;
             const viewport = getViewport();
             const persona_ids = Array.from(selectedPersonaIds);
+            const total_pages = parseInt(document.getElementById('eval-total-pages').value) || null;
 
             if (!base_url) {
                 alert('Please enter a base URL');
@@ -930,7 +947,7 @@
                 const response = await fetch(url, {
                     method,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, base_url, browser, viewport, persona_ids, tasks })
+                    body: JSON.stringify({ name, base_url, browser, viewport, persona_ids, tasks, total_pages })
                 });
 
                 if (response.ok) {

@@ -45,6 +45,7 @@ class EvaluationCreate(BaseModel):
     viewport: Optional[dict] = None
     persona_ids: List[UUID]
     tasks: List[TaskDefinitionCreate]
+    total_pages: Optional[int] = None
 
 
 class EvaluationSummary(BaseModel):
