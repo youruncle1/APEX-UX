@@ -75,9 +75,8 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       MEMORY_COMPRESSION_THRESHOLD: ${MEMORY_COMPRESSION_THRESHOLD:-10}
 
-      # Python
+      # Python (disable stderr/out buffering)
       PYTHONUNBUFFERED: 1
-      #PYTHONDONTWRITEBYTECODE: 1
 
     volumes:
       - ./src:/app/src
