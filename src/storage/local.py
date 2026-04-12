@@ -1,5 +1,6 @@
 import base64
 import os
+import shutil
 from pathlib import Path
 from io import BytesIO
 from PIL import Image
@@ -105,6 +106,5 @@ class LocalStorage(ScreenshotStorage):
         eval_dir = self.base_path / evaluation_id
         
         if eval_dir.exists():
-            import shutil
             shutil.rmtree(eval_dir)
     

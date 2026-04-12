@@ -21,13 +21,6 @@ class MetricsCalculator:
             if not action.get("execution_success", False)
         )
 
-        # Calculate failed action rate
-        total_actions = len(action_records)
-        failed_action_rate = (
-            failed_action_count / total_actions
-            if total_actions > 0 else 0.0
-        )
-
         # Count outcome mismatches
         memory_state = result.get("memory_state", {})
         outcome_mismatches = memory_state.get("outcome_mismatches", [])
@@ -42,7 +35,6 @@ class MetricsCalculator:
         return {
             "steps_taken": steps_taken,
             "failed_action_count": failed_action_count,
-            "failed_action_rate": round(failed_action_rate, 4),
             "outcome_mismatch_count": outcome_mismatch_count,
             "backtracking_count": backtracking_count
         }
