@@ -363,21 +363,39 @@
             badge.textContent = interp.label;
             badge.style.backgroundColor = interp.color;
             badge.style.color = 'white';
-            document.getElementById('sus-questions').innerHTML = SUS_QUESTIONS.map((q, i) => `
-                <div class="mb-6">
-                    <div class="text-sm font-medium mb-3" style="color:${C.bodyDark}">${i + 1}. ${q}</div>
-                    <div class="flex items-center gap-2">
-                        ${[1,2,3,4,5].map(n => {
-                            const sel = clone.sus_ratings && clone.sus_ratings[i] === n;
-                            return `<div class="flex-1 text-center py-3 rounded border-2 transition-all ${sel ? 'transform scale-110 shadow-md' : ''}"
-                                        style="${sel ? `background:linear-gradient(to bottom right,${C.brandNavy},${C.brandBlue});color:white;border-color:${C.brandBlue}` : `border-color:${C.borderGray};color:${C.mutedGray}`}">${n}</div>`;
+            document.getElementById('sus-questions').innerHTML = `
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr>
+                            <th class="text-left pb-2 text-xs font-medium" style="color:${C.mutedGray};width:58%;border-bottom:2px solid ${C.borderGray}">Question</th>
+                            ${[1,2,3,4,5].map(n => {
+                                const sublabel = { 1: 'Strongly<br>Disagree', 3: '&nbsp;<br>Neutral', 5: 'Strongly<br>Agree' }[n] || '&nbsp;<br>&nbsp;';
+                                return `<th class="text-center pb-2 font-semibold" style="color:${C.brandNavy};width:7%;border-bottom:2px solid ${C.borderGray}">
+                                    <div class="text-xs">${n}</div>
+                                    <div class="font-normal leading-tight mt-0.5" style="color:${C.mutedGray};font-size:9px">${sublabel || '&nbsp;'}</div>
+                                </th>`;
+                            }).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${SUS_QUESTIONS.map((q, i) => {
+                            const rating = clone.sus_ratings ? clone.sus_ratings[i] : null;
+                            return `<tr style="background:${i % 2 === 0 ? 'white' : 'rgba(9,9,71,0.02)'}">
+                                <td class="py-1.5 pr-3 text-xs" style="color:${C.bodyDark}">${i + 1}. ${q}</td>
+                                ${[1,2,3,4,5].map(n => {
+                                    const sel = rating === n;
+                                    return `<td class="text-center py-1">
+                                        <div class="w-7 h-7 rounded-full mx-auto flex items-center justify-center text-xs font-bold border-2"
+                                             style="${sel ? `background:linear-gradient(to bottom right,${C.brandNavy},${C.brandBlue});color:white;border-color:${C.brandBlue};box-shadow:0 2px 6px rgba(10,102,255,0.35)` : `background:white;border-color:${C.borderGray};color:${C.mutedGray}`}">
+                                            ${n}
+                                        </div>
+                                    </td>`;
+                                }).join('')}
+                            </tr>`;
                         }).join('')}
-                    </div>
-                    <div class="flex justify-between text-xs px-1 mt-1" style="color:${C.mutedGray}">
-                        <span>Strongly Disagree</span><span>Strongly Agree</span>
-                    </div>
-                </div>
-            `).join('');
+                    </tbody>
+                </table>
+            `;
             document.getElementById('sus-reason').textContent = clone.sus_reasoning || 'No reasoning provided.';
             document.getElementById('sus-modal').classList.remove('hidden');
         }
@@ -401,10 +419,12 @@
             document.getElementById('seq-modal-label').textContent = SEQ_LABELS[Math.round(task.seq_score) - 1];
             document.getElementById('seq-modal-scale').innerHTML = [1,2,3,4,5,6,7].map(i => {
                 const sel = Math.round(task.seq_score) === i;
-                return `<div class="flex-1 text-center p-3 rounded border-2 transition-all ${sel ? 'font-bold transform scale-105 shadow-md' : ''}"
-                             style="${sel ? `background:linear-gradient(to bottom right,${C.brandNavy},${C.brandBlue});color:white;border-color:${C.brandBlue}` : `background:white;border-color:${C.borderGray};color:${C.mutedGray}`}">
-                    <div class="text-lg font-bold">${i}</div>
-                    <div class="text-xs mt-1">${SEQ_LABELS[i-1]}</div>
+                return `<div class="flex flex-col items-center gap-1.5 flex-1">
+                    <div class="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 transition-all ${sel ? 'transform scale-110' : ''}"
+                         style="${sel ? `background:linear-gradient(to bottom right,${C.brandNavy},${C.brandBlue});color:white;border-color:${C.brandBlue};box-shadow:0 2px 10px rgba(10,102,255,0.4)` : `background:white;border-color:${C.borderGray};color:${C.mutedGray}`}">
+                        ${i}
+                    </div>
+                    <div class="text-center text-xs leading-tight" style="color:${sel ? C.brandNavy : C.mutedGray};font-weight:${sel ? '600' : '400'}">${SEQ_LABELS[i-1]}</div>
                 </div>`;
             }).join('');
             document.getElementById('seq-modal-reason').textContent = task.seq_reasoning || 'No reasoning provided.';
