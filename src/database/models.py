@@ -124,7 +124,8 @@ class TaskRunMetrics(Base):
     backtracking_count = Column(Integer, default=0)
     seq_score = Column(Float, nullable=True)
     seq_reasoning = Column(Text, nullable=True)
-    
+    time_on_task_seconds = Column(Integer, nullable=True)
+
     # Relationships
     task_run = relationship("TaskRun", back_populates="metrics")
 

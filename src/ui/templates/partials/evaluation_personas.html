@@ -20,7 +20,7 @@
         {% for persona in personas %}
 
         {# Compute per-clone aggregates for summary strip #}
-        {% set ns = namespace(total_steps=0, total_failed=0, total_backtracks=0, total_mismatches=0, seq_sum=0, seq_count=0, completed=0) %}
+        {% set ns = namespace(total_steps=0, total_failed=0, total_backtracks=0, total_mismatches=0, seq_sum=0, seq_count=0, completed=0, time_sum=0, time_count=0) %}
         {% for task in persona.tasks %}
             {% set ns.total_steps = ns.total_steps + (task.steps_taken or 0) %}
             {% set ns.total_failed = ns.total_failed + (task.failed_action_count or 0) %}
@@ -28,6 +28,7 @@
             {% set ns.total_mismatches = ns.total_mismatches + (task.outcome_mismatch_count or 0) %}
             {% if task.seq_score %}{% set ns.seq_sum = ns.seq_sum + task.seq_score %}{% set ns.seq_count = ns.seq_count + 1 %}{% endif %}
             {% if task.agent_done %}{% set ns.completed = ns.completed + 1 %}{% endif %}
+            {% if task.time_on_task_seconds %}{% set ns.time_sum = ns.time_sum + task.time_on_task_seconds %}{% set ns.time_count = ns.time_count + 1 %}{% endif %}
         {% endfor %}
 
         <div class="border border-border-gray rounded-md p-4">
@@ -91,6 +92,14 @@
                 <span class="{% if ns.total_mismatches > 0 %}text-amber-600 font-semibold{% endif %}">
                     <span class="font-semibold {% if ns.total_mismatches > 0 %}text-amber-600{% else %}text-body-dark{% endif %}">Mismatches:</span> {{ ns.total_mismatches }}
                 </span>
+                {% if ns.time_count > 0 %}
+                <span class="text-border-gray">|</span>
+                {% set avg_t = (ns.time_sum / ns.time_count) | round | int %}
+                <span title="Average wall-clock duration per task (includes LLM latency)">
+                    <span class="font-semibold text-body-dark">Avg Duration:</span>
+                    {% if avg_t >= 60 %}{{ avg_t // 60 }}m {{ avg_t % 60 }}s{% else %}{{ avg_t }}s{% endif %}
+                </span>
+                {% endif %}
             </div>
 
             <div class="overflow-x-auto">
@@ -107,6 +116,7 @@
                             <th class="detail-col hidden px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase whitespace-nowrap">Backtracks</th>
                             <th class="detail-col hidden px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase whitespace-nowrap">BT %</th>
                             <th class="detail-col hidden px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase whitespace-nowrap">Mismatches</th>
+                            <th class="detail-col hidden px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase whitespace-nowrap">Duration</th>
                             <th class="px-3 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase">Actions</th>
                         </tr>
                     </thead>
@@ -192,6 +202,12 @@
                             </td>
                             <td class="detail-col hidden px-3 py-2 text-sm text-center {% if (task.outcome_mismatch_count or 0) > 0 %}text-amber-600 font-semibold{% else %}text-muted-gray{% endif %}">
                                 {{ task.outcome_mismatch_count or 0 }}
+                            </td>
+                            <td class="detail-col hidden px-3 py-2 text-sm text-center text-muted-gray">
+                                {% if task.time_on_task_seconds %}
+                                    {% set t = task.time_on_task_seconds %}
+                                    {% if t >= 60 %}{{ t // 60 }}m {{ t % 60 }}s{% else %}{{ t }}s{% endif %}
+                                {% else %}-{% endif %}
                             </td>
                             <td class="px-3 py-2 text-sm text-center">
                                 <a href="/task-run/{{ task.id }}" class="text-brand-blue hover:underline">View →</a>

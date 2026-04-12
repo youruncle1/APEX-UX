@@ -128,6 +128,15 @@
                             <span class="text-muted-gray">Backtracking</span>
                             <span class="font-medium text-brand-navy">{{ task_run.metrics.backtracking_count }}</span>
                         </div>
+                        {% if task_run.metrics.time_on_task_seconds is not none %}
+                        <div class="flex justify-between py-1 border-b border-border-gray">
+                            <span class="text-muted-gray" title="Wall-clock time including LLM response latency">Duration</span>
+                            <span class="font-medium text-brand-navy">
+                                {% set t = task_run.metrics.time_on_task_seconds %}
+                                {% if t >= 60 %}{{ (t // 60) }}m {{ (t % 60) }}s{% else %}{{ t }}s{% endif %}
+                            </span>
+                        </div>
+                        {% endif %}
                         {% endif %}
                         <div id="detail-metrics" class="hidden"></div>
                         <div class="flex justify-between py-1">

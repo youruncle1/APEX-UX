@@ -361,15 +361,18 @@ async def evaluation_report_page(
             if t["verification_result"] == "PASS" or (t["status"] == "COMPLETED" and t["agent_done"])
         )
         ms = report["metrics_summary"]
+        t = ms["avg_time_on_task_seconds"]
+        avg_time_fmt = f"{t // 60}m {t % 60}s" if t is not None and t >= 60 else (f"{t}s" if t is not None else "-")
         metrics = {
             "success_rate": f"{passed / total * 100:.0f}%",
             "tasks_passed": f"{passed}/{total}",
             "avg_steps":    f"{ms['avg_steps_per_task']:.1f}",
             "avg_seq":      f"{ms['avg_seq_score']:.1f}/7",
             "avg_sus":      f"{ms['avg_sus_score']:.0f}/100",
+            "avg_time":     avg_time_fmt,
         }
     else:
-        metrics = {k: "-" for k in ("success_rate", "tasks_passed", "avg_steps", "avg_seq", "avg_sus")}
+        metrics = {k: "-" for k in ("success_rate", "tasks_passed", "avg_steps", "avg_seq", "avg_sus", "avg_time")}
 
     tasks_by_clone = {c["id"]: {"clone": c, "tasks": []} for c in report["clones"]}
     for t in task_runs:

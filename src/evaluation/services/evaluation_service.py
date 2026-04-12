@@ -129,6 +129,7 @@ class EvaluationService:
                 failed_action_count = metrics.failed_action_count if metrics else 0
                 backtracking_count = metrics.backtracking_count if metrics else 0
                 outcome_mismatch_count = metrics.outcome_mismatch_count if metrics else 0
+                time_on_task_seconds = metrics.time_on_task_seconds if metrics else None
 
                 task_runs_data.append({
                     "id": str(task_run.id),
@@ -144,6 +145,7 @@ class EvaluationService:
                     "failed_action_count": failed_action_count,
                     "backtracking_count": backtracking_count,
                     "outcome_mismatch_count": outcome_mismatch_count,
+                    "time_on_task_seconds": time_on_task_seconds,
                 })
 
                 if metrics:
@@ -157,11 +159,15 @@ class EvaluationService:
 
         avg_steps = avg_seq = avg_sus = 0
 
+        avg_time = None
         if all_metrics:
             avg_steps = sum(m.steps_taken for m in all_metrics) / len(all_metrics)
             seq_scores = [m.seq_score for m in all_metrics if m.seq_score is not None]
             if seq_scores:
                 avg_seq = sum(seq_scores) / len(seq_scores)
+            time_values = [m.time_on_task_seconds for m in all_metrics if m.time_on_task_seconds is not None]
+            if time_values:
+                avg_time = round(sum(time_values) / len(time_values))
 
         sus_scores = [c.sus_score for c in evaluation.clones if c.sus_score is not None]
         if sus_scores:
@@ -174,6 +180,7 @@ class EvaluationService:
             "avg_steps_per_task": round(avg_steps, 1),
             "avg_seq_score": round(avg_seq, 1),
             "avg_sus_score": round(avg_sus, 1),
+            "avg_time_on_task_seconds": avg_time,
         }
 
         # Include task definitions for PENDING evaluations (no runs yet)

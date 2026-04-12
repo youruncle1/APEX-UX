@@ -507,6 +507,10 @@ class EvaluationRunner:
             except Exception as e:
                 logger.warning("SEQ collection failed (non-fatal): %s", e)
 
+            time_on_task_seconds = None
+            if task_run.started_at and task_run.finished_at:
+                time_on_task_seconds = int((task_run.finished_at - task_run.started_at).total_seconds())
+
             await task_run_repo.save_metrics(
                 task_run_id=task_run.id,
                 steps_taken=basic_metrics["steps_taken"],
@@ -515,6 +519,7 @@ class EvaluationRunner:
                 backtracking_count=basic_metrics["backtracking_count"],
                 seq_score=seq_result["rating"] if seq_result else None,
                 seq_reasoning=seq_result["reasoning"] if seq_result else None,
+                time_on_task_seconds=time_on_task_seconds,
             )
 
             if seq_result:

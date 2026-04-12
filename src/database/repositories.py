@@ -300,6 +300,7 @@ class TaskRunRepository:
         backtracking_count: int,
         seq_score: Optional[float],
         seq_reasoning: Optional[str],
+        time_on_task_seconds: Optional[int] = None,
     ) -> None:
         metrics = TaskRunMetrics(
             task_run_id=task_run_id,
@@ -309,6 +310,7 @@ class TaskRunRepository:
             backtracking_count=backtracking_count,
             seq_score=seq_score,
             seq_reasoning=seq_reasoning,
+            time_on_task_seconds=time_on_task_seconds,
         )
         self.session.add(metrics)
 

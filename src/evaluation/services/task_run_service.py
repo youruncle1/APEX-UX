@@ -28,6 +28,7 @@ class TaskRunService:
                 "backtracking_count": task_run.metrics.backtracking_count,
                 "seq_score": task_run.metrics.seq_score,
                 "seq_reasoning": task_run.metrics.seq_reasoning,
+                "time_on_task_seconds": task_run.metrics.time_on_task_seconds,
             }
 
         actions_data = []
