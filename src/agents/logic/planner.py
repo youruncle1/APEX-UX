@@ -33,7 +33,7 @@ class PlannerAgent:
         persona_context: str = "",
         backend: Optional[str] = None,
         model: Optional[str] = None,
-        temperature: float = 0.7,
+        temperature: Optional[float] = None,
     ):
         settings = get_settings()
         self.backend = (backend or settings.planner_backend).lower()
@@ -44,7 +44,7 @@ class PlannerAgent:
             )
 
         self.system_prompt = SYSTEM_PROMPT_TEMPLATE.format(persona_context=persona_context)
-        self.temperature = temperature
+        self.temperature = temperature if temperature is not None else settings.planner_temperature
         self.client, self.model = get_planner_client(backend=self.backend, model=model)
 
         logger.info("Backend: %s, Model: %s", self.backend, self.model)

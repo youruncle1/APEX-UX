@@ -13,6 +13,7 @@ class ActionType(str, Enum):
     BACK = "BACK"
     FORWARD = "FORWARD"
     DONE = "DONE"
+    WAIT = "WAIT"
     
 class VerificationStatus(str, Enum):
     PASS = "PASS"

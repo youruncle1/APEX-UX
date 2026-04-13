@@ -81,7 +81,7 @@ class MemoryManager:
                     {"role": "system", "content": system_content},
                     {"role": "user", "content": compress_input},
                 ],
-                temperature=0.3,
+                temperature=get_settings().utility_temperature,
                 max_completion_tokens=512,
             )
             self.action_summary = response.choices[0].message.content.strip()

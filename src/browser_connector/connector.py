@@ -169,6 +169,18 @@ class BrowserConnector:
                     feedback="Navigated forward"
                 )
             
+            elif action.action_type == ActionType.WAIT:
+                try:
+                    duration_s = min(float(action.text or "1"), 30)
+                except (ValueError, TypeError):
+                    duration_s = 1
+                duration_s = max(duration_s, 0)
+                await self.page.wait_for_timeout(duration_s * 1000)
+                return ExecutionResult(
+                    success=True,
+                    feedback=f"Waited {duration_s:.1f}s"
+                )
+
             elif action.action_type == ActionType.DONE:
                 return ExecutionResult(
                     success=True,

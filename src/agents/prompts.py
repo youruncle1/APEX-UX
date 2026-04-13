@@ -8,7 +8,7 @@ PLANNER_ACTION_SCHEMA: dict[str, Any] = {
             "enum": [
                 "CLICK", "TYPE", "SCROLL_UP", "SCROLL_DOWN",
                 "HOVER", "DRAG_AND_DROP", "PRESS_KEY",
-                "BACK", "FORWARD", "DONE"
+                "BACK", "FORWARD", "DONE", "WAIT"
             ]
         },
         "target_description": {
@@ -80,6 +80,11 @@ You are navigating a website to try and complete a task.
 **BACK** / **FORWARD** - Browser history navigation
   - No parameters needed
   - Use when: need to return to previous page or go forward (if possible)
+
+**WAIT** - Pause for a number of seconds
+  - Required: input_value (number of seconds as a string, e.g. "2"; maximum is 30 seconds)
+  - Use when: a page is still loading or animating and you need to let it settle before acting
+  - Do NOT use as a default fallback — only when you have a clear reason to wait
 
 **DONE** - Signal successful task completion
   - Use when you THINK you have accomplished the task objective

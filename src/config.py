@@ -46,9 +46,15 @@ class Settings(BaseSettings):
     # Which LLM backend to use for the planner agent: "openai" | "local"
     planner_backend: str = "openai"
 
-    # Which LLM backend to use for utility tasks (SEQ, SUS, memory compression):
+    # Which LLM backend to use for utility tasks (memory compression):
     # "openai" | "local"
     utility_backend: str = "openai"
+
+    # Temperature for the planner agent and persona self-report (SEQ/SUS).
+    planner_temperature: float = 0.7
+
+    # Temperature for memory compression.
+    utility_temperature: float = 0.3
 
     # OpenAI API key - required when either backend is "openai"
     openai_api_key: Optional[pydantic.SecretStr] = None

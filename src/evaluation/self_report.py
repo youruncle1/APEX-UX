@@ -22,8 +22,8 @@ logger = get_logger(__name__)
 class SelfReportCollector:
     """Collect SEQ and SUS scores via agent self-assessment"""
 
-    def __init__(self, temperature: float = 0.3):
-        self.temperature = temperature
+    def __init__(self, temperature: Optional[float] = None):
+        self.temperature = temperature if temperature is not None else get_settings().planner_temperature
         self._client = None
         self._model = None
 
