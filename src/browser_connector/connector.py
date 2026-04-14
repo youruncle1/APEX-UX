@@ -14,7 +14,7 @@ class BrowserConnector:
         viewport_width: int = 1280,
         viewport_height: int = 720,
         timeout: int = 10000,
-        stabilization_wait: int = 300,
+        stabilization_wait: int = 1000,
         browser_type: str = "chromium",
     ):
         self.playwright: Optional[Playwright] = None
@@ -59,15 +59,13 @@ class BrowserConnector:
         if action_type == ActionType.CLICK:
             await self.page.wait_for_load_state("load")
             await self.page.wait_for_timeout(self.stabilization_wait)
-            await self.page.wait_for_load_state("load")
 
         elif action_type == ActionType.PRESS_KEY:
             await self.page.wait_for_load_state("load")
             await self.page.wait_for_timeout(self.stabilization_wait)
-            await self.page.wait_for_load_state("load")
 
         elif action_type == ActionType.HOVER:
-            await self.page.wait_for_timeout(500)
+            await self.page.wait_for_timeout(self.stabilization_wait)
 
         elif action_type == ActionType.TYPE:
             await self.page.wait_for_timeout(self.stabilization_wait)
@@ -109,7 +107,7 @@ class BrowserConnector:
             elif action.action_type == ActionType.SCROLL_DOWN:
                 scroll_amount = self.viewport_height
                 await self.page.mouse.wheel(0, scroll_amount)
-                await self.page.wait_for_timeout(200)
+                await self.page.wait_for_timeout(self.stabilization_wait)
                 return ExecutionResult(
                     success=True,
                     feedback=f"Scrolled down {scroll_amount}px"
@@ -118,7 +116,7 @@ class BrowserConnector:
             elif action.action_type == ActionType.SCROLL_UP:
                 scroll_amount = self.viewport_height
                 await self.page.mouse.wheel(0, -scroll_amount)
-                await self.page.wait_for_timeout(200)
+                await self.page.wait_for_timeout(self.stabilization_wait)
                 return ExecutionResult(
                     success=True,
                     feedback=f"Scrolled up {scroll_amount}px"
@@ -139,7 +137,7 @@ class BrowserConnector:
                 await self.page.mouse.down()
                 await self.page.mouse.move(action.x2, action.y2)
                 await self.page.mouse.up()
-                await self.page.wait_for_timeout(200)
+                await self.page.wait_for_timeout(self.stabilization_wait)
                 return ExecutionResult(
                     success=True,
                     feedback=f"Dragged from ({action.x}, {action.y}) to ({action.x2}, {action.y2})"
