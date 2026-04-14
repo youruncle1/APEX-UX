@@ -25,7 +25,7 @@ PLANNER_ACTION_SCHEMA: dict[str, Any] = {
         },
         "outcome_mismatch": {
             "type": "string",
-            "description": "ONLY populate this if a real mismatch exists. Describe what you intended, what you did, and what you see instead. Use EMPTY STRING \"\" if everything went as expected — do NOT write 'None identified', 'No mismatch', 'N/A', or any other placeholder text."
+            "description": "ONLY populate this if a real mismatch exists. Describe what you intended, what you did, and what you see instead. Use EMPTY STRING \"\" if everything went as expected — do NOT write 'None identified', 'No mismatch', 'N/A', or any other placeholder text. Use the same language as the task description."
         }
     },
     "required": ["action_type", "reasoning", "target_description", "input_value", "outcome_mismatch"],
