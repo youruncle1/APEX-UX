@@ -457,27 +457,91 @@
                 ctx.drawImage(image, 0, 0);
 
                 if (boundingBox) {
-                    ctx.strokeStyle = 'rgba(6, 182, 212, 0.8)';
-                    ctx.lineWidth = 2;
+                    const bx = boundingBox.x1, by = boundingBox.y1;
+                    const bw = boundingBox.x2 - boundingBox.x1, bh = boundingBox.y2 - boundingBox.y1;
                     ctx.setLineDash([8, 4]);
-                    ctx.strokeRect(boundingBox.x1, boundingBox.y1,
-                        boundingBox.x2 - boundingBox.x1, boundingBox.y2 - boundingBox.y1);
+
+                    // Outer glow pass
+                    ctx.strokeStyle = 'rgba(236, 72, 153, 0.6)';
+                    ctx.lineWidth = 5;
+                    ctx.shadowColor = 'rgba(236, 72, 153, 1)';
+                    ctx.shadowBlur = 20;
+                    ctx.strokeRect(bx, by, bw, bh);
+
+                    // Sharp inner pass
+                    ctx.strokeStyle = 'rgba(236, 72, 153, 0.95)';
+                    ctx.lineWidth = 3;
+                    ctx.shadowBlur = 6;
+                    ctx.strokeRect(bx, by, bw, bh);
+
+                    ctx.shadowBlur = 0;
+                    ctx.shadowColor = 'transparent';
                     ctx.setLineDash([]);
                 }
 
                 if (clickCoordinates) {
-                    ctx.font = '24px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.shadowColor = 'rgba(0,0,0,0.5)';
-                    ctx.shadowBlur = 4;
-                    ctx.shadowOffsetX = 2;
-                    ctx.shadowOffsetY = 2;
-                    ctx.fillText('👆', clickCoordinates.x, clickCoordinates.y + 18);
-                    ctx.shadowColor = 'transparent';
-                    ctx.shadowBlur = 0;
-                    ctx.shadowOffsetX = 0;
-                    ctx.shadowOffsetY = 0;
+                    const isDrag = clickCoordinates.x2 != null && clickCoordinates.y2 != null;
+
+                    if (isDrag) {
+                        const x1 = clickCoordinates.x, y1 = clickCoordinates.y;
+                        const x2 = clickCoordinates.x2, y2 = clickCoordinates.y2;
+
+                        const angle = Math.atan2(y2 - y1, x2 - x1);
+                        const arrowLen = 24;
+
+                        // Glow pass — line + arrowhead
+                        ctx.strokeStyle = 'rgba(236, 72, 153, 0.6)';
+                        ctx.lineWidth = 5;
+                        ctx.shadowColor = 'rgba(236, 72, 153, 1)';
+                        ctx.shadowBlur = 20;
+                        ctx.beginPath();
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(x2, y2);
+                        ctx.moveTo(x2, y2);
+                        ctx.lineTo(x2 - arrowLen * Math.cos(angle - 0.4), y2 - arrowLen * Math.sin(angle - 0.4));
+                        ctx.moveTo(x2, y2);
+                        ctx.lineTo(x2 - arrowLen * Math.cos(angle + 0.4), y2 - arrowLen * Math.sin(angle + 0.4));
+                        ctx.stroke();
+
+                        // Sharp pass — line + arrowhead
+                        ctx.strokeStyle = 'rgba(236, 72, 153, 0.95)';
+                        ctx.lineWidth = 3;
+                        ctx.shadowBlur = 6;
+                        ctx.beginPath();
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(x2, y2);
+                        ctx.moveTo(x2, y2);
+                        ctx.lineTo(x2 - arrowLen * Math.cos(angle - 0.4), y2 - arrowLen * Math.sin(angle - 0.4));
+                        ctx.moveTo(x2, y2);
+                        ctx.lineTo(x2 - arrowLen * Math.cos(angle + 0.4), y2 - arrowLen * Math.sin(angle + 0.4));
+                        ctx.stroke();
+
+                        // Dots
+                        ctx.fillStyle = 'rgba(236, 72, 153, 0.95)';
+                        ctx.shadowBlur = 6;
+                        ctx.beginPath();
+                        ctx.arc(x1, y1, 9, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(x2, y2, 9, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        ctx.shadowBlur = 0;
+                        ctx.shadowColor = 'transparent';
+                    } else {
+                        ctx.font = '24px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                        ctx.shadowBlur = 4;
+                        ctx.shadowOffsetX = 2;
+                        ctx.shadowOffsetY = 2;
+                        ctx.fillText('👆', clickCoordinates.x, clickCoordinates.y + 18);
+                        ctx.shadowColor = 'transparent';
+                        ctx.shadowBlur = 0;
+                        ctx.shadowOffsetX = 0;
+                        ctx.shadowOffsetY = 0;
+                    }
                 }
             };
             image.src = `data:image/png;base64,${base64Data}`;

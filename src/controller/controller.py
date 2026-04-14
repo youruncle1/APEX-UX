@@ -285,7 +285,11 @@ class TwoAgentController:
                 "input_value": planner_action.input_value,
                 "reasoning": planner_action.reasoning,
                 "bounding_box": bounding_box,
-                "click_coordinates": {"x": coordinates[0], "y": coordinates[1]} if coordinates else None,
+                "click_coordinates": (
+                    {"x": coordinates[0], "y": coordinates[1], "x2": coordinates2[0], "y2": coordinates2[1]}
+                    if planner_action.action_type == "DRAG_AND_DROP" and coordinates2
+                    else {"x": coordinates[0], "y": coordinates[1]}
+                ) if coordinates else None,
                 "execution_success": result.success,
                 "execution_feedback": result.feedback,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
