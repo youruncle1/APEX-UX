@@ -173,6 +173,7 @@ class TwoAgentController:
                 # Add to memory
                 memory.add_action({
                     "action_type": "DONE",
+                    "target_description": None,
                     "reasoning": planner_action.reasoning
                 })
 
@@ -227,6 +228,7 @@ class TwoAgentController:
 
                     memory.add_action({
                         "action_type": planner_action.action_type,
+                        "target_description": planner_action.target_description,
                         "reasoning": planner_action.reasoning
                     })
 
@@ -271,6 +273,7 @@ class TwoAgentController:
 
             memory.add_action({
                 "action_type": planner_action.action_type,
+                "target_description": planner_action.target_description,
                 "reasoning": planner_action.reasoning
             })
 

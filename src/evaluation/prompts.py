@@ -38,7 +38,7 @@ SEQ_SCHEMA: Dict[str, Any] = {
         },
         "reasoning": {
             "type": "string",
-            "description": "Detailed explanation of why you gave this rating"
+            "description": "Detailed explanation of why you gave this rating. Use the same language as the task description."
         }
     },
     "required": ["rating", "reasoning"],
@@ -61,7 +61,7 @@ SUS_SCHEMA: Dict[str, Any] = {
         },
         "reasoning": {
             "type": "string",
-            "description": "Detailed overall impression explaining your ratings"
+            "description": "Detailed overall impression explaining your ratings. Use the same language as the task description."
         }
     },
     "required": ["ratings", "reasoning"],
@@ -198,7 +198,8 @@ def build_seq_user_prompt(
     prompt_parts.append(
         "\n# YOUR ASSESSMENT\n"
         "Based on your experience completing this task, how easy or difficult was it? "
-        "Rate from 1 (very difficult) to 7 (very easy) and provide detailed reasoning."
+        "Rate from 1 (very difficult) to 7 (very easy) and provide detailed reasoning. "
+        "Write your reasoning in the same language as the task description above."
     )
 
     return "\n".join(prompt_parts)
@@ -271,6 +272,6 @@ def build_sus_user_prompt(task_summaries: List[Dict[str, Any]]) -> str:
         prompt_parts.append(f"{i}. {item}")
 
     prompt_parts.append("\n# YOUR RESPONSE")
-    prompt_parts.append("Provide an array of 10 ratings (in order) and detailed reasoning explaining your ratings.")
+    prompt_parts.append("Provide an array of 10 ratings (in order) and detailed reasoning explaining your ratings. Write your reasoning in the same language as the task descriptions above.")
 
     return "\n".join(prompt_parts)

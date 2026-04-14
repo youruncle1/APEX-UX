@@ -21,7 +21,7 @@ PLANNER_ACTION_SCHEMA: dict[str, Any] = {
         },
         "reasoning": {
             "type": "string",
-            "description": "Your thoughts as you decide what to do next — write as yourself, the persona you are, in your own voice"
+            "description": "Your thoughts as you decide what to do next — write as yourself, the persona you are, in your own voice. Use the same language as the task description."
         },
         "outcome_mismatch": {
             "type": "string",
@@ -137,6 +137,7 @@ Examples of NO mismatch (use empty string `""`):
 - Only describe what you can actually see right now
 - Be specific about what the element looks like so it can be found
 - Think back over what you've tried before deciding your next step
+- If you have already tried something and it did not work, do NOT try the exact same thing again. Change your approach, try a different element, a different path, or reconsider your understanding of the task.**
 - Do NOT use CLICK before TYPE on the same input. TYPE already clicks and focuses the field automatically."""
 
 
@@ -171,4 +172,4 @@ OUTCOME_MISMATCHES_TEMPLATE = """
 # ISSUES ENCOUNTERED
 {outcome_mismatches}
 
-Note: Learn from these issues to avoid repeating ineffective actions."""
+Note: Learn from these issues to avoid repeating ineffective actions over and over again."""

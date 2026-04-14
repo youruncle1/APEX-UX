@@ -184,7 +184,9 @@ class PlannerAgent:
 
     @staticmethod
     def _format_action_history(action_history: list[dict]) -> str:
-        return "\n".join(
-            f"Step {i + 1}: {action['action_type']} - {action['reasoning']}"
-            for i, action in enumerate(action_history)
-        )
+        lines = []
+        for i, action in enumerate(action_history):
+            target = action.get("target_description")
+            target_str = f" on [{target}]" if target else ""
+            lines.append(f"Step {i + 1}: {action['action_type']}{target_str} - {action['reasoning']}")
+        return "\n".join(lines)
