@@ -26,6 +26,14 @@ logger = get_logger(__name__)
 # Cancellation flags for in-progress evaluations. Written by EvaluationService, read by EvaluationRunner.
 evaluation_cancellation: dict[UUID, bool] = {}
 
+
+class TaskRunFailedError(Exception):
+    """Wraps a task-run failure, carrying the task_run_id so the retry loop can delete the record."""
+    def __init__(self, task_run_id: UUID, cause: Exception):
+        super().__init__(str(cause))
+        self.task_run_id = task_run_id
+        self.cause = cause
+
 ProgressCallback = Callable[[UUID, dict], Awaitable[None]]
 
 
@@ -313,23 +321,41 @@ class EvaluationRunner:
                     return  # Caller will handle cleanup
 
                 # TaskAbortedError from execute_task propagates up naturally
-                try:
-                    await self._run_task(
-                        session=session,
-                        evaluation_id=evaluation.id,
-                        task_def=task_def,
-                        clone=clone,
-                        controller=controller,
-                        persona_context=persona_context,
-                        total_pages=evaluation.total_pages,
-                    )
-                except TaskAbortedError:
-                    logger.warning("Task '%s...' aborted mid-step.", task_def.description[:50])
-                    raise  # Re-raise so _run_clone → run() can handle cleanup
-                except Exception as e:
-                    logger.error("Task '%s...' failed: %s", task_def.description[:50], e)
-                    if self.error_policy == "fail_fast":
-                        raise
+                max_attempts = 3
+                for attempt in range(1, max_attempts + 1):
+                    try:
+                        await self._run_task(
+                            session=session,
+                            evaluation_id=evaluation.id,
+                            task_def=task_def,
+                            clone=clone,
+                            controller=controller,
+                            persona_context=persona_context,
+                            total_pages=evaluation.total_pages,
+                        )
+                        break  # success
+                    except TaskAbortedError:
+                        logger.warning("Task '%s...' aborted mid-step.", task_def.description[:50])
+                        raise  # Re-raise so _run_clone → run() can handle cleanup
+                    except TaskRunFailedError as exc:
+                        if attempt < max_attempts:
+                            logger.warning(
+                                "Task '%s...' failed (attempt %d/%d), retrying: %s",
+                                task_def.description[:50], attempt, max_attempts, exc.cause,
+                            )
+                            # Delete the failed record and its screenshots so they don't appear in the UI.
+                            await TaskRunRepository(session).delete_by_id(exc.task_run_id)
+                            try:
+                                await self.screenshot_storage.delete_task_run(
+                                    str(evaluation_id), str(exc.task_run_id)
+                                )
+                            except Exception as del_err:
+                                logger.warning("Failed to delete screenshots for retried task run (non-fatal): %s", del_err)
+                            await asyncio.sleep(2)
+                        else:
+                            logger.error("Task '%s...' failed: %s", task_def.description[:50], exc.cause)
+                            if self.error_policy == "fail_fast":
+                                raise exc.cause from exc
 
                 # Check cancellation after each task completes
                 if self._is_cancelled(evaluation_id):
@@ -558,4 +584,4 @@ class EvaluationRunner:
             logger.error("Task execution failed: %s", e)
             await task_run_repo.mark_aborted(task_run, failure_reason=str(e))
             await task_run_repo.commit()
-            raise
+            raise TaskRunFailedError(task_run.id, e) from e

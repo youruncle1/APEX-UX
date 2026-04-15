@@ -114,6 +114,7 @@
                 <table class="w-full border-collapse">
                     <thead>
                         <tr class="border-b border-border-gray">
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase">#</th>
                             <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase w-2/5">Task</th>
                             <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase">Status</th>
                             <th class="px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-brand-blue uppercase whitespace-nowrap">Verification</th>
@@ -135,6 +136,7 @@
                         {% set fail_pct = ((task.failed_action_count or 0) / steps * 100) | round | int if steps > 0 else 0 %}
                         {% set bt_pct = ((task.backtracking_count or 0) / steps * 100) | round | int if steps > 0 else 0 %}
                         <tr class="border-b border-border-gray last:border-b-0 hover:bg-hover-gray transition-colors">
+                            <td class="px-3 py-2 text-sm text-muted-gray">{{ task.task_number or '-' }}</td>
                             <td class="px-3 py-2 text-sm">
                                 <a href="/task-run/{{ task.id }}" class="text-body-dark break-words hover:underline hover:font-semibold transition-all">{{ task.task_description }}</a>
                             </td>

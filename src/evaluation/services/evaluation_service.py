@@ -120,7 +120,13 @@ class EvaluationService:
         all_metrics = []
 
         for clone in evaluation.clones:
-            for task_run in clone.task_runs:
+            sorted_task_runs = sorted(
+                clone.task_runs,
+                key=lambda tr: next(
+                    (t.position for t in evaluation.tasks if t.id == tr.task_definition_id), 0
+                ),
+            )
+            for task_run in sorted_task_runs:
                 metrics = await self.eval_repo.get_task_run_metrics(task_run.id)
                 task_def = await self.eval_repo.get_task_definition(task_run.task_definition_id)
 
@@ -136,6 +142,7 @@ class EvaluationService:
                 task_runs_data.append({
                     "id": str(task_run.id),
                     "task_description": task_def.description if task_def else "Unknown",
+                    "task_number": (task_def.position + 1) if task_def else None,
                     "clone_uuid": str(clone.id),
                     "persona_name": clone.persona.name,
                     "status": task_run.status.value,
@@ -196,6 +203,7 @@ class EvaluationService:
         for task_def in evaluation.tasks:
             task_definitions.append({
                 "id": str(task_def.id),
+                "position": task_def.position,
                 "description": task_def.description,
                 "max_steps": task_def.max_steps,
                 "base_url_override": task_def.base_url_override,

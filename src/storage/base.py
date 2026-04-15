@@ -24,6 +24,13 @@ class ScreenshotStorage(ABC):
         pass
     
     @abstractmethod
+    async def delete_task_run(self, evaluation_id: str, task_run_id: str) -> None:
+        """
+        Delete all screenshots for a single task run.
+        """
+        pass
+
+    @abstractmethod
     async def delete_evaluation(self, evaluation_id: str) -> None:
         """
         Delete all screenshots for an evaluation.

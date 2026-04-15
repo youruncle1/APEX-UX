@@ -137,15 +137,25 @@ class S3Storage(ScreenshotStorage):
         
         return base64.b64encode(png_buffer.getvalue()).decode('utf-8')
     
-    async def delete_evaluation(self, evaluation_id: str) -> None:
+    async def _delete_prefix(self, s3, prefix: str) -> None:
+        """Delete all S3 objects under a given prefix."""
+        paginator = s3.get_paginator('list_objects_v2')
+        async for page in paginator.paginate(Bucket=self.bucket_name, Prefix=prefix):
+            if 'Contents' in page:
+                objects = [{'Key': obj['Key']} for obj in page['Contents']]
+                if objects:
+                    await s3.delete_objects(
+                        Bucket=self.bucket_name,
+                        Delete={'Objects': objects}
+                    )
+
+    async def delete_task_run(self, evaluation_id: str, task_run_id: str) -> None:
         """
-        Delete all screenshots for an evaluation from S3.
-        
-        Deletes all objects with prefix: screenshots/{evaluation_id}/
+        Delete all screenshots for a single task run from S3.
+
+        Deletes all objects with prefix: screenshots/{evaluation_id}/{task_run_id}/
         """
-        
-        prefix = f"screenshots/{evaluation_id}/"
-        
+        prefix = f"screenshots/{evaluation_id}/{task_run_id}/"
         async with self.session.client(
             's3',
             endpoint_url=self.endpoint_url,
@@ -153,14 +163,21 @@ class S3Storage(ScreenshotStorage):
             aws_secret_access_key=self.secret_key,
             region_name=self.region
         ) as s3:
-            # List all objects with prefix
-            paginator = s3.get_paginator('list_objects_v2')
-            async for page in paginator.paginate(Bucket=self.bucket_name, Prefix=prefix):
-                if 'Contents' in page:
-                    objects = [{'Key': obj['Key']} for obj in page['Contents']]
-                    if objects:
-                        await s3.delete_objects(
-                            Bucket=self.bucket_name,
-                            Delete={'Objects': objects}
-                        )
+            await self._delete_prefix(s3, prefix)
+
+    async def delete_evaluation(self, evaluation_id: str) -> None:
+        """
+        Delete all screenshots for an evaluation from S3.
+
+        Deletes all objects with prefix: screenshots/{evaluation_id}/
+        """
+        prefix = f"screenshots/{evaluation_id}/"
+        async with self.session.client(
+            's3',
+            endpoint_url=self.endpoint_url,
+            aws_access_key_id=self.access_key,
+            aws_secret_access_key=self.secret_key,
+            region_name=self.region
+        ) as s3:
+            await self._delete_prefix(s3, prefix)
     

@@ -93,9 +93,10 @@ class EvaluationRepository:
             )
             self.session.add(clone)
 
-        for task_data in tasks_data:
+        for i, task_data in enumerate(tasks_data):
             task = TaskDefinition(
                 evaluation_id=evaluation.id,
+                position=i,
                 description=task_data["description"],
                 base_url_override=task_data.get("base_url_override"),
                 max_steps=task_data.get("max_steps", 25),
@@ -182,9 +183,10 @@ class EvaluationRepository:
             )
             self.session.add(clone)
 
-        for task_data in tasks_data:
+        for i, task_data in enumerate(tasks_data):
             task = TaskDefinition(
                 evaluation_id=evaluation.id,
+                position=i,
                 description=task_data["description"],
                 base_url_override=task_data.get("base_url_override"),
                 max_steps=task_data.get("max_steps", 25),
@@ -351,6 +353,15 @@ class TaskRunRepository:
         task_run.status = TaskRunStatus.ABORTED
         task_run.failure_reason = failure_reason
         task_run.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    async def delete_by_id(self, task_run_id: UUID) -> None:
+        result = await self.session.execute(
+            select(TaskRun).where(TaskRun.id == task_run_id)
+        )
+        task_run = result.scalar_one_or_none()
+        if task_run:
+            await self.session.delete(task_run)
+            await self.session.commit()
 
     async def commit(self) -> None:
         await self.session.commit()

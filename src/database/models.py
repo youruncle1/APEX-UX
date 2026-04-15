@@ -48,7 +48,7 @@ class Evaluation(Base):
 
     # Relationships
     clones = relationship("EvaluationClone", back_populates="evaluation", cascade="all, delete-orphan")
-    tasks = relationship("TaskDefinition", back_populates="evaluation", cascade="all, delete-orphan")
+    tasks = relationship("TaskDefinition", back_populates="evaluation", cascade="all, delete-orphan", order_by="TaskDefinition.position")
 
 class Persona(Base):
     __tablename__ = "personas"
@@ -76,14 +76,15 @@ class EvaluationClone(Base):
 
 class TaskDefinition(Base):
     __tablename__ = "task_definitions"
-    
+
     id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     evaluation_id = Column(PGUUID(as_uuid=True), ForeignKey("evaluations.id"), nullable=False)
+    position = Column(Integer, nullable=False, default=0)
     description = Column(Text, nullable=False)
     base_url_override = Column(String, nullable=True)
     max_steps = Column(Integer, default=25)
     verification_rules = Column(JSON, nullable=True)
-    
+
     # Relationships
     evaluation = relationship("Evaluation", back_populates="tasks")
     runs = relationship("TaskRun", back_populates="task_definition", cascade="all, delete-orphan")

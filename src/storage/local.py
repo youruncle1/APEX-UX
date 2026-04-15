@@ -98,13 +98,21 @@ class LocalStorage(ScreenshotStorage):
         
         return base64.b64encode(png_buffer.getvalue()).decode('utf-8')
     
+    async def delete_task_run(self, evaluation_id: str, task_run_id: str) -> None:
+        """
+        Delete all screenshots for a single task run.
+        """
+        task_dir = self.base_path / evaluation_id / task_run_id
+        if task_dir.exists():
+            shutil.rmtree(task_dir)
+
     async def delete_evaluation(self, evaluation_id: str) -> None:
         """
         Delete all screenshots for an evaluation.
         """
-        
+
         eval_dir = self.base_path / evaluation_id
-        
+
         if eval_dir.exists():
             shutil.rmtree(eval_dir)
     
