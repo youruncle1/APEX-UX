@@ -144,59 +144,91 @@ class EvaluationRunner:
 
         async with AsyncSessionLocal() as session:
             eval_repo = EvaluationRepository(session)
-
             evaluation = await eval_repo.get_with_relations(evaluation_id)
             if not evaluation:
                 raise ValueError(f"Evaluation {evaluation_id} not found")
 
+            parallel = get_settings().parallel_clones
             logger.info("Starting evaluation: %s", evaluation.name or evaluation.id)
             logger.info("Tasks: %d, Clones: %d", len(evaluation.tasks), len(evaluation.clones))
-            logger.info("Error policy: %s", self.error_policy)
+            logger.info("Error policy: %s | Parallel clones: %s", self.error_policy, parallel)
 
-            evaluation_failed = False
-            try:
-                for clone in evaluation.clones:
-                    # Check cancellation between clones
+            # Snapshot IDs — the ORM objects can't be shared across sessions
+            clone_ids = [clone.id for clone in evaluation.clones]
+
+        try:
+            if parallel:
+                results = await asyncio.gather(
+                    *[self._run_clone_isolated(evaluation_id, clone_id) for clone_id in clone_ids],
+                    return_exceptions=True,
+                )
+            else:
+                results = []
+                for clone_id in clone_ids:
                     if self._is_cancelled(evaluation_id):
-                        logger.warning("Abort requested before clone %s, stopping.", clone.id)
-                        await self._abort_and_cleanup(evaluation_id, session, eval_repo)
-                        return "aborted"
+                        break
+                    result = await self._run_clone_isolated(evaluation_id, clone_id)
+                    results.append(result)
 
-                    try:
-                        await self._run_clone(session, evaluation, clone, evaluation_id)
-                    except TaskAbortedError:
-                        logger.warning("Clone %s aborted mid-task.", clone.id)
-                        await self._abort_and_cleanup(evaluation_id, session, eval_repo)
-                        return "aborted"
-                    except Exception as e:
-                        logger.error("Clone %s failed: %s", clone.id, e)
-                        if self.error_policy == "fail_fast":
-                            raise
-                        evaluation_failed = True
+            aborted = any(isinstance(r, TaskAbortedError) for r in results)
+            if aborted:
+                async with AsyncSessionLocal() as session:
+                    await self._abort_and_cleanup(evaluation_id, session, EvaluationRepository(session))
+                return "aborted"
 
-                    # Check cancellation after each clone completes
-                    if self._is_cancelled(evaluation_id):
-                        logger.warning("Abort requested after clone %s, stopping.", clone.id)
-                        await self._abort_and_cleanup(evaluation_id, session, eval_repo)
-                        return "aborted"
+            evaluation_failed = any(isinstance(r, Exception) for r in results)
 
+            async with AsyncSessionLocal() as session:
+                eval_repo = EvaluationRepository(session)
+                evaluation = await eval_repo.get_with_relations(evaluation_id)
                 final_status = EvaluationStatus.FAILED if evaluation_failed else EvaluationStatus.COMPLETED
                 await eval_repo.update_status(
                     evaluation,
                     final_status,
                     finished_at=datetime.now(timezone.utc).replace(tzinfo=None),
                 )
-                logger.info("Evaluation completed %s", "with failures" if evaluation_failed else "successfully")
-                return evaluation_failed
 
-            except Exception as e:
-                logger.error("Evaluation failed due to exception: %s", e)
+            logger.info("Evaluation completed %s", "with failures" if evaluation_failed else "successfully")
+            return evaluation_failed
+
+        except Exception as e:
+            logger.error("Evaluation failed due to exception: %s", e)
+            async with AsyncSessionLocal() as session:
+                eval_repo = EvaluationRepository(session)
+                evaluation = await eval_repo.get_with_relations(evaluation_id)
                 await eval_repo.update_status(
                     evaluation,
                     EvaluationStatus.FAILED,
                     finished_at=datetime.now(timezone.utc).replace(tzinfo=None),
                 )
+            raise
+
+    async def _run_clone_isolated(self, evaluation_id: UUID, clone_id: UUID):
+        """Run a single clone in its own DB session. Returns None on success, exception on failure."""
+        async with AsyncSessionLocal() as session:
+            eval_repo = EvaluationRepository(session)
+            evaluation = await eval_repo.get_with_relations(evaluation_id)
+            if not evaluation:
+                raise ValueError(f"Evaluation {evaluation_id} not found")
+
+            clone = next((c for c in evaluation.clones if c.id == clone_id), None)
+            if not clone:
+                raise ValueError(f"Clone {clone_id} not found")
+
+            if self._is_cancelled(evaluation_id):
+                logger.warning("Abort requested before clone %s, stopping.", clone_id)
+                raise TaskAbortedError("Cancelled before clone started")
+
+            try:
+                await self._run_clone(session, evaluation, clone, evaluation_id)
+            except TaskAbortedError:
+                logger.warning("Clone %s aborted mid-task.", clone_id)
                 raise
+            except Exception as e:
+                logger.error("Clone %s failed: %s", clone_id, e)
+                if self.error_policy == "fail_fast":
+                    raise
+                return e
 
     async def _abort_and_cleanup(
         self,

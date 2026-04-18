@@ -87,6 +87,14 @@ class Settings(BaseSettings):
     #   gets its action log summarised by LLM.
     sus_action_cumulative_threshold: int = 400
 
+    # Database connection pool
+    db_pool_size: int = 20
+    db_max_overflow: int = 10
+
+    # Parallel clone execution: when True, all clones run concurrently (faster, higher resource use).
+    # When False, clones run sequentially (lower resource use, easier to debug).
+    parallel_clones: bool = True
+
     # Browser
     headless: bool = True
 

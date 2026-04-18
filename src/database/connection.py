@@ -9,7 +9,12 @@ logger = get_logger(__name__)
 _settings = get_settings()
 DATABASE_URL = require_database_url(_settings)
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_size=_settings.db_pool_size,
+    max_overflow=_settings.db_max_overflow,
+    echo=False,
+)
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
