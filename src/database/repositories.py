@@ -139,6 +139,7 @@ class EvaluationRepository:
                 base_url_override=task.base_url_override,
                 max_steps=task.max_steps,
                 verification_rules=task.verification_rules,
+                position=task.position,
             ))
 
         await self.session.commit()
