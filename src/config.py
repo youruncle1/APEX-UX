@@ -98,6 +98,10 @@ class Settings(BaseSettings):
     # Browser
     headless: bool = True
 
+    # Milliseconds to wait after each browser action for the page to settle.
+    # Increase if evaluations capture mid-animation screenshots.
+    stabilization_wait: int = 1000
+
     # Screenshot storage
     # "local" or "s3"
     screenshot_storage_type: str = "local"

@@ -331,6 +331,7 @@ class EvaluationRunner:
             browser_type=evaluation.browser or "chromium",
             viewport_width=vp["width"],
             viewport_height=vp["height"],
+            stabilization_wait=get_settings().stabilization_wait,
         )
 
         controller = TwoAgentController(
