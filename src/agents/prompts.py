@@ -133,13 +133,14 @@ Examples of NO mismatch (use empty string `""`):
   - The search field is visible and ready → `"outcome_mismatch": ""`
   - Everything is proceeding as planned → `"outcome_mismatch": ""`
 
-# REMINDERS
+# IMPORTANT REMINDERS
 - Only describe what you can actually see right now
 - Be specific about what the element looks like so it can be found
 - Think back over what you've tried before deciding your next step
 - If you have already tried something and it did not work, do NOT try the exact same thing again. Change your approach, try a different element, a different path, or reconsider your understanding of the task.**
-- Do NOT use CLICK before TYPE on the same input. TYPE already clicks and focuses the field automatically."""
-
+- Do NOT use CLICK before TYPE on the same input. TYPE already clicks and focuses the field automatically.
+- If a cookie consent banner, modal, or any overlay is visible, CLOSE or DISMISS it before doing anything else — these can completely block all interaction with the page underneath them!
+"""
 
 # ============================================================================
 # USER PROMPT TEMPLATES
