@@ -363,7 +363,6 @@ class EvaluationRunner:
                             clone=clone,
                             controller=controller,
                             persona_context=persona_context,
-                            total_pages=evaluation.total_pages,
                         )
                         break  # success
                     except TaskAbortedError:
@@ -455,7 +454,6 @@ class EvaluationRunner:
         clone: EvaluationClone,
         controller: TwoAgentController,
         persona_context: str,
-        total_pages: Optional[int] = None,
     ):
         """Run a single task for a clone."""
 
@@ -574,11 +572,11 @@ class EvaluationRunner:
             visited_pages_total = result.get("visited_pages_total")
             visited_pages_unique = result.get("visited_pages_unique")
             lostness = None
-            if total_pages and visited_pages_total and visited_pages_unique:
+            if task_def.min_pages and visited_pages_total and visited_pages_unique:
                 lostness = self.metrics_calculator.calculate_lostness(
                     N=visited_pages_total,
                     n=visited_pages_unique,
-                    R=total_pages,
+                    R=task_def.min_pages,
                 )
 
             await task_run_repo.save_metrics(

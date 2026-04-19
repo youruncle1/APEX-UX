@@ -55,7 +55,6 @@ class EvaluationService:
             viewport=data.viewport,
             persona_ids=data.persona_ids,
             tasks_data=[t.model_dump() for t in data.tasks],
-            total_pages=data.total_pages,
         )
 
         return {
@@ -233,12 +232,12 @@ class EvaluationService:
             "base_url": evaluation.base_url,
             "browser": evaluation.browser or "chromium",
             "viewport": evaluation.viewport or {"width": 1280, "height": 720},
-            "total_pages": evaluation.total_pages,
             "persona_ids": [c.persona_id for c in evaluation.clones if c.persona_id],
             "tasks": [
                 {
                     "description": task.description,
                     "max_steps": task.max_steps,
+                    "min_pages": task.min_pages,
                     "base_url_override": task.base_url_override,
                     "verification_rules": task.verification_rules,
                 }
@@ -263,7 +262,6 @@ class EvaluationService:
             viewport=data.viewport,
             persona_ids=data.persona_ids,
             tasks_data=[t.model_dump() for t in data.tasks],
-            total_pages=data.total_pages,
         )
 
         return {

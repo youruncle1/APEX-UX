@@ -44,8 +44,6 @@ class Evaluation(Base):
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
     
-    total_pages = Column(Integer, nullable=True)
-
     # Relationships
     clones = relationship("EvaluationClone", back_populates="evaluation", cascade="all, delete-orphan")
     tasks = relationship("TaskDefinition", back_populates="evaluation", cascade="all, delete-orphan", order_by="TaskDefinition.position")
@@ -83,6 +81,7 @@ class TaskDefinition(Base):
     description = Column(Text, nullable=False)
     base_url_override = Column(String, nullable=True)
     max_steps = Column(Integer, default=25)
+    min_pages = Column(Integer, nullable=True)
     verification_rules = Column(JSON, nullable=True)
 
     # Relationships

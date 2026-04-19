@@ -66,7 +66,6 @@ class EvaluationRepository:
         tasks_data: list[dict],
         browser: str = "chromium",
         viewport: Optional[dict] = None,
-        total_pages: Optional[int] = None,
     ) -> Evaluation:
         personas = await PersonaRepository(self.session).get_by_ids(persona_ids)
         by_id = {p.id: p for p in personas}
@@ -80,7 +79,6 @@ class EvaluationRepository:
             browser=browser,
             viewport=viewport or {"width": 1280, "height": 720},
             status=EvaluationStatus.PENDING,
-            total_pages=total_pages,
         )
         self.session.add(evaluation)
         await self.session.flush()
@@ -100,6 +98,7 @@ class EvaluationRepository:
                 description=task_data["description"],
                 base_url_override=task_data.get("base_url_override"),
                 max_steps=task_data.get("max_steps", 25),
+                min_pages=task_data.get("min_pages"),
                 verification_rules=task_data.get("verification_rules"),
             )
             self.session.add(task)
@@ -121,7 +120,6 @@ class EvaluationRepository:
             browser=source.browser,
             viewport=source.viewport,
             status=EvaluationStatus.PENDING,
-            total_pages=source.total_pages,
         )
         self.session.add(new_eval)
         await self.session.flush()
@@ -138,6 +136,7 @@ class EvaluationRepository:
                 description=task.description,
                 base_url_override=task.base_url_override,
                 max_steps=task.max_steps,
+                min_pages=task.min_pages,
                 verification_rules=task.verification_rules,
                 position=task.position,
             ))
@@ -155,7 +154,6 @@ class EvaluationRepository:
         tasks_data: list[dict],
         browser: str = "chromium",
         viewport: Optional[dict] = None,
-        total_pages: Optional[int] = None,
     ) -> None:
         personas = await PersonaRepository(self.session).get_by_ids(persona_ids)
         by_id = {p.id: p for p in personas}
@@ -167,7 +165,6 @@ class EvaluationRepository:
         evaluation.base_url = base_url
         evaluation.browser = browser
         evaluation.viewport = viewport or {"width": 1280, "height": 720}
-        evaluation.total_pages = total_pages
 
         await self.session.execute(
             delete(TaskDefinition).where(TaskDefinition.evaluation_id == evaluation.id)
@@ -191,6 +188,7 @@ class EvaluationRepository:
                 description=task_data["description"],
                 base_url_override=task_data.get("base_url_override"),
                 max_steps=task_data.get("max_steps", 25),
+                min_pages=task_data.get("min_pages"),
                 verification_rules=task_data.get("verification_rules"),
             )
             self.session.add(task)

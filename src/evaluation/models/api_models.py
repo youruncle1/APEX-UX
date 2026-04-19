@@ -29,6 +29,7 @@ class TaskDefinitionCreate(BaseModel):
     description: str
     base_url_override: Optional[str] = None
     max_steps: int = 25
+    min_pages: Optional[int] = None
     verification_rules: Optional[dict] = None
 
 
@@ -45,7 +46,6 @@ class EvaluationCreate(BaseModel):
     viewport: Optional[dict] = None
     persona_ids: List[UUID]
     tasks: List[TaskDefinitionCreate]
-    total_pages: Optional[int] = None
 
 
 class EvaluationSummary(BaseModel):

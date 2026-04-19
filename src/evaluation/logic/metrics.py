@@ -43,17 +43,19 @@ class MetricsCalculator:
     @staticmethod
     def calculate_lostness(N: int, n: int, R: int) -> Optional[float]:
         """
-        Calculate Lostness score (Smith & Mosier, 1986).
+        Calculate Lostness score (Smith, 1996).
+
+        L = sqrt( (N/S - 1)^2 + (R/S - 1)^2 )
 
         Args:
-            N: Total page visits (counting revisits)
-            n: Number of unique pages visited
-            R: Total pages in the site (user-provided)
+            N: Total page visits including revisits
+            n: Number of unique pages visited (S in the formula)
+            R: Minimum pages needed to complete the task (optimal path length)
 
         Returns:
-            Lostness score (0.0 = perfect navigation), or None if inputs are invalid.
+            Lostness score (0.0 = perfect navigation, higher = more lost), or None if inputs are invalid.
         """
         if R <= 0 or n <= 0 or N <= 0:
             return None
-        lostness = math.sqrt(((N / n) - 1) ** 2 + ((n / R) - 1) ** 2)
+        lostness = math.sqrt(((N / n) - 1) ** 2 + ((R / n) - 1) ** 2)
         return round(lostness, 4)
