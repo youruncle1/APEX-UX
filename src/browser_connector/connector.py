@@ -55,19 +55,16 @@ class BrowserConnector:
         """
         Wait for page to stabilize after actions.
         """
-        
-        if action_type == ActionType.CLICK:
-            await self.page.wait_for_load_state("load")
+
+        if action_type in (ActionType.CLICK, ActionType.PRESS_KEY):
+            try:
+                await self.page.wait_for_load_state("networkidle", timeout=3000)
+            except Exception:
+                pass
             await self.page.wait_for_timeout(self.stabilization_wait)
 
-        elif action_type == ActionType.PRESS_KEY:
-            await self.page.wait_for_load_state("load")
-            await self.page.wait_for_timeout(self.stabilization_wait)
 
-        elif action_type == ActionType.HOVER:
-            await self.page.wait_for_timeout(self.stabilization_wait)
-
-        elif action_type == ActionType.TYPE:
+        elif action_type in (ActionType.HOVER, ActionType.TYPE):
             await self.page.wait_for_timeout(self.stabilization_wait)
     
     async def execute_action(self, action: Action) -> ExecutionResult:
@@ -154,14 +151,14 @@ class BrowserConnector:
                 )
             
             elif action.action_type == ActionType.BACK:
-                await self.page.go_back(wait_until="domcontentloaded")
+                await self.page.go_back(wait_until="load")
                 return ExecutionResult(
                     success=True,
                     feedback="Navigated back"
                 )
             
             elif action.action_type == ActionType.FORWARD:
-                await self.page.go_forward(wait_until="domcontentloaded")
+                await self.page.go_forward(wait_until="load")
                 return ExecutionResult(
                     success=True,
                     feedback="Navigated forward"
