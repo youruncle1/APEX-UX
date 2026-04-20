@@ -1,16 +1,16 @@
 import asyncio
 import os
 import sys
-from sqlalchemy import text
-from src.database.connection import engine, AsyncSessionLocal
-from src.database.models import Base
 
+# Must run before any src.* imports so Python can resolve the package root
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # noqa: E402
+from sqlalchemy import text  # noqa: E402
+from src.database.connection import engine, AsyncSessionLocal  # noqa: E402
+from src.database.models import Base  # noqa: E402
 
 load_dotenv()
-
 
 SEED_FILE = os.path.join(os.path.dirname(__file__), "seed_personas.sql")
 

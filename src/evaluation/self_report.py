@@ -6,6 +6,7 @@ import json
 from typing import Dict, Any, Optional, List
 
 from src.agents.llm_client import get_utility_client
+from src.evaluation.models.api_models import SEQResponse, SUSCollectionResult
 from src.evaluation.prompts import (
     SEQ_SCHEMA,
     SUS_SCHEMA,
@@ -56,7 +57,7 @@ class SelfReportCollector:
         outcome_mismatches: List[Any],
         task_outcome: str,
         persona_context: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[SEQResponse]:
         """
         Collect Single Ease Question (SEQ) score.
 
@@ -107,14 +108,12 @@ class SelfReportCollector:
             content = response.choices[0].message.content
             content = self._clean_json_response(content)
             result, _ = json.JSONDecoder().raw_decode(content)
+            seq = SEQResponse.model_validate(result)
 
-            logger.debug("SEQ rating: %s/7", result["rating"])
-            logger.debug("SEQ reasoning: %s", result["reasoning"][:100])
+            logger.debug("SEQ rating: %s/7", seq.rating)
+            logger.debug("SEQ reasoning: %s", seq.reasoning[:100])
 
-            return {
-                "rating": float(result["rating"]),
-                "reasoning": result["reasoning"],
-            }
+            return seq
 
         except Exception as e:
             logger.debug("SEQ collection failed: %s", e)
@@ -157,7 +156,7 @@ class SelfReportCollector:
         persona_context: str,
         task_summaries: List[Dict[str, Any]],
         cumulative_threshold: int = -1,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[SUSCollectionResult]:
         """
         Collect System Usability Scale (SUS) score.
 
@@ -260,15 +259,18 @@ class SelfReportCollector:
                 return None
 
             sus_score = self._calculate_sus_score(ratings)
+            sus = SUSCollectionResult.model_validate(
+                {
+                    "sus_score": sus_score,
+                    "ratings": ratings,
+                    "reasoning": result["reasoning"],
+                }
+            )
 
-            logger.debug("SUS score: %.1f/100", sus_score)
-            logger.debug("SUS reasoning: %s", result["reasoning"][:100])
+            logger.debug("SUS score: %.1f/100", sus.sus_score)
+            logger.debug("SUS reasoning: %s", sus.reasoning[:100])
 
-            return {
-                "sus_score": sus_score,
-                "ratings": ratings,
-                "reasoning": result["reasoning"],
-            }
+            return sus
 
         except Exception as e:
             logger.debug("SUS collection failed: %s", e)

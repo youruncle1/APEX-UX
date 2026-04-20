@@ -6,9 +6,7 @@ from pydantic import BaseModel
 
 
 class SEQResponse(BaseModel):
-    score: float
-    question: str
-    scale: str
+    rating: float
     reasoning: str
 
 
@@ -22,6 +20,12 @@ class SUSItemResponse(BaseModel):
 class SUSResponse(BaseModel):
     score: float
     responses: List[SUSItemResponse]
+    reasoning: str
+
+
+class SUSCollectionResult(BaseModel):
+    sus_score: float
+    ratings: List[int]
     reasoning: str
 
 

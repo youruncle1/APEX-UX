@@ -18,10 +18,6 @@ SUS_ITEMS = [
     "I needed to learn a lot of things before I could get going with this website.",
 ]
 
-SEQ_QUESTION = "Overall, this task was:"
-SEQ_SCALE = "1 (Very Difficult) to 7 (Very Easy)"
-SUS_SCALE = "1 (Strongly Disagree) to 5 (Strongly Agree)"
-
 
 # ============================================================================
 # STRUCTURED OUTPUT SCHEMAS (OpenAI JSON schema mode)

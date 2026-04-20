@@ -12,6 +12,8 @@ from src.evaluation.models.api_models import (
     EvaluationCreate,
     EvaluationSummary,
     PersonaResponse,
+    SUSItemResponse,
+    SUSResponse,
 )
 from src.evaluation.prompts import SUS_ITEMS
 from src.storage import create_screenshot_storage
@@ -103,22 +105,19 @@ class EvaluationService:
             }
 
             if clone.sus_score is not None and clone.sus_ratings:
-                enriched_responses = []
-                for i, rating in enumerate(clone.sus_ratings):
-                    enriched_responses.append(
-                        {
-                            "item_number": i + 1,
-                            "question": SUS_ITEMS[i],
-                            "rating": rating,
-                            "scale": "1 (Strongly Disagree) to 5 (Strongly Agree)",
-                        }
-                    )
-
-                clone_dict["sus_response"] = {
-                    "score": clone.sus_score,
-                    "responses": enriched_responses,
-                    "reasoning": clone.sus_reasoning,
-                }
+                clone_dict["sus_response"] = SUSResponse(
+                    score=clone.sus_score,
+                    responses=[
+                        SUSItemResponse(
+                            item_number=i + 1,
+                            question=SUS_ITEMS[i],
+                            rating=rating,
+                            scale="1 (Strongly Disagree) to 5 (Strongly Agree)",
+                        )
+                        for i, rating in enumerate(clone.sus_ratings)
+                    ],
+                    reasoning=clone.sus_reasoning,
+                ).model_dump()
 
             clones_data.append(clone_dict)
 

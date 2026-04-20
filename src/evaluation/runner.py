@@ -515,11 +515,11 @@ class EvaluationRunner:
                 if sus_result:
                     await eval_repo.update_clone_sus(
                         clone,
-                        sus_score=sus_result["sus_score"],
-                        sus_ratings=sus_result["ratings"],
-                        sus_reasoning=sus_result["reasoning"],
+                        sus_score=sus_result.sus_score,
+                        sus_ratings=sus_result.ratings,
+                        sus_reasoning=sus_result.reasoning,
                     )
-                    logger.info("SUS score saved: %.1f/100", sus_result["sus_score"])
+                    logger.info("SUS score saved: %.1f/100", sus_result.sus_score)
                 else:
                     logger.warning("SUS collection returned None (non-fatal)")
 
@@ -672,8 +672,8 @@ class EvaluationRunner:
                 failed_action_count=basic_metrics["failed_action_count"],
                 outcome_mismatch_count=basic_metrics["outcome_mismatch_count"],
                 backtracking_count=basic_metrics["backtracking_count"],
-                seq_score=seq_result["rating"] if seq_result else None,
-                seq_reasoning=seq_result["reasoning"] if seq_result else None,
+                seq_score=seq_result.rating if seq_result else None,
+                seq_reasoning=seq_result.reasoning if seq_result else None,
                 time_on_task_seconds=time_on_task_seconds,
                 visited_pages_total=visited_pages_total,
                 visited_pages_unique=visited_pages_unique,
@@ -683,8 +683,8 @@ class EvaluationRunner:
             if seq_result:
                 logger.info(
                     "SEQ: %s/7 - %s...",
-                    seq_result["rating"],
-                    seq_result["reasoning"][:60],
+                    seq_result.rating,
+                    seq_result.reasoning[:60],
                 )
 
             await task_run_repo.save_action_records(
