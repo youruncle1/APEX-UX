@@ -15,37 +15,31 @@ logger = get_logger(__name__)
 
 
 class TaskAbortedError(Exception):
-    """Raised when a task is aborted mid-execution via cancellation."""
+    """
+    Raised when a task is aborted mid-execution using cancellation.
+    """
 
     pass
 
 
 class TwoAgentController:
     """
+    Two Agent Controller implemenetation.
     Orchestrates the planner-grounder-browser loop for task execution.
     """
 
     def __init__(
         self,
-        persona_context: str,
-        grounder: GroundingAgent,
-        browser: BrowserConnector,
-        compression_threshold: Optional[int] = None,
-        planner_backend: Optional[str] = None,
-        is_cancelled: Optional[Callable[[], bool]] = None,
+        persona_context: str,  # Persona narrative for planner
+        grounder: GroundingAgent,  # Grounding Agent instance
+        browser: BrowserConnector,  # Browser instance
+        compression_threshold: Optional[
+            int
+        ] = None,  # Memory compression (summarisation) threhsold
+        planner_backend: Optional[str] = None,  # Planner backend type
+        is_cancelled: Optional[Callable[[], bool]] = None,  # Cancellation (abort) flag
     ):
-        """
-        Initialize controller with persona context.
-
-        Args:
-            persona_context: Persona description for planner
-            grounder: Grounding agent instance
-            browser: Browser connector instance
-            compression_threshold: History compression threshold
-            planner_backend: Override for planner backend ("openai" or "local")
-            is_cancelled: Optional callback that returns True if the run should abort
-        """
-        # Initialize planner with backend selection
+        # Initialize Planner Agent with persona injection and backend selection
         self.planner = PlannerAgent(
             persona_context=persona_context, backend=planner_backend
         )
@@ -56,7 +50,9 @@ class TwoAgentController:
         self._is_cancelled = is_cancelled or (lambda: False)
 
     def _check_cancelled(self):
-        """Check cancellation flag and raise if cancelled."""
+        """
+        Check cancellation flag and raise if cancelled.
+        """
         if self._is_cancelled():
             raise TaskAbortedError("Task aborted by user")
 
@@ -66,10 +62,11 @@ class TwoAgentController:
         start_url: str,
         evaluation_id: UUID,
         task_run_id: UUID,
-        max_steps: int = 50,
+        max_steps: int = 50,  # Maximum step threshold - to prevent infinite agent looping
     ) -> dict:
         """
-        Execute a complete task run.
+        Execute a complete task run for a single clone (persona).
+        Core flow - 1. Plan Action, 2. Ground (if needed), 3. Execute Action
 
         Returns a dict with:
         - status: "VERIFIED" | "FAILED" | "TIMEOUT" | "ABORTED"
@@ -78,21 +75,18 @@ class TwoAgentController:
         - memory_state: dict
         - agent_done: bool
         - verification_result: dict (if rules provided)
-
-        Raises:
-            TaskAbortedError: If is_cancelled() returns True during execution.
         """
 
-        # Initialize browser
+        # Initialize browser using BrowserConnector
         await self.browser.start(start_url)
 
-        # Initialize memory
+        # Initialize memory using MemoryManager
         memory = MemoryManager(compression_threshold=self.compression_threshold)
 
         # Action records for database
         action_records = []
 
-        # URL tracking for Lostness metric
+        # URL tracking variables for Lostness metric
         _initial_url = self._normalize_url(await self.browser.get_current_url())
         _visited_urls: set[str] = {_initial_url}
         _visited_pages_total: int = 1
@@ -100,7 +94,7 @@ class TwoAgentController:
 
         # Main interaction loop
         for step in range(1, max_steps + 1):
-            # --- CANCELLATION CHECK at top of every step ---
+            # Check cancellation flag (abort task)
             self._check_cancelled()
 
             logger.debug("Step %d/%d", step, max_steps)
@@ -108,7 +102,7 @@ class TwoAgentController:
             # Capture screenshot (base64)
             screenshot_base64 = await self.browser.screenshot()
 
-            # Save screenshot to storage and get URL
+            # Save screenshot to storage (local or S3) and get URL
             screenshot_url = await self.screenshot_storage.save(
                 evaluation_id=str(evaluation_id),
                 task_run_id=str(task_run_id),
@@ -117,13 +111,14 @@ class TwoAgentController:
             )
             logger.debug("Screenshot saved: %s", screenshot_url)
 
-            # compress memory if threshold reached
+            # Compress half of memory if threshold reached
             await memory.maybe_compress(task_description=task_description)
 
+            # Planning Phase
             # Plan next action
             planner_action = None
             for retry in range(3):  # Max 3 retries for invalid output
-                self._check_cancelled()  # Check before each LLM call
+                self._check_cancelled()  # Check cancellation before each LLM call
 
                 planner_action = await self.planner.plan(
                     task_description=task_description,
@@ -156,6 +151,7 @@ class TwoAgentController:
 
             # Check if task is done
             if planner_action.action_type == "DONE":
+                # Add DONE record to action_records
                 action_records.append(
                     {
                         "step_number": step,
@@ -172,7 +168,7 @@ class TwoAgentController:
                     }
                 )
 
-                # Add to memory
+                # Add DONE record to memory
                 memory.add_action(
                     {
                         "action_type": "DONE",
@@ -191,9 +187,10 @@ class TwoAgentController:
                     "visited_pages_unique": len(_visited_urls),
                 }
 
+            # Grounding Phase
             # Ground if needed (CLICK, HOVER, DRAG_AND_DROP, TYPE)
             coordinates = None
-            coordinates2 = None
+            coordinates2 = None  # for DRAG_AND_DROP action
             bounding_box = None
 
             if self._needs_grounding(planner_action.action_type):
@@ -262,7 +259,7 @@ class TwoAgentController:
                         }
                     )
 
-                    # Add outcome mismatch
+                    # Add outcome mismatch (so planner sees grounding failed)
                     memory.add_outcome_mismatch(
                         f"Failed to locate element: {planner_action.target_description}"
                     )
@@ -286,8 +283,9 @@ class TwoAgentController:
                     _visited_urls.add(_current_url)
                     _last_url = _current_url
             except Exception:
-                pass  # Non-fatal — URL tracking failure should never break task execution
+                pass  # URL tracking failure should never break task execution
 
+            # Add executed action to memory
             memory.add_action(
                 {
                     "action_type": planner_action.action_type,
@@ -342,12 +340,17 @@ class TwoAgentController:
 
     @staticmethod
     def _normalize_url(url: str) -> str:
-        """Strip query params and fragment — same page regardless of sort/filter state."""
+        """
+        Used for Lostness metric
+        Strip query params and fragment - same page regardless of sort/filter state.
+        """
         parsed = urlparse(url)
         return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
     def _needs_grounding(self, action_type: str) -> bool:
-        """Check if action needs grounding - now includes TYPE"""
+        """
+        Check if action needs grounding
+        """
         return action_type in ["CLICK", "HOVER", "DRAG_AND_DROP", "TYPE"]
 
     def _build_browser_action(
@@ -356,7 +359,9 @@ class TwoAgentController:
         coordinates: Optional[tuple[int, int]],
         coordinates2: Optional[tuple[int, int]] = None,
     ) -> Action:
-        """Convert planner action to browser action"""
+        """
+        Convert planner action to browser action
+        """
 
         return Action(
             action_type=ActionType(planner_action.action_type),

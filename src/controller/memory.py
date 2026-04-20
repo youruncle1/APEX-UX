@@ -8,7 +8,9 @@ logger = get_logger(__name__)
 
 
 class MemoryManager:
-    """Manages action history, summaries, and outcome mismatches."""
+    """
+    Handles action history, summaries, and outcome mismatches.
+    """
 
     def __init__(self, compression_threshold: Optional[int] = None):
         self.compression_threshold = (
@@ -20,23 +22,27 @@ class MemoryManager:
         self.action_summary: Optional[str] = None
         self.outcome_mismatches: list[dict] = []  # [{"step": int, "mismatch": str}]
         self.current_step = 0
-
-        # Lazy init
         self._client = None
         self._model = None
 
     def _ensure_client(self):
-        """Lazy-initialise the LLM client on first use."""
+        """
+        Lazy-initialise the LLM client on first use.
+        """
         if self._client is None:
             self._client, self._model = get_utility_client()
 
     def add_action(self, action: dict):
-        """Add action to history and increment step counter."""
+        """
+        Add action to history and increment step counter.
+        """
         self.current_step += 1
         self.action_history.append(action)
 
     def add_outcome_mismatch(self, mismatch: str):
-        """Add outcome mismatch tied to current step."""
+        """
+        Add outcome mismatch tied to current step.
+        """
         if mismatch:
             self.outcome_mismatches.append(
                 {
@@ -46,7 +52,13 @@ class MemoryManager:
             )
 
     async def maybe_compress(self, task_description: str = ""):
-        """Compress history if it exceeds the threshold."""
+        """
+        Compress history if it exceeds the threshold.
+        Splits history in half, keeps newest threshold // 2,
+        older actions are summarised using LLM.
+
+        If older summary exists, overwrites it with a new one.
+        """
         if len(self.action_history) <= self.compression_threshold:
             return
 
@@ -67,11 +79,13 @@ class MemoryManager:
             for i, action in enumerate(to_compress)
         )
 
+        # If summary already exists
         if self.action_summary:
             compress_input = f"Previous summary:\n{self.action_summary}\n\nNew actions:\n{actions_text}"
         else:
             compress_input = f"Actions:\n{actions_text}"
 
+        # LLM Prompt build
         task_line = f"Task: {task_description}\n\n" if task_description else ""
         system_content = (
             f"{task_line}"
@@ -97,7 +111,9 @@ class MemoryManager:
             logger.warning("Compression failed: %s", e)
 
     def get_state(self) -> dict:
-        """Return current memory state for database storage."""
+        """
+        Return current memory state for database storage.
+        """
         return {
             "action_history": self.action_history,
             "action_summary": self.action_summary,
@@ -105,5 +121,7 @@ class MemoryManager:
         }
 
     def get_outcome_mismatches_for_planner(self) -> list[str]:
-        """Return outcome mismatches as plain strings for the planner prompt."""
+        """
+        Return outcome mismatches as plain strings for the planner prompt.
+        """
         return [item["mismatch"] for item in self.outcome_mismatches]
