@@ -63,16 +63,11 @@ class BrowserConnector:
         """
         Wait for page to stabilize after actions.
         """
-
-        if action_type in (ActionType.CLICK, ActionType.PRESS_KEY):
-            try:
-                await self.page.wait_for_load_state("networkidle", timeout=3000)
-            except Exception:
-                pass
-            await self.page.wait_for_timeout(self.stabilization_wait)
-
-        elif action_type in (ActionType.HOVER, ActionType.TYPE):
-            await self.page.wait_for_timeout(self.stabilization_wait)
+        try:
+            await self.page.wait_for_load_state("networkidle", timeout=3000)
+        except Exception:
+            pass
+        await self.page.wait_for_timeout(self.stabilization_wait)
 
     async def execute_action(self, action: Action) -> ExecutionResult:
         """Execute an action and return feedback"""

@@ -92,7 +92,7 @@ class PlannerAgent:
                 "model": self.model,
                 "messages": messages,
                 "temperature": self.temperature,
-                "max_completion_tokens": 1024,
+                "max_completion_tokens": 2048,
                 "response_format": {
                     "type": "json_schema",
                     "json_schema": {
