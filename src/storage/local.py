@@ -8,12 +8,12 @@ from .base import ScreenshotStorage
 
 
 class LocalStorage(ScreenshotStorage):
-    """Local filesystem storage for screenshots"""
+    """
+    Local filesystem storage for screenshots
+    Saves screenshots as WEBP locally
+    """
 
     def __init__(self, base_path: str = "storage/screenshots"):
-        """
-        Initialize local storage.
-        """
         # If path is relative, make it relative to project root
         if not os.path.isabs(base_path):
             # Get project root
@@ -48,7 +48,7 @@ class LocalStorage(ScreenshotStorage):
         image_bytes = base64.b64decode(screenshot_base64)
         image = Image.open(BytesIO(image_bytes))
 
-        # Save as WebP (lossless)
+        # Save as WebP
         filename = f"step_{step:03d}.webp"
         filepath = task_dir / filename
 
@@ -59,10 +59,6 @@ class LocalStorage(ScreenshotStorage):
         return f"local://{relative_path}"
 
     async def get(self, url_or_path: str) -> str:
-        """
-        Retrieve screenshot as base64 PNG.
-        """
-
         # Parse path
         if url_or_path.startswith("local://"):
             relative_path = url_or_path.replace("local://", "")

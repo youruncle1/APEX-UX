@@ -2,6 +2,10 @@ from abc import ABC, abstractmethod
 
 
 class ScreenshotStorage(ABC):
+    """
+    Abstract base class for storage backend
+    """
+
     @abstractmethod
     async def save(
         self, evaluation_id: str, task_run_id: str, step: int, screenshot_base64: str

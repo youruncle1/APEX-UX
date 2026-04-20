@@ -8,7 +8,9 @@ logger = get_logger(__name__)
 
 
 def create_screenshot_storage() -> ScreenshotStorage:
-    """Create screenshot storage backend based on application settings."""
+    """
+    Screenshot storage backend creator based on Factory pattern.
+    """
     settings = get_settings()
     storage_type = settings.screenshot_storage_type.lower()
 

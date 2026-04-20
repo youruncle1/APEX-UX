@@ -8,42 +8,27 @@ from typing import Optional
 from PIL import Image
 from .base import ScreenshotStorage
 
-try:
-    import aioboto3
-except ImportError:
-    aioboto3 = None
+import aioboto3
 
 
 class S3Storage(ScreenshotStorage):
-    """S3-compatible storage for screenshots"""
+    """
+    S3-compatible storage for screenshots.
+    Saves screenshots as WEBP on S3 storage.
+    Supports AWS S3, MinIO, Cloudflare R2, and any S3-compatible service.
+    """
 
     def __init__(
         self,
-        endpoint_url: str,
-        access_key: str,
-        secret_key: str,
-        bucket_name: str,
-        region: str = "eu-central-1",
-        public_url_base: Optional[str] = None,
+        endpoint_url: str,  # S3 endpoint
+        access_key: str,  # S3 access key
+        secret_key: str,  # S3 secret key
+        bucket_name: str,  # S3 bucket name
+        region: str = "eu-central-1",  # AWS related - region
+        public_url_base: Optional[
+            str
+        ] = None,  # Public URL base for generating URLs (optional)
     ):
-        """
-        Initialize S3 storage.
-
-        Args:
-            endpoint_url: S3 endpoint (e.g., "http://localhost:9000" for MinIO)
-            access_key: S3 access key
-            secret_key: S3 secret key
-            bucket_name: S3 bucket name
-            region: AWS region (default: eu-central-1 for Europe)
-            public_url_base: Public URL base for generating URLs (optional)
-        """
-
-        if aioboto3 is None:
-            raise ImportError(
-                "aioboto3 is required for S3 storage. "
-                "Install it with: pip install aioboto3"
-            )
-
         self.endpoint_url = endpoint_url
         self.access_key = access_key
         self.secret_key = secret_key
@@ -59,14 +44,19 @@ class S3Storage(ScreenshotStorage):
         Save screenshot to S3 as WebP.
 
         Object key structure:
-        screenshots/{evaluation_id}/{task_run_id}/step_001.webp
+        screenshots/
+            {evaluation_id}/
+                {task_run_id}/
+                    step_001.webp
+                    step_002.webp
+                    ...
         """
 
         # Decode PNG base64
         image_bytes = base64.b64decode(screenshot_base64)
         image = Image.open(BytesIO(image_bytes))
 
-        # Convert to WebP (lossless)
+        # Convert to WebP
         webp_buffer = BytesIO()
         image.save(webp_buffer, format="WEBP", lossless=True, quality=95)
         webp_buffer.seek(0)
@@ -98,12 +88,6 @@ class S3Storage(ScreenshotStorage):
     async def get(self, url_or_path: str) -> str:
         """
         Retrieve screenshot from S3 as base64 PNG.
-
-        Args:
-            url_or_path: S3 URL like "s3://bucket/screenshots/..." or public URL
-
-        Returns:
-            Base64-encoded PNG screenshot
         """
 
         # Parse S3 key
