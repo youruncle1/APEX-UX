@@ -2,7 +2,6 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 
 from src.config import get_settings, require_database_url
 from src.log import get_logger
-from .models import Base
 
 logger = get_logger(__name__)
 
@@ -18,15 +17,3 @@ engine = create_async_engine(
 AsyncSessionLocal = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
-
-
-async def init_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables created")
-
-
-async def drop_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-    logger.info("Database tables dropped")

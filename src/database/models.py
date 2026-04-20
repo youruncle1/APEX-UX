@@ -143,7 +143,6 @@ class TaskRun(Base):
     finished_at = Column(DateTime, nullable=True)
     failure_reason = Column(Text, nullable=True)
 
-    # Memory snapshots (JSON)
     final_action_history = Column(JSON, nullable=True)
     final_action_summary = Column(Text, nullable=True)
     final_outcome_mismatches = Column(JSON, nullable=True)
@@ -198,15 +197,15 @@ class ActionRecord(Base):
     input_value = Column(Text, nullable=True)
     reasoning = Column(Text, nullable=True)
 
-    bounding_box = Column(JSON, nullable=True)  # {x1, y1, x2, y2}
-    click_coordinates = Column(JSON, nullable=True)  # {x, y}
+    bounding_box = Column(JSON, nullable=True)
+    click_coordinates = Column(JSON, nullable=True)
 
     execution_success = Column(Boolean, default=False)
     execution_feedback = Column(Text, nullable=True)
     timestamp = Column(
         DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
-    screenshot = Column(String(500), nullable=True)  # URL/path to screenshot
+    screenshot = Column(String(500), nullable=True)
 
     # Relationships
     task_run = relationship("TaskRun", back_populates="actions")
