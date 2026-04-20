@@ -1,7 +1,3 @@
-"""
-Supports AWS S3, MinIO, Cloudflare R2, and any S3-compatible service.
-"""
-
 import base64
 from io import BytesIO
 from typing import Optional
