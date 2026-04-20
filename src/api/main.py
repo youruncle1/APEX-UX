@@ -463,7 +463,7 @@ async def edit_persona_page(
     )
 
 
-# Create persona form submit
+# Create persona form submit + validation
 @pages_router.post("/personas", include_in_schema=False)
 async def create_persona(
     request: Request,
@@ -533,13 +533,13 @@ async def update_persona(
     return RedirectResponse("/#personas", status_code=303)
 
 
-# --- Router registration ---
+# Router registration
 
 app.include_router(evaluation_router)
 app.include_router(partials_router)
 app.include_router(pages_router)
 
-# --- Health ---
+# App Health
 
 
 @app.get("/health", tags=["health"])
