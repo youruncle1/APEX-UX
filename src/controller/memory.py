@@ -11,7 +11,11 @@ class MemoryManager:
     """Manages action history, summaries, and outcome mismatches."""
 
     def __init__(self, compression_threshold: Optional[int] = None):
-        self.compression_threshold = compression_threshold if compression_threshold is not None else get_settings().memory_compression_threshold
+        self.compression_threshold = (
+            compression_threshold
+            if compression_threshold is not None
+            else get_settings().memory_compression_threshold
+        )
         self.action_history: list[dict] = []
         self.action_summary: Optional[str] = None
         self.outcome_mismatches: list[dict] = []  # [{"step": int, "mismatch": str}]
@@ -34,10 +38,12 @@ class MemoryManager:
     def add_outcome_mismatch(self, mismatch: str):
         """Add outcome mismatch tied to current step."""
         if mismatch:
-            self.outcome_mismatches.append({
-                "step": self.current_step,
-                "mismatch": mismatch,
-            })
+            self.outcome_mismatches.append(
+                {
+                    "step": self.current_step,
+                    "mismatch": mismatch,
+                }
+            )
 
     async def maybe_compress(self, task_description: str = ""):
         """Compress history if it exceeds the threshold."""

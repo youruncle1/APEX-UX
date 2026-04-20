@@ -38,10 +38,14 @@ class GroundingAgent:
                     "instruction": target_description,
                 }
 
-                async with session.post(f"{self.service_url}/ground", json=payload) as response:
+                async with session.post(
+                    f"{self.service_url}/ground", json=payload
+                ) as response:
                     if response.status != 200:
                         error_text = await response.text()
-                        logger.error("Service error %d: %s", response.status, error_text)
+                        logger.error(
+                            "Service error %d: %s", response.status, error_text
+                        )
                         return None
 
                     result = await response.json()

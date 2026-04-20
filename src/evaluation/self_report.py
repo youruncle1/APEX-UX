@@ -7,10 +7,14 @@ from typing import Dict, Any, Optional, List
 
 from src.agents.llm_client import get_utility_client
 from src.evaluation.prompts import (
-    SEQ_SCHEMA, SUS_SCHEMA,
-    SEQ_SYSTEM_PROMPT_TEMPLATE, SUS_SYSTEM_PROMPT_TEMPLATE,
+    SEQ_SCHEMA,
+    SUS_SCHEMA,
+    SEQ_SYSTEM_PROMPT_TEMPLATE,
+    SUS_SYSTEM_PROMPT_TEMPLATE,
     NARRATIVE_SYSTEM_PROMPT_TEMPLATE,
-    build_seq_user_prompt, build_sus_user_prompt, build_narrative_user_prompt,
+    build_seq_user_prompt,
+    build_sus_user_prompt,
+    build_narrative_user_prompt,
     merge_scrolls,
 )
 from src.config import get_settings
@@ -23,7 +27,11 @@ class SelfReportCollector:
     """Collect SEQ and SUS scores via agent self-assessment"""
 
     def __init__(self, temperature: Optional[float] = None):
-        self.temperature = temperature if temperature is not None else get_settings().planner_temperature
+        self.temperature = (
+            temperature
+            if temperature is not None
+            else get_settings().planner_temperature
+        )
         self._client = None
         self._model = None
 
@@ -66,7 +74,9 @@ class SelfReportCollector:
 
         merged_actions = merge_scrolls(actions)
 
-        system_prompt = SEQ_SYSTEM_PROMPT_TEMPLATE.format(persona_context=persona_context)
+        system_prompt = SEQ_SYSTEM_PROMPT_TEMPLATE.format(
+            persona_context=persona_context
+        )
         user_prompt = build_seq_user_prompt(
             task_description=task_description,
             actions=merged_actions,
@@ -120,7 +130,9 @@ class SelfReportCollector:
         persona_context: str,
     ) -> str:
         """Generate a ~200-300 word first-person narrative of a task for use in the SUS prompt."""
-        system_prompt = NARRATIVE_SYSTEM_PROMPT_TEMPLATE.format(persona_context=persona_context)
+        system_prompt = NARRATIVE_SYSTEM_PROMPT_TEMPLATE.format(
+            persona_context=persona_context
+        )
         user_prompt = build_narrative_user_prompt(
             task_description=task_description,
             actions=actions,
@@ -198,7 +210,9 @@ class SelfReportCollector:
                             steps_taken=task["steps_taken"],
                             persona_context=persona_context,
                         )
-                        final_summaries.append({**task, "narrative": narrative, "actions": None})
+                        final_summaries.append(
+                            {**task, "narrative": narrative, "actions": None}
+                        )
                     except Exception as e:
                         logger.warning(
                             "Narrative generation failed for task '%s...' (using raw actions): %s",
@@ -211,7 +225,9 @@ class SelfReportCollector:
         else:
             final_summaries = merged_summaries
 
-        system_prompt = SUS_SYSTEM_PROMPT_TEMPLATE.format(persona_context=persona_context)
+        system_prompt = SUS_SYSTEM_PROMPT_TEMPLATE.format(
+            persona_context=persona_context
+        )
         user_prompt = build_sus_user_prompt(final_summaries)
 
         try:
@@ -269,8 +285,8 @@ class SelfReportCollector:
         for i, rating in enumerate(ratings):
             item_num = i + 1
             if item_num % 2 == 1:
-                total += (rating - 1)
+                total += rating - 1
             else:
-                total += (5 - rating)
+                total += 5 - rating
 
         return round(total * 2.5, 1)

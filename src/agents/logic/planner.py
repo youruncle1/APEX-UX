@@ -43,8 +43,12 @@ class PlannerAgent:
                 f"Unknown planner backend: {self.backend!r}. Use 'openai' or 'local'."
             )
 
-        self.system_prompt = SYSTEM_PROMPT_TEMPLATE.format(persona_context=persona_context)
-        self.temperature = temperature if temperature is not None else settings.planner_temperature
+        self.system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
+            persona_context=persona_context
+        )
+        self.temperature = (
+            temperature if temperature is not None else settings.planner_temperature
+        )
         self.client, self.model = get_planner_client(backend=self.backend, model=model)
 
         logger.info("Backend: %s, Model: %s", self.backend, self.model)
@@ -74,7 +78,9 @@ class PlannerAgent:
                     {"type": "text", "text": user_message},
                     {
                         "type": "image_url",
-                        "image_url": {"url": f"data:image/png;base64,{screenshot_base64}"},
+                        "image_url": {
+                            "url": f"data:image/png;base64,{screenshot_base64}"
+                        },
                     },
                 ],
             },
@@ -105,7 +111,11 @@ class PlannerAgent:
 
             content = content.strip()
             if content.startswith("```"):
-                lines = [l for l in content.split("\n") if not l.strip().startswith("```")]
+                lines = [
+                    line
+                    for line in content.split("\n")
+                    if not line.strip().startswith("```")
+                ]
                 content = "\n".join(lines).strip()
 
             action_data, _ = json.JSONDecoder().raw_decode(content)
@@ -188,5 +198,7 @@ class PlannerAgent:
         for i, action in enumerate(action_history):
             target = action.get("target_description")
             target_str = f" on [{target}]" if target else ""
-            lines.append(f"Step {i + 1}: {action['action_type']}{target_str} - {action['reasoning']}")
+            lines.append(
+                f"Step {i + 1}: {action['action_type']}{target_str} - {action['reasoning']}"
+            )
         return "\n".join(lines)

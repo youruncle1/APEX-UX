@@ -7,14 +7,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.database.models import (
-    Evaluation, EvaluationStatus, EvaluationClone,
-    TaskDefinition, TaskRun, TaskRunStatus, TaskRunMetrics,
-    ActionRecord, VerificationResult as VR, Persona,
+    Evaluation,
+    EvaluationStatus,
+    EvaluationClone,
+    TaskDefinition,
+    TaskRun,
+    TaskRunStatus,
+    TaskRunMetrics,
+    ActionRecord,
+    VerificationResult as VR,
+    Persona,
 )
 
 
 class EvaluationRepository:
-
     def __init__(self, session: AsyncSession):
         self.session = session
 
@@ -27,7 +33,9 @@ class EvaluationRepository:
             await self.session.refresh(evaluation, ["clones", "tasks"])
         return evaluation
 
-    async def get_with_clones_and_tasks(self, evaluation_id: UUID) -> Optional[Evaluation]:
+    async def get_with_clones_and_tasks(
+        self, evaluation_id: UUID
+    ) -> Optional[Evaluation]:
         result = await self.session.execute(
             select(Evaluation)
             .where(Evaluation.id == evaluation_id)
@@ -39,7 +47,9 @@ class EvaluationRepository:
         )
         return result.scalar_one_or_none()
 
-    async def get_with_tasks_and_clones(self, evaluation_id: UUID) -> Optional[Evaluation]:
+    async def get_with_tasks_and_clones(
+        self, evaluation_id: UUID
+    ) -> Optional[Evaluation]:
         result = await self.session.execute(
             select(Evaluation)
             .where(Evaluation.id == evaluation_id)
@@ -125,21 +135,25 @@ class EvaluationRepository:
         await self.session.flush()
 
         for clone in source.clones:
-            self.session.add(EvaluationClone(
-                evaluation_id=new_eval.id,
-                persona_id=clone.persona_id,
-            ))
+            self.session.add(
+                EvaluationClone(
+                    evaluation_id=new_eval.id,
+                    persona_id=clone.persona_id,
+                )
+            )
 
         for task in source.tasks:
-            self.session.add(TaskDefinition(
-                evaluation_id=new_eval.id,
-                description=task.description,
-                base_url_override=task.base_url_override,
-                max_steps=task.max_steps,
-                min_pages=task.min_pages,
-                verification_rules=task.verification_rules,
-                position=task.position,
-            ))
+            self.session.add(
+                TaskDefinition(
+                    evaluation_id=new_eval.id,
+                    description=task.description,
+                    base_url_override=task.base_url_override,
+                    max_steps=task.max_steps,
+                    min_pages=task.min_pages,
+                    verification_rules=task.verification_rules,
+                    position=task.position,
+                )
+            )
 
         await self.session.commit()
         await self.session.refresh(new_eval)
@@ -170,7 +184,9 @@ class EvaluationRepository:
             delete(TaskDefinition).where(TaskDefinition.evaluation_id == evaluation.id)
         )
         await self.session.execute(
-            delete(EvaluationClone).where(EvaluationClone.evaluation_id == evaluation.id)
+            delete(EvaluationClone).where(
+                EvaluationClone.evaluation_id == evaluation.id
+            )
         )
 
         for persona_id in persona_ids:
@@ -237,7 +253,9 @@ class EvaluationRepository:
         )
         return result.scalar_one_or_none()
 
-    async def get_task_definition(self, task_definition_id: UUID) -> Optional[TaskDefinition]:
+    async def get_task_definition(
+        self, task_definition_id: UUID
+    ) -> Optional[TaskDefinition]:
         result = await self.session.execute(
             select(TaskDefinition).where(TaskDefinition.id == task_definition_id)
         )
@@ -245,7 +263,6 @@ class EvaluationRepository:
 
 
 class TaskRunRepository:
-
     def __init__(self, session: AsyncSession):
         self.session = session
 
@@ -262,7 +279,9 @@ class TaskRunRepository:
         )
         return result.scalar_one_or_none()
 
-    async def create(self, task_definition_id: UUID, evaluation_clone_id: UUID) -> TaskRun:
+    async def create(
+        self, task_definition_id: UUID, evaluation_clone_id: UUID
+    ) -> TaskRun:
         task_run = TaskRun(
             task_definition_id=task_definition_id,
             evaluation_clone_id=evaluation_clone_id,
@@ -343,7 +362,9 @@ class TaskRunRepository:
                 click_coordinates=action_data.get("click_coordinates"),
                 execution_success=action_data["execution_success"],
                 execution_feedback=action_data.get("execution_feedback"),
-                timestamp=datetime.fromisoformat(action_data["timestamp"]).replace(tzinfo=None),
+                timestamp=datetime.fromisoformat(action_data["timestamp"]).replace(
+                    tzinfo=None
+                ),
                 screenshot=action_data.get("screenshot"),
             )
             self.session.add(action_record)
@@ -367,7 +388,6 @@ class TaskRunRepository:
 
 
 class PersonaRepository:
-
     def __init__(self, session: AsyncSession):
         self.session = session
 
@@ -376,11 +396,15 @@ class PersonaRepository:
         return list(result.scalars().all())
 
     async def get_by_id(self, persona_id: UUID) -> Optional[Persona]:
-        result = await self.session.execute(select(Persona).where(Persona.id == persona_id))
+        result = await self.session.execute(
+            select(Persona).where(Persona.id == persona_id)
+        )
         return result.scalar_one_or_none()
 
     async def get_by_ids(self, persona_ids: list[UUID]) -> list[Persona]:
-        result = await self.session.execute(select(Persona).where(Persona.id.in_(persona_ids)))
+        result = await self.session.execute(
+            select(Persona).where(Persona.id.in_(persona_ids))
+        )
         return list(result.scalars().all())
 
     async def create(self, name: str, description: str, narrative: str) -> Persona:
@@ -390,7 +414,9 @@ class PersonaRepository:
         await self.session.refresh(persona)
         return persona
 
-    async def update(self, persona_id: UUID, name: str, description: str, narrative: str) -> Optional[Persona]:
+    async def update(
+        self, persona_id: UUID, name: str, description: str, narrative: str
+    ) -> Optional[Persona]:
         persona = await self.get_by_id(persona_id)
         if not persona:
             return None
@@ -403,7 +429,9 @@ class PersonaRepository:
 
     async def delete(self, persona_id: UUID) -> tuple[bool, str]:
         result = await self.session.execute(
-            select(EvaluationClone).where(EvaluationClone.persona_id == persona_id).limit(1)
+            select(EvaluationClone)
+            .where(EvaluationClone.persona_id == persona_id)
+            .limit(1)
         )
         if result.scalar_one_or_none():
             return False, "in_use"

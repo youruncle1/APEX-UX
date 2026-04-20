@@ -16,6 +16,7 @@ logger = get_logger(__name__)
 
 class TaskAbortedError(Exception):
     """Raised when a task is aborted mid-execution via cancellation."""
+
     pass
 
 
@@ -46,8 +47,7 @@ class TwoAgentController:
         """
         # Initialize planner with backend selection
         self.planner = PlannerAgent(
-            persona_context=persona_context,
-            backend=planner_backend
+            persona_context=persona_context, backend=planner_backend
         )
         self.grounder = grounder
         self.browser = browser
@@ -113,7 +113,7 @@ class TwoAgentController:
                 evaluation_id=str(evaluation_id),
                 task_run_id=str(task_run_id),
                 step=step,
-                screenshot_base64=screenshot_base64
+                screenshot_base64=screenshot_base64,
             )
             logger.debug("Screenshot saved: %s", screenshot_url)
 
@@ -130,7 +130,7 @@ class TwoAgentController:
                     screenshot_base64=screenshot_base64,
                     action_history=memory.action_history,
                     action_summary=memory.action_summary,
-                    outcome_mismatches=memory.get_outcome_mismatches_for_planner()
+                    outcome_mismatches=memory.get_outcome_mismatches_for_planner(),
                 )
 
                 if planner_action:
@@ -156,26 +156,30 @@ class TwoAgentController:
 
             # Check if task is done
             if planner_action.action_type == "DONE":
-                action_records.append({
-                    "step_number": step,
-                    "action_type": "DONE",
-                    "target_description": None,
-                    "input_value": None,
-                    "reasoning": planner_action.reasoning,
-                    "bounding_box": None,
-                    "click_coordinates": None,
-                    "execution_success": True,
-                    "execution_feedback": "Task marked as complete by agent",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "screenshot": screenshot_url
-                })
+                action_records.append(
+                    {
+                        "step_number": step,
+                        "action_type": "DONE",
+                        "target_description": None,
+                        "input_value": None,
+                        "reasoning": planner_action.reasoning,
+                        "bounding_box": None,
+                        "click_coordinates": None,
+                        "execution_success": True,
+                        "execution_feedback": "Task marked as complete by agent",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "screenshot": screenshot_url,
+                    }
+                )
 
                 # Add to memory
-                memory.add_action({
-                    "action_type": "DONE",
-                    "target_description": None,
-                    "reasoning": planner_action.reasoning
-                })
+                memory.add_action(
+                    {
+                        "action_type": "DONE",
+                        "target_description": None,
+                        "reasoning": planner_action.reasoning,
+                    }
+                )
 
                 return {
                     "status": "COMPLETED",
@@ -187,7 +191,6 @@ class TwoAgentController:
                     "visited_pages_unique": len(_visited_urls),
                 }
 
-
             # Ground if needed (CLICK, HOVER, DRAG_AND_DROP, TYPE)
             coordinates = None
             coordinates2 = None
@@ -195,14 +198,17 @@ class TwoAgentController:
 
             if self._needs_grounding(planner_action.action_type):
                 if not planner_action.target_description:
-                    logger.warning("%s needs target_description but none provided", planner_action.action_type)
+                    logger.warning(
+                        "%s needs target_description but none provided",
+                        planner_action.action_type,
+                    )
 
                 self._check_cancelled()  # Check before grounding call
 
                 logger.debug("Grounding: %s", planner_action.target_description)
                 bbox = await self.grounder.ground(
                     screenshot_base64=screenshot_base64,
-                    target_description=planner_action.target_description or ""
+                    target_description=planner_action.target_description or "",
                 )
 
                 # For DRAG_AND_DROP, also ground the destination (stored in input_value)
@@ -210,7 +216,7 @@ class TwoAgentController:
                     self._check_cancelled()
                     bbox2 = await self.grounder.ground(
                         screenshot_base64=screenshot_base64,
-                        target_description=planner_action.input_value or ""
+                        target_description=planner_action.input_value or "",
                     )
                     if bbox2:
                         coordinates2 = bbox2.center()
@@ -221,31 +227,40 @@ class TwoAgentController:
 
                 if bbox:
                     coordinates = bbox.center()
-                    bounding_box = {"x1": bbox.x1, "y1": bbox.y1, "x2": bbox.x2, "y2": bbox.y2}
+                    bounding_box = {
+                        "x1": bbox.x1,
+                        "y1": bbox.y1,
+                        "x2": bbox.x2,
+                        "y2": bbox.y2,
+                    }
                     logger.debug("Grounder: %s", coordinates)
                 else:
                     logger.warning("Grounding failed, skipping action")
 
-                    memory.add_action({
-                        "action_type": planner_action.action_type,
-                        "target_description": planner_action.target_description,
-                        "reasoning": planner_action.reasoning
-                    })
+                    memory.add_action(
+                        {
+                            "action_type": planner_action.action_type,
+                            "target_description": planner_action.target_description,
+                            "reasoning": planner_action.reasoning,
+                        }
+                    )
 
                     # Record failed grounding
-                    action_records.append({
-                        "step_number": step,
-                        "action_type": planner_action.action_type,
-                        "target_description": planner_action.target_description,
-                        "input_value": planner_action.input_value,
-                        "reasoning": planner_action.reasoning,
-                        "bounding_box": None,
-                        "click_coordinates": None,
-                        "execution_success": False,
-                        "execution_feedback": "Grounding failed",
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "screenshot": screenshot_url
-                    })
+                    action_records.append(
+                        {
+                            "step_number": step,
+                            "action_type": planner_action.action_type,
+                            "target_description": planner_action.target_description,
+                            "input_value": planner_action.input_value,
+                            "reasoning": planner_action.reasoning,
+                            "bounding_box": None,
+                            "click_coordinates": None,
+                            "execution_success": False,
+                            "execution_feedback": "Grounding failed",
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "screenshot": screenshot_url,
+                        }
+                    )
 
                     # Add outcome mismatch
                     memory.add_outcome_mismatch(
@@ -255,7 +270,9 @@ class TwoAgentController:
                     continue
 
             # Build browser action
-            browser_action = self._build_browser_action(planner_action, coordinates, coordinates2)
+            browser_action = self._build_browser_action(
+                planner_action, coordinates, coordinates2
+            )
 
             # Execute action
             result = await self.browser.execute_action(browser_action)
@@ -271,11 +288,13 @@ class TwoAgentController:
             except Exception:
                 pass  # Non-fatal — URL tracking failure should never break task execution
 
-            memory.add_action({
-                "action_type": planner_action.action_type,
-                "target_description": planner_action.target_description,
-                "reasoning": planner_action.reasoning
-            })
+            memory.add_action(
+                {
+                    "action_type": planner_action.action_type,
+                    "target_description": planner_action.target_description,
+                    "reasoning": planner_action.reasoning,
+                }
+            )
 
             # Record action
             action_record = {
@@ -286,14 +305,21 @@ class TwoAgentController:
                 "reasoning": planner_action.reasoning,
                 "bounding_box": bounding_box,
                 "click_coordinates": (
-                    {"x": coordinates[0], "y": coordinates[1], "x2": coordinates2[0], "y2": coordinates2[1]}
+                    {
+                        "x": coordinates[0],
+                        "y": coordinates[1],
+                        "x2": coordinates2[0],
+                        "y2": coordinates2[1],
+                    }
                     if planner_action.action_type == "DRAG_AND_DROP" and coordinates2
                     else {"x": coordinates[0], "y": coordinates[1]}
-                ) if coordinates else None,
+                )
+                if coordinates
+                else None,
                 "execution_success": result.success,
                 "execution_feedback": result.feedback,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "screenshot": screenshot_url
+                "screenshot": screenshot_url,
             }
             action_records.append(action_record)
 
@@ -324,7 +350,12 @@ class TwoAgentController:
         """Check if action needs grounding - now includes TYPE"""
         return action_type in ["CLICK", "HOVER", "DRAG_AND_DROP", "TYPE"]
 
-    def _build_browser_action(self, planner_action, coordinates: Optional[tuple[int, int]], coordinates2: Optional[tuple[int, int]] = None) -> Action:
+    def _build_browser_action(
+        self,
+        planner_action,
+        coordinates: Optional[tuple[int, int]],
+        coordinates2: Optional[tuple[int, int]] = None,
+    ) -> Action:
         """Convert planner action to browser action"""
 
         return Action(

@@ -9,8 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database.connection import AsyncSessionLocal
 from src.evaluation.api.websocket import active_connections, broadcast_progress
 from src.evaluation.models.api_models import (
-    EvaluationCreate, EvaluationSummary, EvaluationReport,
-    TaskRunDetail, PersonaResponse,
+    EvaluationCreate,
+    EvaluationSummary,
+    EvaluationReport,
+    TaskRunDetail,
+    PersonaResponse,
 )
 from src.evaluation.services.evaluation_service import EvaluationService
 from src.evaluation.services.task_run_service import TaskRunService
@@ -28,6 +31,7 @@ screenshot_storage = create_screenshot_storage()
 # DATABASE DEPENDENCY
 # ============================================================================
 
+
 async def get_db() -> AsyncSession:
     async with AsyncSessionLocal() as session:
         yield session
@@ -36,6 +40,7 @@ async def get_db() -> AsyncSession:
 # ============================================================================
 # EVALUATION ROUTES
 # ============================================================================
+
 
 @router.get("/personas", response_model=List[PersonaResponse])
 async def list_personas(db: AsyncSession = Depends(get_db)):
@@ -71,7 +76,9 @@ async def start_evaluation(
     evaluation_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    result = await EvaluationService(db).start_evaluation(evaluation_id, broadcast_progress)
+    result = await EvaluationService(db).start_evaluation(
+        evaluation_id, broadcast_progress
+    )
     if not result:
         raise HTTPException(status_code=404, detail="Evaluation not found")
     return result
@@ -83,7 +90,9 @@ async def abort_evaluation(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        result = await EvaluationService(db).abort_evaluation(evaluation_id, broadcast_progress)
+        result = await EvaluationService(db).abort_evaluation(
+            evaluation_id, broadcast_progress
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     if not result:
@@ -146,6 +155,7 @@ async def delete_evaluation(
 # TASK RUN ROUTES
 # ============================================================================
 
+
 @router.get("/task-run/{task_run_id}", response_model=TaskRunDetail)
 async def get_task_run_detail(
     task_run_id: UUID,
@@ -161,6 +171,7 @@ async def get_task_run_detail(
 # SCREENSHOT ROUTES
 # ============================================================================
 
+
 @router.get("/screenshot")
 async def get_screenshot(url: str):
     try:
@@ -175,12 +186,15 @@ async def get_screenshot(url: str):
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Screenshot not found")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve screenshot: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to retrieve screenshot: {str(e)}"
+        )
 
 
 # ============================================================================
 # WEBSOCKET
 # ============================================================================
+
 
 @router.websocket("/ws/evaluation/{evaluation_id}")
 async def evaluation_progress_websocket(
@@ -196,11 +210,13 @@ async def evaluation_progress_websocket(
 
     # Send current progress immediately so the client doesn't wait for the next broadcast
     percentage = await EvaluationService.get_evaluation_progress(evaluation_id)
-    await websocket.send_text(json.dumps({"type": "progress", "percentage": percentage}))
+    await websocket.send_text(
+        json.dumps({"type": "progress", "percentage": percentage})
+    )
 
     try:
         while True:
-            data = await websocket.receive_text()
+            await websocket.receive_text()
             await websocket.send_text(json.dumps({"type": "pong"}))
 
     except WebSocketDisconnect:

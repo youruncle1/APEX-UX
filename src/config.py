@@ -82,8 +82,8 @@ class Settings(BaseSettings):
 
     # SUS action compression threshold:
     # - prevents context overflow when collecting SUS scores.
-    # - If total action/steps count across tasks exceed the threshold, 
-    #   any individual task whose action count exceeds (threshold / num_tasks) 
+    # - If total action/steps count across tasks exceed the threshold,
+    #   any individual task whose action count exceeds (threshold / num_tasks)
     #   gets its action log summarised by LLM.
     sus_action_cumulative_threshold: int = 400
 
@@ -138,7 +138,12 @@ def require_openai_api_key(settings: Settings) -> str:
     """
     secret = settings.openai_api_key
     value = secret.get_secret_value().strip() if secret is not None else ""
-    if value and value.lower() not in {"", "your_openai_api_key", "<your-api-key>", "na"}:
+    if value and value.lower() not in {
+        "",
+        "your_openai_api_key",
+        "<your-api-key>",
+        "na",
+    }:
         return value
     raise ValueError(
         "OPENAI_API_KEY must be set to a real key when using the OpenAI backend. "
@@ -166,7 +171,12 @@ def require_s3_config(settings: Settings) -> dict:
     required field is missing.
     """
     missing = []
-    for field in ("s3_endpoint_url", "s3_access_key", "s3_secret_key", "s3_bucket_name"):
+    for field in (
+        "s3_endpoint_url",
+        "s3_access_key",
+        "s3_secret_key",
+        "s3_bucket_name",
+    ):
         if getattr(settings, field) is None:
             missing.append(field.upper())
     if missing:

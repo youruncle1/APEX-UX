@@ -7,8 +7,7 @@ class MetricsCalculator:
 
     @staticmethod
     def calculate_basic_metrics(
-        result: Dict[str, Any],
-        action_records: List[Dict[str, Any]]
+        result: Dict[str, Any], action_records: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """
         Calculate basic metrics from task execution result.
@@ -18,8 +17,7 @@ class MetricsCalculator:
 
         # Count failed actions (execution_success = False)
         failed_action_count = sum(
-            1 for action in action_records
-            if not action.get("execution_success", False)
+            1 for action in action_records if not action.get("execution_success", False)
         )
 
         # Count outcome mismatches
@@ -29,15 +27,14 @@ class MetricsCalculator:
 
         # Count backtracking (BACK actions)
         backtracking_count = sum(
-            1 for action in action_records
-            if action.get("action_type") == "BACK"
+            1 for action in action_records if action.get("action_type") == "BACK"
         )
 
         return {
             "steps_taken": steps_taken,
             "failed_action_count": failed_action_count,
             "outcome_mismatch_count": outcome_mismatch_count,
-            "backtracking_count": backtracking_count
+            "backtracking_count": backtracking_count,
         }
 
     @staticmethod

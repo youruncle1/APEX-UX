@@ -11,8 +11,8 @@ class BoundingBox:
 
     def center(self) -> tuple[int, int]:
         return (self.x1 + self.x2) // 2, (self.y1 + self.y2) // 2
-    
-    
+
+
 @dataclass
 class PlannerAction:
     action_type: str

@@ -9,7 +9,9 @@ from src.database.models import EvaluationStatus
 from src.database.repositories import EvaluationRepository, PersonaRepository
 from src.evaluation.runner import EvaluationRunner, evaluation_cancellation
 from src.evaluation.models.api_models import (
-    EvaluationCreate, EvaluationSummary, EvaluationReport, PersonaResponse,
+    EvaluationCreate,
+    EvaluationSummary,
+    PersonaResponse,
 )
 from src.evaluation.prompts import SUS_ITEMS
 from src.storage import create_screenshot_storage
@@ -19,7 +21,6 @@ logger = get_logger(__name__)
 
 
 class EvaluationService:
-
     def __init__(self, session: AsyncSession):
         self.session = session
         self.eval_repo = EvaluationRepository(session)
@@ -33,17 +34,19 @@ class EvaluationService:
             if eval.finished_at and eval.started_at:
                 duration = int((eval.finished_at - eval.started_at).total_seconds())
 
-            summaries.append(EvaluationSummary(
-                id=eval.id,
-                name=eval.name,
-                base_url=eval.base_url,
-                status=eval.status.value,
-                created_at=eval.created_at,
-                finished_at=eval.finished_at,
-                task_count=len(eval.tasks),
-                clone_count=len(eval.clones),
-                duration_seconds=duration,
-            ))
+            summaries.append(
+                EvaluationSummary(
+                    id=eval.id,
+                    name=eval.name,
+                    base_url=eval.base_url,
+                    status=eval.status.value,
+                    created_at=eval.created_at,
+                    finished_at=eval.finished_at,
+                    task_count=len(eval.tasks),
+                    clone_count=len(eval.clones),
+                    duration_seconds=duration,
+                )
+            )
 
         return summaries
 
@@ -71,7 +74,9 @@ class EvaluationService:
 
         duration = None
         if evaluation.finished_at and evaluation.started_at:
-            duration = int((evaluation.finished_at - evaluation.started_at).total_seconds())
+            duration = int(
+                (evaluation.finished_at - evaluation.started_at).total_seconds()
+            )
 
         eval_summary = EvaluationSummary(
             id=evaluation.id,
@@ -100,12 +105,14 @@ class EvaluationService:
             if clone.sus_score is not None and clone.sus_ratings:
                 enriched_responses = []
                 for i, rating in enumerate(clone.sus_ratings):
-                    enriched_responses.append({
-                        "item_number": i + 1,
-                        "question": SUS_ITEMS[i],
-                        "rating": rating,
-                        "scale": "1 (Strongly Disagree) to 5 (Strongly Agree)",
-                    })
+                    enriched_responses.append(
+                        {
+                            "item_number": i + 1,
+                            "question": SUS_ITEMS[i],
+                            "rating": rating,
+                            "scale": "1 (Strongly Disagree) to 5 (Strongly Agree)",
+                        }
+                    )
 
                 clone_dict["sus_response"] = {
                     "score": clone.sus_score,
@@ -122,48 +129,65 @@ class EvaluationService:
             sorted_task_runs = sorted(
                 clone.task_runs,
                 key=lambda tr: next(
-                    (t.position for t in evaluation.tasks if t.id == tr.task_definition_id), 0
+                    (
+                        t.position
+                        for t in evaluation.tasks
+                        if t.id == tr.task_definition_id
+                    ),
+                    0,
                 ),
             )
             for task_run in sorted_task_runs:
                 metrics = await self.eval_repo.get_task_run_metrics(task_run.id)
-                task_def = await self.eval_repo.get_task_definition(task_run.task_definition_id)
+                task_def = await self.eval_repo.get_task_definition(
+                    task_run.task_definition_id
+                )
 
                 steps_taken = metrics.steps_taken if metrics else 0
                 seq_score = metrics.seq_score if metrics else None
                 seq_reasoning = metrics.seq_reasoning if metrics else None
                 failed_action_count = metrics.failed_action_count if metrics else 0
                 backtracking_count = metrics.backtracking_count if metrics else 0
-                outcome_mismatch_count = metrics.outcome_mismatch_count if metrics else 0
+                outcome_mismatch_count = (
+                    metrics.outcome_mismatch_count if metrics else 0
+                )
                 time_on_task_seconds = metrics.time_on_task_seconds if metrics else None
                 lostness = metrics.lostness if metrics else None
 
-                task_runs_data.append({
-                    "id": str(task_run.id),
-                    "task_description": task_def.description if task_def else "Unknown",
-                    "task_number": (task_def.position + 1) if task_def else None,
-                    "clone_uuid": str(clone.id),
-                    "persona_name": clone.persona.name,
-                    "status": task_run.status.value,
-                    "steps_taken": steps_taken,
-                    "seq_score": seq_score,
-                    "seq_reasoning": seq_reasoning,
-                    "verification_result": task_run.verification_result.value if task_run.verification_result else None,
-                    "agent_done": task_run.agent_done,
-                    "failed_action_count": failed_action_count,
-                    "backtracking_count": backtracking_count,
-                    "outcome_mismatch_count": outcome_mismatch_count,
-                    "time_on_task_seconds": time_on_task_seconds,
-                    "lostness": lostness,
-                })
+                task_runs_data.append(
+                    {
+                        "id": str(task_run.id),
+                        "task_description": task_def.description
+                        if task_def
+                        else "Unknown",
+                        "task_number": (task_def.position + 1) if task_def else None,
+                        "clone_uuid": str(clone.id),
+                        "persona_name": clone.persona.name,
+                        "status": task_run.status.value,
+                        "steps_taken": steps_taken,
+                        "seq_score": seq_score,
+                        "seq_reasoning": seq_reasoning,
+                        "verification_result": task_run.verification_result.value
+                        if task_run.verification_result
+                        else None,
+                        "agent_done": task_run.agent_done,
+                        "failed_action_count": failed_action_count,
+                        "backtracking_count": backtracking_count,
+                        "outcome_mismatch_count": outcome_mismatch_count,
+                        "time_on_task_seconds": time_on_task_seconds,
+                        "lostness": lostness,
+                    }
+                )
 
                 if metrics:
                     all_metrics.append(metrics)
 
         total_tasks = len(task_runs_data)
         successful_tasks = sum(
-            1 for tr in task_runs_data
-            if tr["status"] == "VERIFIED" or (tr["status"] == "COMPLETED" and tr["agent_done"])
+            1
+            for tr in task_runs_data
+            if tr["status"] == "VERIFIED"
+            or (tr["status"] == "COMPLETED" and tr["agent_done"])
         )
 
         avg_steps = avg_seq = avg_sus = 0
@@ -175,10 +199,16 @@ class EvaluationService:
             seq_scores = [m.seq_score for m in all_metrics if m.seq_score is not None]
             if seq_scores:
                 avg_seq = sum(seq_scores) / len(seq_scores)
-            time_values = [m.time_on_task_seconds for m in all_metrics if m.time_on_task_seconds is not None]
+            time_values = [
+                m.time_on_task_seconds
+                for m in all_metrics
+                if m.time_on_task_seconds is not None
+            ]
             if time_values:
                 avg_time = round(sum(time_values) / len(time_values))
-            lostness_values = [m.lostness for m in all_metrics if m.lostness is not None]
+            lostness_values = [
+                m.lostness for m in all_metrics if m.lostness is not None
+            ]
             if lostness_values:
                 avg_lostness = round(sum(lostness_values) / len(lostness_values), 4)
 
@@ -189,7 +219,9 @@ class EvaluationService:
         metrics_summary = {
             "total_tasks": total_tasks,
             "successful_tasks": successful_tasks,
-            "success_rate": round(successful_tasks / total_tasks, 2) if total_tasks > 0 else 0,
+            "success_rate": round(successful_tasks / total_tasks, 2)
+            if total_tasks > 0
+            else 0,
             "avg_steps_per_task": round(avg_steps, 1),
             "avg_seq_score": round(avg_seq, 1),
             "avg_sus_score": round(avg_sus, 1),
@@ -200,14 +232,16 @@ class EvaluationService:
         # Include task definitions for PENDING evaluations (no runs yet)
         task_definitions = []
         for task_def in evaluation.tasks:
-            task_definitions.append({
-                "id": str(task_def.id),
-                "position": task_def.position,
-                "description": task_def.description,
-                "max_steps": task_def.max_steps,
-                "base_url_override": task_def.base_url_override,
-                "verification_rules": task_def.verification_rules,
-            })
+            task_definitions.append(
+                {
+                    "id": str(task_def.id),
+                    "position": task_def.position,
+                    "description": task_def.description,
+                    "max_steps": task_def.max_steps,
+                    "base_url_override": task_def.base_url_override,
+                    "verification_rules": task_def.verification_rules,
+                }
+            )
 
         return {
             "evaluation": eval_summary,
@@ -224,7 +258,9 @@ class EvaluationService:
             return None
 
         if evaluation.status != EvaluationStatus.PENDING:
-            raise ValueError(f"Cannot edit evaluation with status {evaluation.status.value}")
+            raise ValueError(
+                f"Cannot edit evaluation with status {evaluation.status.value}"
+            )
 
         return {
             "id": str(evaluation.id),
@@ -245,14 +281,18 @@ class EvaluationService:
             ],
         }
 
-    async def update_evaluation(self, evaluation_id: UUID, data: EvaluationCreate) -> Optional[dict]:
+    async def update_evaluation(
+        self, evaluation_id: UUID, data: EvaluationCreate
+    ) -> Optional[dict]:
         evaluation = await self.eval_repo.get_with_relations(evaluation_id)
 
         if not evaluation:
             return None
 
         if evaluation.status != EvaluationStatus.PENDING:
-            raise ValueError(f"Cannot edit evaluation with status {evaluation.status.value}")
+            raise ValueError(
+                f"Cannot edit evaluation with status {evaluation.status.value}"
+            )
 
         await self.eval_repo.update(
             evaluation=evaluation,
@@ -288,7 +328,9 @@ class EvaluationService:
             "status": "deleted",
         }
 
-    async def start_evaluation(self, evaluation_id: UUID, on_progress) -> Optional[dict]:
+    async def start_evaluation(
+        self, evaluation_id: UUID, on_progress
+    ) -> Optional[dict]:
         evaluation = await self.eval_repo.get_with_relations(evaluation_id)
 
         if not evaluation:
@@ -298,8 +340,13 @@ class EvaluationService:
             raise ValueError(f"Evaluation already {evaluation.status.value}")
 
         from src.config import get_settings
+
         evaluation_cancellation[evaluation_id] = False
-        await self.eval_repo.update_status(evaluation, EvaluationStatus.RUNNING, started_at=datetime.now(timezone.utc).replace(tzinfo=None))
+        await self.eval_repo.update_status(
+            evaluation,
+            EvaluationStatus.RUNNING,
+            started_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
         asyncio.create_task(
             EvaluationRunner(
                 error_policy=get_settings().error_policy,
@@ -315,7 +362,10 @@ class EvaluationService:
 
     async def list_personas(self) -> list[PersonaResponse]:
         personas = await PersonaRepository(self.session).list_all()
-        return [PersonaResponse(id=p.id, name=p.name, description=p.description) for p in personas]
+        return [
+            PersonaResponse(id=p.id, name=p.name, description=p.description)
+            for p in personas
+        ]
 
     async def copy_evaluation(self, evaluation_id: UUID) -> Optional[dict]:
         new_eval = await self.eval_repo.copy(evaluation_id)
@@ -327,27 +377,33 @@ class EvaluationService:
     async def get_evaluation_progress(evaluation_id: UUID) -> float:
         return await EvaluationRunner._calculate_progress(evaluation_id)
 
-    async def abort_evaluation(self, evaluation_id: UUID, on_progress) -> Optional[dict]:
+    async def abort_evaluation(
+        self, evaluation_id: UUID, on_progress
+    ) -> Optional[dict]:
         evaluation = await self.eval_repo.get_with_relations(evaluation_id)
 
         if not evaluation:
             return None
 
         if evaluation.status != EvaluationStatus.RUNNING:
-            raise ValueError(f"Cannot abort evaluation with status {evaluation.status.value}")
+            raise ValueError(
+                f"Cannot abort evaluation with status {evaluation.status.value}"
+            )
 
         evaluation_cancellation[evaluation_id] = True
         await self.eval_repo.update_status(evaluation, EvaluationStatus.ABORTED)
 
-        await on_progress(evaluation_id, {
-            "type": "status",
-            "status": "ABORTING",
-            "message": "Aborting... (finishing current task)",
-        })
+        await on_progress(
+            evaluation_id,
+            {
+                "type": "status",
+                "status": "ABORTING",
+                "message": "Aborting... (finishing current task)",
+            },
+        )
 
         return {
             "evaluation_id": str(evaluation_id),
             "status": "aborting",
             "message": "Abort requested. Evaluation will stop after the current task completes.",
         }
-

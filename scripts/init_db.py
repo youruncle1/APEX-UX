@@ -4,15 +4,17 @@ import os
 import argparse
 from dotenv import load_dotenv
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 load_dotenv()
-os.environ["DATABASE_URL"] = os.environ["DATABASE_URL"].replace("@postgres:", "@localhost:")
-
-from src.database.connection import init_db, drop_db
+os.environ["DATABASE_URL"] = os.environ["DATABASE_URL"].replace(
+    "@postgres:", "@localhost:"
+)
 
 
 async def main(auto_yes: bool):
+    from src.database.connection import init_db, drop_db
+
     if not auto_yes:
         print("### WARNING: This will DELETE ALL DATA in the database. ###")
         confirm = input("\tAre you sure you want to continue? (y/n): ").strip().lower()

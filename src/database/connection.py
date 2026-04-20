@@ -15,8 +15,9 @@ engine = create_async_engine(
     max_overflow=_settings.db_max_overflow,
     echo=False,
 )
-AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
+AsyncSessionLocal = async_sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False
+)
 
 
 async def init_db():

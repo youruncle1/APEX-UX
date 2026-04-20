@@ -6,30 +6,44 @@ PLANNER_ACTION_SCHEMA: dict[str, Any] = {
         "action_type": {
             "type": "string",
             "enum": [
-                "CLICK", "TYPE", "SCROLL_UP", "SCROLL_DOWN",
-                "HOVER", "DRAG_AND_DROP", "PRESS_KEY",
-                "BACK", "FORWARD", "DONE", "WAIT"
-            ]
+                "CLICK",
+                "TYPE",
+                "SCROLL_UP",
+                "SCROLL_DOWN",
+                "HOVER",
+                "DRAG_AND_DROP",
+                "PRESS_KEY",
+                "BACK",
+                "FORWARD",
+                "DONE",
+                "WAIT",
+            ],
         },
         "target_description": {
             "type": "string",
-            "description": "Describe what you want to click or interact with — what it looks like, where it is, what it says. Use empty string if not needed."
+            "description": "Describe what you want to click or interact with — what it looks like, where it is, what it says. Use empty string if not needed.",
         },
         "input_value": {
             "type": "string",
-            "description": "The exact text to type or key to press. Must be a clean value only. No comments, notes, or explanations. Use empty string if not needed."
+            "description": "The exact text to type or key to press. Must be a clean value only. No comments, notes, or explanations. Use empty string if not needed.",
         },
         "reasoning": {
             "type": "string",
-            "description": "Your thoughts as you decide what to do next — write as yourself, the persona you are, in your own voice. Use the same language as the task description."
+            "description": "Your thoughts as you decide what to do next — write as yourself, the persona you are, in your own voice. Use the same language as the task description.",
         },
         "outcome_mismatch": {
             "type": "string",
-            "description": "ONLY populate this if a real mismatch exists. Describe what you intended, what you did, and what you see instead. Use EMPTY STRING \"\" if everything went as expected — do NOT write 'None identified', 'No mismatch', 'N/A', or any other placeholder text. Use the same language as the task description."
-        }
+            "description": "ONLY populate this if a real mismatch exists. Describe what you intended, what you did, and what you see instead. Use EMPTY STRING \"\" if everything went as expected — do NOT write 'None identified', 'No mismatch', 'N/A', or any other placeholder text. Use the same language as the task description.",
+        },
     },
-    "required": ["action_type", "reasoning", "target_description", "input_value", "outcome_mismatch"],
-    "additionalProperties": False
+    "required": [
+        "action_type",
+        "reasoning",
+        "target_description",
+        "input_value",
+        "outcome_mismatch",
+    ],
+    "additionalProperties": False,
 }
 
 SYSTEM_PROMPT_TEMPLATE = """{persona_context}

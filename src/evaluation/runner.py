@@ -7,11 +7,19 @@ from sqlalchemy import select, func
 
 from src.database.connection import AsyncSessionLocal
 from src.database.models import (
-    Evaluation, EvaluationStatus, EvaluationClone,
-    TaskDefinition, TaskRun, TaskRunStatus,
+    Evaluation,
+    EvaluationStatus,
+    EvaluationClone,
+    TaskDefinition,
+    TaskRun,
+    TaskRunStatus,
     VerificationResult as VR,
 )
-from src.database.repositories import EvaluationRepository, TaskRunRepository, PersonaRepository
+from src.database.repositories import (
+    EvaluationRepository,
+    TaskRunRepository,
+    PersonaRepository,
+)
 from src.agents.logic.grounder import GroundingAgent
 from src.browser_connector.connector import BrowserConnector
 from src.controller.controller import TwoAgentController, TaskAbortedError
@@ -29,10 +37,12 @@ evaluation_cancellation: dict[UUID, bool] = {}
 
 class TaskRunFailedError(Exception):
     """Wraps a task-run failure, carrying the task_run_id so the retry loop can delete the record."""
+
     def __init__(self, task_run_id: UUID, cause: Exception):
         super().__init__(str(cause))
         self.task_run_id = task_run_id
         self.cause = cause
+
 
 ProgressCallback = Callable[[UUID, dict], Awaitable[None]]
 
@@ -67,33 +77,47 @@ class EvaluationRunner:
 
     async def run(self, evaluation_id: UUID):
         """Run a complete evaluation, emitting progress events along the way."""
-        progress_task = asyncio.create_task(self._broadcast_progress_loop(evaluation_id))
+        progress_task = asyncio.create_task(
+            self._broadcast_progress_loop(evaluation_id)
+        )
         try:
-            await self._emit(evaluation_id, {
-                "type": "status",
-                "status": "RUNNING",
-                "message": "Evaluation started",
-            })
+            await self._emit(
+                evaluation_id,
+                {
+                    "type": "status",
+                    "status": "RUNNING",
+                    "message": "Evaluation started",
+                },
+            )
             evaluation_failed = await self._execute(evaluation_id)
             if evaluation_failed != "aborted":
                 await self._emit(evaluation_id, {"type": "progress", "percentage": 100})
                 if evaluation_failed:
-                    await self._emit(evaluation_id, {
-                        "type": "status",
-                        "status": "FAILED",
-                        "message": "Evaluation completed with errors",
-                    })
+                    await self._emit(
+                        evaluation_id,
+                        {
+                            "type": "status",
+                            "status": "FAILED",
+                            "message": "Evaluation completed with errors",
+                        },
+                    )
                 else:
-                    await self._emit(evaluation_id, {
-                        "type": "status",
-                        "status": "COMPLETED",
-                        "message": "Evaluation completed successfully",
-                    })
+                    await self._emit(
+                        evaluation_id,
+                        {
+                            "type": "status",
+                            "status": "COMPLETED",
+                            "message": "Evaluation completed successfully",
+                        },
+                    )
         except Exception as e:
-            await self._emit(evaluation_id, {
-                "type": "error",
-                "message": f"Evaluation failed: {str(e)}",
-            })
+            await self._emit(
+                evaluation_id,
+                {
+                    "type": "error",
+                    "message": f"Evaluation failed: {str(e)}",
+                },
+            )
         finally:
             progress_task.cancel()
             if evaluation_id in evaluation_cancellation:
@@ -102,27 +126,37 @@ class EvaluationRunner:
     @staticmethod
     async def _calculate_progress(evaluation_id: UUID) -> float:
         async with AsyncSessionLocal() as session:
-            clone_count = (await session.execute(
-                select(func.count(EvaluationClone.id))
-                .where(EvaluationClone.evaluation_id == evaluation_id)
-            )).scalar() or 0
+            clone_count = (
+                await session.execute(
+                    select(func.count(EvaluationClone.id)).where(
+                        EvaluationClone.evaluation_id == evaluation_id
+                    )
+                )
+            ).scalar() or 0
 
-            task_count = (await session.execute(
-                select(func.count(TaskDefinition.id))
-                .where(TaskDefinition.evaluation_id == evaluation_id)
-            )).scalar() or 0
+            task_count = (
+                await session.execute(
+                    select(func.count(TaskDefinition.id)).where(
+                        TaskDefinition.evaluation_id == evaluation_id
+                    )
+                )
+            ).scalar() or 0
 
             total_expected = clone_count * task_count
             if total_expected == 0:
                 return 0.0
 
             terminal = ("VERIFIED", "COMPLETED", "FAILED", "TIMEOUT", "ABORTED")
-            finished = (await session.execute(
-                select(func.count(TaskRun.id))
-                .join(TaskDefinition, TaskRun.task_definition_id == TaskDefinition.id)
-                .where(TaskDefinition.evaluation_id == evaluation_id)
-                .where(TaskRun.status.in_(terminal))
-            )).scalar() or 0
+            finished = (
+                await session.execute(
+                    select(func.count(TaskRun.id))
+                    .join(
+                        TaskDefinition, TaskRun.task_definition_id == TaskDefinition.id
+                    )
+                    .where(TaskDefinition.evaluation_id == evaluation_id)
+                    .where(TaskRun.status.in_(terminal))
+                )
+            ).scalar() or 0
 
             return round(min(finished / total_expected * 100, 99.0), 1)
 
@@ -131,10 +165,13 @@ class EvaluationRunner:
         while True:
             try:
                 percentage = await EvaluationRunner._calculate_progress(evaluation_id)
-                await self._emit(evaluation_id, {
-                    "type": "progress",
-                    "percentage": percentage,
-                })
+                await self._emit(
+                    evaluation_id,
+                    {
+                        "type": "progress",
+                        "percentage": percentage,
+                    },
+                )
             except Exception as e:
                 logger.warning("Failed to broadcast progress: %s", e)
             await asyncio.sleep(10)
@@ -150,8 +187,12 @@ class EvaluationRunner:
 
             parallel = get_settings().parallel_clones
             logger.info("Starting evaluation: %s", evaluation.name or evaluation.id)
-            logger.info("Tasks: %d, Clones: %d", len(evaluation.tasks), len(evaluation.clones))
-            logger.info("Error policy: %s | Parallel clones: %s", self.error_policy, parallel)
+            logger.info(
+                "Tasks: %d, Clones: %d", len(evaluation.tasks), len(evaluation.clones)
+            )
+            logger.info(
+                "Error policy: %s | Parallel clones: %s", self.error_policy, parallel
+            )
 
             # Snapshot IDs — the ORM objects can't be shared across sessions
             clone_ids = [clone.id for clone in evaluation.clones]
@@ -159,7 +200,10 @@ class EvaluationRunner:
         try:
             if parallel:
                 results = await asyncio.gather(
-                    *[self._run_clone_isolated(evaluation_id, clone_id) for clone_id in clone_ids],
+                    *[
+                        self._run_clone_isolated(evaluation_id, clone_id)
+                        for clone_id in clone_ids
+                    ],
                     return_exceptions=True,
                 )
             else:
@@ -173,7 +217,9 @@ class EvaluationRunner:
             aborted = any(isinstance(r, TaskAbortedError) for r in results)
             if aborted:
                 async with AsyncSessionLocal() as session:
-                    await self._abort_and_cleanup(evaluation_id, session, EvaluationRepository(session))
+                    await self._abort_and_cleanup(
+                        evaluation_id, session, EvaluationRepository(session)
+                    )
                 return "aborted"
 
             evaluation_failed = any(isinstance(r, Exception) for r in results)
@@ -181,14 +227,21 @@ class EvaluationRunner:
             async with AsyncSessionLocal() as session:
                 eval_repo = EvaluationRepository(session)
                 evaluation = await eval_repo.get_with_relations(evaluation_id)
-                final_status = EvaluationStatus.FAILED if evaluation_failed else EvaluationStatus.COMPLETED
+                final_status = (
+                    EvaluationStatus.FAILED
+                    if evaluation_failed
+                    else EvaluationStatus.COMPLETED
+                )
                 await eval_repo.update_status(
                     evaluation,
                     final_status,
                     finished_at=datetime.now(timezone.utc).replace(tzinfo=None),
                 )
 
-            logger.info("Evaluation completed %s", "with failures" if evaluation_failed else "successfully")
+            logger.info(
+                "Evaluation completed %s",
+                "with failures" if evaluation_failed else "successfully",
+            )
             return evaluation_failed
 
         except Exception as e:
@@ -255,7 +308,9 @@ class EvaluationRunner:
 
         # Reset SUS data on all clones
         result = await session.execute(
-            select(EvaluationClone).where(EvaluationClone.evaluation_id == evaluation_id)
+            select(EvaluationClone).where(
+                EvaluationClone.evaluation_id == evaluation_id
+            )
         )
         clones = result.scalars().all()
         for clone in clones:
@@ -282,11 +337,14 @@ class EvaluationRunner:
         await session.commit()
 
         # Notify clients that the evaluation was reset
-        await self._emit(evaluation_id, {
-            "type": "status",
-            "status": "ABORTED_RESET",
-            "message": "Evaluation aborted. All data cleared, returned to Pending.",
-        })
+        await self._emit(
+            evaluation_id,
+            {
+                "type": "status",
+                "status": "ABORTED_RESET",
+                "message": "Evaluation aborted. All data cleared, returned to Pending.",
+            },
+        )
 
         # Clean up cancellation flag
         if evaluation_id in evaluation_cancellation:
@@ -325,7 +383,9 @@ class EvaluationRunner:
         persona_context = persona.narrative
 
         vp = evaluation.viewport or {"width": 1280, "height": 720}
-        grounder = GroundingAgent(viewport_width=vp["width"], viewport_height=vp["height"])
+        grounder = GroundingAgent(
+            viewport_width=vp["width"], viewport_height=vp["height"]
+        )
         browser = BrowserConnector(
             headless=get_settings().headless,
             browser_type=evaluation.browser or "chromium",
@@ -367,25 +427,39 @@ class EvaluationRunner:
                         )
                         break  # success
                     except TaskAbortedError:
-                        logger.warning("Task '%s...' aborted mid-step.", task_def.description[:50])
+                        logger.warning(
+                            "Task '%s...' aborted mid-step.", task_def.description[:50]
+                        )
                         raise  # Re-raise so _run_clone → run() can handle cleanup
                     except TaskRunFailedError as exc:
                         if attempt < max_attempts:
                             logger.warning(
                                 "Task '%s...' failed (attempt %d/%d), retrying: %s",
-                                task_def.description[:50], attempt, max_attempts, exc.cause,
+                                task_def.description[:50],
+                                attempt,
+                                max_attempts,
+                                exc.cause,
                             )
                             # Delete the failed record and its screenshots so they don't appear in the UI.
-                            await TaskRunRepository(session).delete_by_id(exc.task_run_id)
+                            await TaskRunRepository(session).delete_by_id(
+                                exc.task_run_id
+                            )
                             try:
                                 await self.screenshot_storage.delete_task_run(
                                     str(evaluation_id), str(exc.task_run_id)
                                 )
                             except Exception as del_err:
-                                logger.warning("Failed to delete screenshots for retried task run (non-fatal): %s", del_err)
+                                logger.warning(
+                                    "Failed to delete screenshots for retried task run (non-fatal): %s",
+                                    del_err,
+                                )
                             await asyncio.sleep(2)
                         else:
-                            logger.error("Task '%s...' failed: %s", task_def.description[:50], exc.cause)
+                            logger.error(
+                                "Task '%s...' failed: %s",
+                                task_def.description[:50],
+                                exc.cause,
+                            )
                             if self.error_policy == "fail_fast":
                                 raise exc.cause from exc
 
@@ -415,14 +489,22 @@ class EvaluationRunner:
                     for action in sorted(task_run.actions, key=lambda a: a.step_number)
                 ]
 
-                task_summaries.append({
-                    "description": task_run.task_definition.description,
-                    "task_outcome": self._task_outcome_label(task_run.status, task_run.agent_done),
-                    "steps_taken": task_run.metrics.steps_taken if task_run.metrics else 0,
-                    "seq_score": task_run.metrics.seq_score if task_run.metrics else None,
-                    "actions": actions,
-                    "outcome_mismatches": task_run.final_outcome_mismatches or [],
-                })
+                task_summaries.append(
+                    {
+                        "description": task_run.task_definition.description,
+                        "task_outcome": self._task_outcome_label(
+                            task_run.status, task_run.agent_done
+                        ),
+                        "steps_taken": task_run.metrics.steps_taken
+                        if task_run.metrics
+                        else 0,
+                        "seq_score": task_run.metrics.seq_score
+                        if task_run.metrics
+                        else None,
+                        "actions": actions,
+                        "outcome_mismatches": task_run.final_outcome_mismatches or [],
+                    }
+                )
 
             try:
                 sus_result = await self.self_report_collector.collect_sus(
@@ -488,7 +570,9 @@ class EvaluationRunner:
             if result["status"] == "COMPLETED":
                 if task_def.verification_rules:
                     try:
-                        verification = await controller.browser.verify(task_def.verification_rules)
+                        verification = await controller.browser.verify(
+                            task_def.verification_rules
+                        )
                         verification_result = VR(verification.status.value)
                         verification_details = verification.details
 
@@ -568,7 +652,9 @@ class EvaluationRunner:
 
             time_on_task_seconds = None
             if task_run.started_at and task_run.finished_at:
-                time_on_task_seconds = int((task_run.finished_at - task_run.started_at).total_seconds())
+                time_on_task_seconds = int(
+                    (task_run.finished_at - task_run.started_at).total_seconds()
+                )
 
             visited_pages_total = result.get("visited_pages_total")
             visited_pages_unique = result.get("visited_pages_unique")
@@ -595,7 +681,11 @@ class EvaluationRunner:
             )
 
             if seq_result:
-                logger.info("SEQ: %s/7 - %s...", seq_result["rating"], seq_result["reasoning"][:60])
+                logger.info(
+                    "SEQ: %s/7 - %s...",
+                    seq_result["rating"],
+                    seq_result["reasoning"][:60],
+                )
 
             await task_run_repo.save_action_records(
                 task_run_id=task_run.id,

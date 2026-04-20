@@ -1,15 +1,16 @@
 import asyncio
 import os
 import sys
+from sqlalchemy import text
+from src.database.connection import engine, AsyncSessionLocal
+from src.database.models import Base
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
-from sqlalchemy import text
-from src.database.connection import engine, AsyncSessionLocal
-from src.database.models import Base
 
 SEED_FILE = os.path.join(os.path.dirname(__file__), "seed_personas.sql")
 

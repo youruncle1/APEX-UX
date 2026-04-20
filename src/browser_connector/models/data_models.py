@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Optional
 from enum import Enum
 
+
 class ActionType(str, Enum):
     CLICK = "CLICK"
     TYPE = "TYPE"
@@ -14,17 +15,20 @@ class ActionType(str, Enum):
     FORWARD = "FORWARD"
     DONE = "DONE"
     WAIT = "WAIT"
-    
+
+
 class VerificationStatus(str, Enum):
     PASS = "PASS"
     FAIL = "FAIL"
     SKIPPED = "SKIPPED"
     UNKNOWN = "UNKNOWN"
 
+
 @dataclass
 class VerificationResult:
     status: VerificationStatus
     details: Optional[dict] = None
+
 
 @dataclass
 class Action:
@@ -35,6 +39,7 @@ class Action:
     key: Optional[str] = None
     x2: Optional[int] = None
     y2: Optional[int] = None
+
 
 @dataclass
 class ExecutionResult:
