@@ -16,9 +16,5 @@ RUN pip install --no-cache-dir playwright && \
 
 COPY . .
 
-RUN chmod +x scripts/entrypoint.sh
-
 ARG APP_PORT=8002
 ENV APP_PORT=${APP_PORT}
-
-CMD ["scripts/entrypoint.sh"]

@@ -78,7 +78,11 @@ services:
       # Python (disable stderr/out buffering)
       PYTHONUNBUFFERED: 1
 
+    command: >
+      sh -c "python scripts/ensure_db.py &&
+             uvicorn src.api.main:app --host 0.0.0.0 --port $$APP_PORT --reload"
     volumes:
+      - ./src:/app/src
       - screenshot_data:/app/storage/screenshots
     extra_hosts:
       - "host.docker.internal:host-gateway"
