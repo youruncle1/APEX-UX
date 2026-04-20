@@ -2,6 +2,7 @@ import io
 import json
 import os
 import time
+from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -19,7 +20,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from markupsafe import Markup, escape
 from PIL import Image
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,13 +31,14 @@ from src.evaluation.api.websocket import broadcast_progress
 from src.evaluation.services.evaluation_service import EvaluationService
 from src.evaluation.services.task_run_service import TaskRunService
 from src.log import initialize_logging, get_logger
+from src.ui.template_helpers import render_verification_rules
+
+# Logging
 
 initialize_logging(os.getenv("LOG_LEVEL", "INFO"))
 logger = get_logger(__name__)
 
-# ============================================================================
-# APPLICATION SETUP
-# ============================================================================
+# App Setup
 
 app = FastAPI(
     title="APEX-UX API",
@@ -55,8 +56,61 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="src/ui/static"), name="static")
 
-PERSONAS_DIR = Path("src/ui/static/personas")
-_ALLOWED_IMAGE_EXTS = {".webp", ".jpg", ".jpeg", ".png"}
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    if request.url.path != "/health":
+        logger.debug("%s %s", request.method, request.url.path)
+    return await call_next(request)
+
+
+# Constants
+
+PERSONAS_DIR = Path("src/ui/static/personas")  # Persona profile picture dir path
+_ALLOWED_IMAGE_EXTS = {
+    ".webp",
+    ".jpg",
+    ".jpeg",
+    ".png",
+}  # Allowed image extensions for persona prof. pic.
+
+# Jinja2 Template engine setup
+
+templates = Jinja2Templates(directory="src/ui/templates")
+
+templates.env.filters["format_duration"] = lambda s: (
+    f"{s // 60}m {s % 60}s" if s is not None else "-"
+)
+
+
+# custom Jinja2 _tojson filter
+def _tojson(v):
+    def _default(obj):
+        if isinstance(obj, UUID):
+            return str(obj)
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        if isinstance(obj, BaseModel):
+            return obj.model_dump()
+        raise TypeError(f"Type {type(obj)} not serializable")
+
+    if isinstance(v, BaseModel):
+        return v.model_dump_json()
+    return json.dumps(v, default=_default)
+
+
+templates.env.filters["tojson"] = _tojson
+templates.env.globals["render_verification_rules"] = render_verification_rules
+
+# Database
+
+
+async def get_db() -> AsyncSession:
+    async with AsyncSessionLocal() as session:
+        yield session
+
+
+# Shared helpers
 
 
 async def _save_persona_image(image: UploadFile, persona_id: UUID) -> None:
@@ -75,159 +129,6 @@ async def _save_persona_image(image: UploadFile, persona_id: UUID) -> None:
         )
 
 
-app.include_router(evaluation_router)
-
-
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    if request.url.path != "/health":
-        logger.debug("%s %s", request.method, request.url.path)
-    return await call_next(request)
-
-
-templates = Jinja2Templates(directory="src/ui/templates")
-templates.env.filters["format_duration"] = lambda s: (
-    f"{s // 60}m {s % 60}s" if s is not None else "-"
-)
-
-
-def _tojson(v):
-    def _default(obj):
-        from uuid import UUID
-        from datetime import datetime
-
-        if isinstance(obj, UUID):
-            return str(obj)
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        if isinstance(obj, BaseModel):
-            return obj.model_dump()
-        raise TypeError(f"Type {type(obj)} not serializable")
-
-    if isinstance(v, BaseModel):
-        return v.model_dump_json()
-    return json.dumps(v, default=_default)
-
-
-def _render_verification_rules(details, depth=0) -> Markup:
-    if not details:
-        return Markup(
-            '<div class="text-sm italic" style="color:#8A8A9A">No verification details available</div>'
-        )
-    indent = depth * 20
-    t = details.get("type")
-    passed = details.get("passed")
-    color = "#24C875" if passed else "#FF4D4D"
-    icon = "✓" if passed else "✗"
-
-    if t == "url_contains":
-        v = escape(details.get("value", ""))
-        label = "PASSED" if passed else "FAILED"
-        return Markup(
-            f'<div class="flex items-start gap-2 py-2" style="margin-left:{indent}px">'
-            f'<span style="color:{color};font-weight:600;font-size:1.125rem">{icon}</span>'
-            f'<div><span class="text-sm font-medium" style="color:#2C2C3A">URL contains:</span>'
-            f'<code class="ml-2 px-2 py-0.5 rounded text-xs ibm-mono" style="background:#F8F8FA;border:1px solid #E4E4EC">{v}</code>'
-            f'<span class="ml-2 text-xs font-semibold" style="color:{color}">{label}</span></div></div>'
-        )
-
-    if t == "text_any":
-        texts = escape(", ".join(details.get("texts", [])))
-        label = "PASSED" if passed else "FAILED"
-        return Markup(
-            f'<div class="flex items-start gap-2 py-2" style="margin-left:{indent}px">'
-            f'<span style="color:{color};font-weight:600;font-size:1.125rem">{icon}</span>'
-            f'<div><span class="text-sm font-medium" style="color:#2C2C3A">Page shows text:</span>'
-            f'<code class="ml-2 px-2 py-0.5 rounded text-xs ibm-mono" style="background:#F8F8FA;border:1px solid #E4E4EC">{texts}</code>'
-            f'<span class="ml-2 text-xs font-semibold" style="color:{color}">{label}</span></div></div>'
-        )
-
-    if t in ("any_of", "all_of"):
-        group_name = escape(
-            details.get("name", "OR Group") if t == "any_of" else "AND Group"
-        )
-        desc = "(any one must pass)" if t == "any_of" else "(all must pass)"
-        border_color = "#24C875" if passed else "#FF4D4D"
-        title_color = "#0A66FF" if t == "any_of" else "#090947"
-        pass_label = f"{'✓ GROUP PASSED' if passed else '✗ GROUP FAILED'}"
-        children = Markup("").join(
-            _render_verification_rules(child, depth + 1)
-            for child in details.get("children", [])
-        )
-        return Markup(
-            f'<div class="border-l-2 pl-3 py-2" style="margin-left:{indent}px;border-color:{border_color}">'
-            f'<div class="text-sm font-semibold mb-2" style="color:{title_color}">{group_name} '
-            f'<span class="text-xs font-normal" style="color:#8A8A9A">{desc}</span> '
-            f'<span class="text-xs font-semibold" style="color:{color}">{pass_label}</span></div>'
-            f"{children}</div>"
-        )
-
-    return Markup(
-        '<div class="text-sm italic" style="color:#8A8A9A">Unknown rule type</div>'
-    )
-
-
-def _render_verification_rules_def(rules, depth=0) -> Markup:
-    """Render verification rules definition (no pass/fail status — for PENDING tasks)."""
-    if not rules:
-        return Markup(
-            '<div class="text-sm italic" style="color:#8A8A9A">No verification rules defined</div>'
-        )
-    indent = depth * 20
-    t = rules.get("type")
-
-    if t == "url_contains":
-        v = escape(rules.get("value", ""))
-        return Markup(
-            f'<div class="flex items-start gap-2 py-2" style="margin-left:{indent}px">'
-            f'<span style="color:#8A8A9A;font-weight:600;font-size:1.125rem">○</span>'
-            f'<div><span class="text-sm font-medium" style="color:#2C2C3A">URL contains:</span>'
-            f'<code class="ml-2 px-2 py-0.5 rounded text-xs ibm-mono" style="background:#F8F8FA;border:1px solid #E4E4EC">{v}</code>'
-            f"</div></div>"
-        )
-
-    if t == "text_any":
-        texts = escape(", ".join(rules.get("texts", [])))
-        return Markup(
-            f'<div class="flex items-start gap-2 py-2" style="margin-left:{indent}px">'
-            f'<span style="color:#8A8A9A;font-weight:600;font-size:1.125rem">○</span>'
-            f'<div><span class="text-sm font-medium" style="color:#2C2C3A">Page shows text:</span>'
-            f'<code class="ml-2 px-2 py-0.5 rounded text-xs ibm-mono" style="background:#F8F8FA;border:1px solid #E4E4EC">{texts}</code>'
-            f"</div></div>"
-        )
-
-    if t in ("any_of", "all_of"):
-        group_name = escape(
-            rules.get("name", "OR Group") if t == "any_of" else "AND Group"
-        )
-        desc = "(any one must pass)" if t == "any_of" else "(all must pass)"
-        title_color = "#0A66FF" if t == "any_of" else "#090947"
-        children = Markup("").join(
-            _render_verification_rules_def(child, depth + 1)
-            for child in rules.get("conditions", [])
-        )
-        return Markup(
-            f'<div class="border-l-2 pl-3 py-2" style="margin-left:{indent}px;border-color:#E4E4EC">'
-            f'<div class="text-sm font-semibold mb-2" style="color:{title_color}">{group_name} '
-            f'<span class="text-xs font-normal" style="color:#8A8A9A">{desc}</span></div>'
-            f"{children}</div>"
-        )
-
-    return Markup(
-        '<div class="text-sm italic" style="color:#8A8A9A">Unknown rule type</div>'
-    )
-
-
-templates.env.filters["tojson"] = _tojson
-templates.env.globals["render_verification_rules"] = _render_verification_rules
-templates.env.globals["render_verification_rules_def"] = _render_verification_rules_def
-
-
-async def get_db() -> AsyncSession:
-    async with AsyncSessionLocal() as session:
-        yield session
-
-
 async def _evaluations_template(request: Request, db: AsyncSession) -> HTMLResponse:
     evaluations = await EvaluationService(db).list_evaluations()
     return templates.TemplateResponse(
@@ -235,18 +136,19 @@ async def _evaluations_template(request: Request, db: AsyncSession) -> HTMLRespo
     )
 
 
-# ============================================================================
-# PARTIALS
-# ============================================================================
+# Partials router
+# HTMX partial endpoints
 
 partials_router = APIRouter(prefix="/partials", tags=["partials"])
 
 
+# Evaluations list fragment
 @partials_router.get("/evaluations", response_class=HTMLResponse)
 async def evaluations_partial(request: Request, db: AsyncSession = Depends(get_db)):
     return await _evaluations_template(request, db)
 
 
+# Start evaluation run, returns updated evaluations list
 @partials_router.post("/evaluations/{evaluation_id}/start", response_class=HTMLResponse)
 async def start_evaluation_partial(
     request: Request, evaluation_id: UUID, db: AsyncSession = Depends(get_db)
@@ -259,6 +161,7 @@ async def start_evaluation_partial(
     return await _evaluations_template(request, db)
 
 
+# Abort a running evaluation, returns updated evaluations list
 @partials_router.post("/evaluations/{evaluation_id}/abort", response_class=HTMLResponse)
 async def abort_evaluation_partial(
     request: Request, evaluation_id: UUID, db: AsyncSession = Depends(get_db)
@@ -274,6 +177,7 @@ async def abort_evaluation_partial(
     return await _evaluations_template(request, db)
 
 
+# Copy (duplicate) evaluation config, returns updated evaluations list
 @partials_router.post("/evaluations/{evaluation_id}/copy", response_class=HTMLResponse)
 async def copy_evaluation_partial(
     request: Request, evaluation_id: UUID, db: AsyncSession = Depends(get_db)
@@ -284,6 +188,7 @@ async def copy_evaluation_partial(
     return await _evaluations_template(request, db)
 
 
+# Delete evaluation, returns updated evaluations list
 @partials_router.delete("/evaluations/{evaluation_id}", response_class=HTMLResponse)
 async def delete_evaluation_partial(
     request: Request, evaluation_id: UUID, db: AsyncSession = Depends(get_db)
@@ -294,6 +199,7 @@ async def delete_evaluation_partial(
     return await _evaluations_template(request, db)
 
 
+# Delete evaluation from evaluation detail/report page, redirects to dashboard
 @partials_router.delete("/evaluation/{evaluation_id}", response_class=Response)
 async def delete_evaluation_from_detail(
     evaluation_id: UUID, db: AsyncSession = Depends(get_db)
@@ -304,6 +210,7 @@ async def delete_evaluation_from_detail(
     return Response(status_code=200, headers={"HX-Redirect": "/"})
 
 
+# Single persona card fragment
 @partials_router.get("/persona/{persona_id}", response_class=HTMLResponse)
 async def persona_partial(
     request: Request, persona_id: UUID, db: AsyncSession = Depends(get_db)
@@ -316,6 +223,7 @@ async def persona_partial(
     )
 
 
+# Full persona pool fragment
 @partials_router.get("/personas", response_class=HTMLResponse)
 async def personas_pool_partial(request: Request, db: AsyncSession = Depends(get_db)):
     personas = await PersonaRepository(db).list_all()
@@ -324,6 +232,7 @@ async def personas_pool_partial(request: Request, db: AsyncSession = Depends(get
     )
 
 
+# Delete persona and its profile image, returns updated persona pool
 @partials_router.delete("/personas/{persona_id}", response_class=HTMLResponse)
 async def delete_persona_partial(
     request: Request, persona_id: UUID, db: AsyncSession = Depends(get_db)
@@ -338,13 +247,14 @@ async def delete_persona_partial(
         raise HTTPException(status_code=404, detail="Persona not found")
     img_path = PERSONAS_DIR / f"{persona_id}.webp"
     if img_path.exists():
-        img_path.unlink()
+        img_path.unlink()  # delete image
     personas = await repo.list_all()
     return templates.TemplateResponse(
         request, "partials/persona_pool.html", {"personas": personas}
     )
 
 
+# Verification rules result detail for a completed task run
 @partials_router.get(
     "/task-run/{task_run_id}/verification", response_class=HTMLResponse
 )
@@ -359,6 +269,7 @@ async def verification_partial(
     )
 
 
+# Verification rules definitions detail for a pending task run
 @partials_router.get(
     "/task-definition/{task_def_id}/verification-rules", response_class=HTMLResponse
 )
@@ -378,6 +289,7 @@ async def verification_rules_partial(
     )
 
 
+# Persona+task grid fragment for the evaluation detail page
 @partials_router.get(
     "/evaluation/{evaluation_id}/personas", response_class=HTMLResponse
 )
@@ -401,21 +313,21 @@ async def evaluation_personas_partial(
     )
 
 
-app.include_router(partials_router)
-
-
-# ============================================================================
-# FRONTEND ROUTES
-# ============================================================================
+# Pages router
+# Full-page SSR routes
+# Jinja2 templates rendered server-side.
 
 pages_router = APIRouter(tags=["pages"])
 
 
+# Main dashboard (static file)
 @pages_router.get("/", include_in_schema=False)
 async def dashboard():
     return FileResponse("src/ui/static/index.html")
 
 
+# Evaluation detail/report page
+# aggregates metrics, clones, task results
 @pages_router.get("/evaluation/{evaluation_id}", include_in_schema=False)
 async def evaluation_report_page(
     request: Request, evaluation_id: UUID, db: AsyncSession = Depends(get_db)
@@ -428,6 +340,7 @@ async def evaluation_report_page(
     task_runs = report["task_runs"]
 
     if ev.status != "PENDING" and task_runs:
+        # Compute summary metrics from completed task runs
         total = len(task_runs)
         passed = sum(
             1
@@ -484,6 +397,7 @@ async def evaluation_report_page(
     )
 
 
+# Task run page (action replay page)
 @pages_router.get("/task-run/{task_run_id}", include_in_schema=False)
 async def task_run_replay_page(
     request: Request, task_run_id: UUID, db: AsyncSession = Depends(get_db)
@@ -496,6 +410,7 @@ async def task_run_replay_page(
     )
 
 
+# New evaluation form
 @pages_router.get("/create", include_in_schema=False)
 async def create_evaluation_page(request: Request):
     return templates.TemplateResponse(
@@ -503,6 +418,7 @@ async def create_evaluation_page(request: Request):
     )
 
 
+# Edit existing evaluation form
 @pages_router.get("/edit/{evaluation_id}", include_in_schema=False)
 async def edit_evaluation_page(request: Request, evaluation_id: UUID):
     return templates.TemplateResponse(
@@ -512,6 +428,7 @@ async def edit_evaluation_page(request: Request, evaluation_id: UUID):
     )
 
 
+# New persona form
 @pages_router.get("/personas/new", include_in_schema=False)
 async def new_persona_page(request: Request):
     return templates.TemplateResponse(
@@ -526,6 +443,7 @@ async def new_persona_page(request: Request):
     )
 
 
+# Edit persona form
 @pages_router.get("/personas/{persona_id}/edit", include_in_schema=False)
 async def edit_persona_page(
     request: Request, persona_id: UUID, db: AsyncSession = Depends(get_db)
@@ -540,11 +458,12 @@ async def edit_persona_page(
             "mode": "edit",
             "persona": persona,
             "error": None,
-            "cache_bust": int(time.time()),
+            "cache_bust": int(time.time()),  # bust cached persona image on edit
         },
     )
 
 
+# Create persona form submit
 @pages_router.post("/personas", include_in_schema=False)
 async def create_persona(
     request: Request,
@@ -576,6 +495,7 @@ async def create_persona(
     return RedirectResponse("/#personas", status_code=303)
 
 
+# Update persona form submit
 @pages_router.post("/personas/{persona_id}", include_in_schema=False)
 async def update_persona(
     request: Request,
@@ -613,12 +533,13 @@ async def update_persona(
     return RedirectResponse("/#personas", status_code=303)
 
 
+# --- Router registration ---
+
+app.include_router(evaluation_router)
+app.include_router(partials_router)
 app.include_router(pages_router)
 
-
-# ============================================================================
-# HEALTH CHECK
-# ============================================================================
+# --- Health ---
 
 
 @app.get("/health", tags=["health"])
