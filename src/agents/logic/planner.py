@@ -20,20 +20,18 @@ logger = get_logger(__name__)
 
 class PlannerAgent:
     """
-    Planner Agent that supports multiple backends:
-    - OpenAI GPT-5.4 with structured JSON schema outputs
-    - Self-hosted Qwen-3-VL via llama-server (OpenAI-compatible API)
-
-    Backend selection via PLANNER_BACKEND environment variable.
-    Both backends use the OpenAI client - Qwen just points at llama-server.
+    Planner Agent implementation.
+    Supports any OpenAI API compatible server connection with MULTIMODAL instruct model or model that accepts it?
     """
 
     def __init__(
         self,
-        persona_context: str = "",
-        backend: Optional[str] = None,
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
+        persona_context: str = "",  # Persona narrative to be used in the agent
+        backend: Optional[
+            str
+        ] = None,  # Backend type (openai - requires openai api key, local - calls server URL)
+        model: Optional[str] = None,  # Model name
+        temperature: Optional[float] = None,  # Model temperature setting
     ):
         settings = get_settings()
         self.backend = (backend or settings.planner_backend).lower()
@@ -43,6 +41,7 @@ class PlannerAgent:
                 f"Unknown planner backend: {self.backend!r}. Use 'openai' or 'local'."
             )
 
+        # Inject persona narrative/context into system prompt template
         self.system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             persona_context=persona_context
         )
@@ -55,14 +54,18 @@ class PlannerAgent:
 
     async def plan(
         self,
-        task_description: str,
-        screenshot_base64: str,
-        action_history: list[dict],
-        action_summary: Optional[str],
-        outcome_mismatches: list[str],
+        task_description: str,  # Description of current Task
+        screenshot_base64: str,  # Screenshot of browser encoded in Base64
+        action_history: list[dict],  # History of past executed actions
+        action_summary: Optional[str],  # Summarized past actions
+        outcome_mismatches: list[str],  # History of found outcome mismatch feedbacks
     ) -> Optional[PlannerAction]:
-        """Decide the next action based on current context."""
+        """
+        Planning logic of the Planner Agent.
+        Decides the next action based on current context.
+        """
 
+        # Build the user message
         user_message = self._build_user_message(
             task_description=task_description,
             action_history=action_history,
@@ -70,6 +73,8 @@ class PlannerAgent:
             outcome_mismatches=outcome_mismatches,
         )
 
+        # Construct the system + user message
+        # and add the Base64 encoded image to the message.
         messages = [
             {"role": "system", "content": self.system_prompt},
             {
@@ -86,7 +91,7 @@ class PlannerAgent:
             },
         ]
 
-        content = None
+        content = None  # response content from model
         try:
             kwargs = {
                 "model": self.model,
@@ -94,7 +99,7 @@ class PlannerAgent:
                 "temperature": self.temperature,
                 "max_completion_tokens": 2048,
                 "response_format": {
-                    "type": "json_schema",
+                    "type": "json_schema",  # enforce json_schema response format
                     "json_schema": {
                         "name": "action_response",
                         "schema": PLANNER_ACTION_SCHEMA,
@@ -109,6 +114,7 @@ class PlannerAgent:
                 logger.error("Empty response from model")
                 return None
 
+            # Strip markdown fences, sanitize output
             content = content.strip()
             if content.startswith("```"):
                 lines = [
@@ -139,17 +145,20 @@ class PlannerAgent:
             logger.error("Unexpected error: %s", e)
             return None
 
-    # -------------------------------------------------------------------------
-    # Private helpers
-    # -------------------------------------------------------------------------
-
     def _build_user_message(
         self,
-        task_description: str,
-        action_history: list[dict],
-        action_summary: Optional[str],
-        outcome_mismatches: list[str],
+        task_description: str,  # Description of current Task
+        action_history: list[dict],  # History of past executed actions
+        action_summary: Optional[str],  # Summarized past actions
+        outcome_mismatches: list[str],  # History of found outcome mismatch feedbacks
     ) -> str:
+        """
+        Builds full user message template using three parts:
+        1. Task
+        2. History + outcome mismatches
+        3. prompt_question (first step or not?)
+        """
+
         history_section = self._build_history_section(action_history, action_summary)
 
         if outcome_mismatches:
@@ -172,28 +181,34 @@ class PlannerAgent:
 
     def _build_history_section(
         self,
-        action_history: list[dict],
-        action_summary: Optional[str],
+        action_history: list[dict],  # History of past executed actions
+        action_summary: Optional[str],  # Summarized past actions
     ) -> str:
+        """
+        Builds the history block from action history and summary.
+        """
+
+        # First step in the Task
         if not action_history and not action_summary:
             return FIRST_STEP_TEMPLATE
 
-        if action_summary and action_history:
+        # Actions and summary exists
+        if action_summary:
             return HISTORY_WITH_SUMMARY_TEMPLATE.format(
                 action_summary=action_summary,
                 recent_actions=self._format_action_history(action_history),
             )
 
-        if action_history:
-            return HISTORY_RECENT_ONLY_TEMPLATE.format(
-                recent_actions=self._format_action_history(action_history)
-            )
-
-        # action_summary only
-        return f"# PREVIOUS ACTIONS\n{action_summary}"
+        # Only actions exists, no summary yet
+        return HISTORY_RECENT_ONLY_TEMPLATE.format(
+            recent_actions=self._format_action_history(action_history)
+        )
 
     @staticmethod
     def _format_action_history(action_history: list[dict]) -> str:
+        """
+        Takes the list of action history and converts it to a to numbered list of actions for LLM prompt
+        """
         lines = []
         for i, action in enumerate(action_history):
             target = action.get("target_description")

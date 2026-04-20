@@ -156,10 +156,6 @@ Examples of NO mismatch (use empty string `""`):
 - If a cookie consent banner, modal, or any overlay is visible, CLOSE or DISMISS it before doing anything else — these can completely block all interaction with the page underneath them!
 """
 
-# ============================================================================
-# USER PROMPT TEMPLATES
-# ============================================================================
-
 USER_PROMPT_TEMPLATE = """# YOUR TASK
 {task_description}
 
