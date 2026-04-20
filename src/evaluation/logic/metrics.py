@@ -3,7 +3,9 @@ from typing import Dict, List, Any, Optional
 
 
 class MetricsCalculator:
-    """Calculate usability metrics from task execution results"""
+    """
+    Calculate usability metrics from task execution results
+    """
 
     @staticmethod
     def calculate_basic_metrics(
@@ -13,6 +15,7 @@ class MetricsCalculator:
         Calculate basic metrics from task execution result.
         """
 
+        # Get steps
         steps_taken = result.get("steps_taken", 0)
 
         # Count failed actions (execution_success = False)

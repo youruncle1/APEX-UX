@@ -44,16 +44,15 @@ class TaskRunFailedError(Exception):
         self.cause = cause
 
 
+# Type alias of async func to pass progress in WebSocket.
+# keeps transport layer divided from runner
 ProgressCallback = Callable[[UUID, dict], Awaitable[None]]
 
 
 class EvaluationRunner:
     """
+    Evaluation Runner implemenetation.
     Main orchestrator for running evaluations.
-
-    Progress events are emitted via an optional callback so the runner
-    stays decoupled from the transport layer (WebSocket, CLI, etc.).
-    Pass `on_progress=broadcast_progress` from the service layer.
     """
 
     def __init__(
@@ -61,26 +60,41 @@ class EvaluationRunner:
         error_policy: Literal["fail_fast", "continue_on_error"] = "continue_on_error",
         on_progress: Optional[ProgressCallback] = None,
     ):
-        self.error_policy = error_policy
-        self._on_progress = on_progress
-        self.metrics_calculator = MetricsCalculator()
-        self.self_report_collector = SelfReportCollector()
-        self.screenshot_storage = create_screenshot_storage()
+        self.error_policy = error_policy  # Hard fail or keep evaluating
+        self._on_progress = on_progress  # async function to call when emitting progress events (optional)
+        self.metrics_calculator = MetricsCalculator()  # Computes metrics
+        self.self_report_collector = (
+            SelfReportCollector()
+        )  # Collects SEQ and SUS Scores from personas
+        self.screenshot_storage = (
+            create_screenshot_storage()
+        )  # Screenshot storage backend
 
     async def _emit(self, evaluation_id: UUID, message: dict):
-        """Forward a progress event to the caller-supplied callback, if any."""
+        """
+        Forward progress event to the injected callback / call on_progress with the event if one was provided
+            - Dependency injection pattern
+        """
         if self._on_progress:
             await self._on_progress(evaluation_id, message)
 
     def _is_cancelled(self, evaluation_id: UUID) -> bool:
+        """
+        Checks whether evaluation cancellation was set (abort)
+        """
         return evaluation_cancellation.get(evaluation_id, False)
 
     async def run(self, evaluation_id: UUID):
-        """Run a complete evaluation, emitting progress events along the way."""
+        """
+        Runs a complete evaluation
+        """
+
+        # Create background asyncio task for progress broadcast
         progress_task = asyncio.create_task(
             self._broadcast_progress_loop(evaluation_id)
         )
         try:
+            # emit RUNNING status event on start
             await self._emit(
                 evaluation_id,
                 {
@@ -89,10 +103,14 @@ class EvaluationRunner:
                     "message": "Evaluation started",
                 },
             )
+            # execute evaluation, returns True (failed), False (ok), or "aborted"
             evaluation_failed = await self._execute(evaluation_id)
+            # aborted path skips final status — _abort_and_cleanup emits its own event
             if evaluation_failed != "aborted":
+                # push 100% only when truly done, not on abort
                 await self._emit(evaluation_id, {"type": "progress", "percentage": 100})
                 if evaluation_failed:
+                    # at least one clone had an unrecoverable error
                     await self._emit(
                         evaluation_id,
                         {
@@ -111,6 +129,7 @@ class EvaluationRunner:
                         },
                     )
         except Exception as e:
+            # unexpected crash outside of clone error handling
             await self._emit(
                 evaluation_id,
                 {
@@ -119,7 +138,9 @@ class EvaluationRunner:
                 },
             )
         finally:
+            # always stop the background progress loop
             progress_task.cancel()
+            # clear the cancellation flag so a re-run starts clean
             if evaluation_id in evaluation_cancellation:
                 del evaluation_cancellation[evaluation_id]
 
@@ -142,10 +163,12 @@ class EvaluationRunner:
                 )
             ).scalar() or 0
 
+            # every clone must run every task
             total_expected = clone_count * task_count
             if total_expected == 0:
                 return 0.0
 
+            # any terminal status counts as done
             terminal = ("VERIFIED", "COMPLETED", "FAILED", "TIMEOUT", "ABORTED")
             finished = (
                 await session.execute(
@@ -194,10 +217,13 @@ class EvaluationRunner:
                 "Error policy: %s | Parallel clones: %s", self.error_policy, parallel
             )
 
-            # Snapshot IDs — the ORM objects can't be shared across sessions
+            # Snapshot clone ids, the ORM objects can't be shared across sessions
+            # to be fetched back in _run_clone_isolated()
             clone_ids = [clone.id for clone in evaluation.clones]
 
         try:
+            # parallel: all clones run at the same time, exceptions collected as results
+            # sequential: clones run one by one, cancellation checked between each
             if parallel:
                 results = await asyncio.gather(
                     *[
@@ -214,6 +240,7 @@ class EvaluationRunner:
                     result = await self._run_clone_isolated(evaluation_id, clone_id)
                     results.append(result)
 
+            # if any clone was aborted, clean all data and reset to PENDING
             aborted = any(isinstance(r, TaskAbortedError) for r in results)
             if aborted:
                 async with AsyncSessionLocal() as session:
@@ -222,16 +249,19 @@ class EvaluationRunner:
                     )
                 return "aborted"
 
+            # exceptions returned by gather count as clone failures
             evaluation_failed = any(isinstance(r, Exception) for r in results)
 
+            # save final status and finished_at timestamp
             async with AsyncSessionLocal() as session:
                 eval_repo = EvaluationRepository(session)
                 evaluation = await eval_repo.get_with_relations(evaluation_id)
-                final_status = (
-                    EvaluationStatus.FAILED
-                    if evaluation_failed
-                    else EvaluationStatus.COMPLETED
-                )
+
+                if evaluation_failed:
+                    final_status = EvaluationStatus.FAILED
+                else:
+                    final_status = EvaluationStatus.COMPLETED
+
                 await eval_repo.update_status(
                     evaluation,
                     final_status,
@@ -257,28 +287,38 @@ class EvaluationRunner:
             raise
 
     async def _run_clone_isolated(self, evaluation_id: UUID, clone_id: UUID):
-        """Run a single clone in its own DB session. Returns None on success, exception on failure."""
+        """
+        Run a single clone in its own DB session.
+        Middleware between _execute() and _run_clone()
+        """
+        # Open isolated DB session for clone
         async with AsyncSessionLocal() as session:
             eval_repo = EvaluationRepository(session)
+            # re-fetch clones from _execute()
             evaluation = await eval_repo.get_with_relations(evaluation_id)
             if not evaluation:
                 raise ValueError(f"Evaluation {evaluation_id} not found")
 
+            # get clone for this isolated run
             clone = next((c for c in evaluation.clones if c.id == clone_id), None)
             if not clone:
                 raise ValueError(f"Clone {clone_id} not found")
 
+            # check cancellation before executing any work for this clone
             if self._is_cancelled(evaluation_id):
                 logger.warning("Abort requested before clone %s, stopping.", clone_id)
                 raise TaskAbortedError("Cancelled before clone started")
 
+            # run the clone
             try:
                 await self._run_clone(session, evaluation, clone, evaluation_id)
             except TaskAbortedError:
+                # re-raise so _execute can trigger abort cleanup
                 logger.warning("Clone %s aborted mid-task.", clone_id)
                 raise
             except Exception as e:
                 logger.error("Clone %s failed: %s", clone_id, e)
+                # fail_fast stops everything, otherwise return the exception as a result
                 if self.error_policy == "fail_fast":
                     raise
                 return e
@@ -291,7 +331,7 @@ class EvaluationRunner:
     ):
         """
         Clean up all task run data created during this evaluation run,
-        delete screenshots, reset clone SUS data, and return evaluation to PENDING.
+        delete screenshots, reset clone data, and return evaluation to PENDING.
         """
         logger.info("Aborting and cleaning up evaluation %s", evaluation_id)
 
@@ -336,7 +376,7 @@ class EvaluationRunner:
 
         await session.commit()
 
-        # Notify clients that the evaluation was reset
+        # Emit that the evaluation was reset
         await self._emit(
             evaluation_id,
             {
@@ -354,7 +394,10 @@ class EvaluationRunner:
 
     @staticmethod
     def _task_outcome_label(status: TaskRunStatus, agent_done: bool) -> str:
-        """Return a persona-voice description of how a task ended."""
+        """
+        Return a description of how a task ended.
+        Used in collecting SEQ and SUS metrics.
+        """
         if status == TaskRunStatus.VERIFIED:
             return "You successfully completed the task"
         if status == TaskRunStatus.COMPLETED:
@@ -374,14 +417,18 @@ class EvaluationRunner:
         clone: EvaluationClone,
         evaluation_id: UUID,
     ):
-        """Run all tasks for a single clone, then collect SUS score."""
+        """
+        Run all tasks for a single clone, then collect SUS score.
+        """
 
+        # load persona narrative to use as context for the LLM agents
         persona = await PersonaRepository(session).get_by_id(clone.persona_id)
         if not persona:
             raise ValueError(f"Persona '{clone.persona_id}' not found")
         logger.info("Running clone: %s", persona.name)
         persona_context = persona.narrative
 
+        # each clone gets its own browser instance and agent stack
         vp = evaluation.viewport or {"width": 1280, "height": 720}
         grounder = GroundingAgent(
             viewport_width=vp["width"], viewport_height=vp["height"]
@@ -398,6 +445,7 @@ class EvaluationRunner:
             persona_context=persona_context,
             grounder=grounder,
             browser=browser,
+            # pass cancellation check so the agent loop can abort between steps
             is_cancelled=lambda: self._is_cancelled(evaluation_id),
         )
 
@@ -405,7 +453,7 @@ class EvaluationRunner:
 
         try:
             for task_def in evaluation.tasks:
-                # Check cancellation between tasks
+                # check cancellation before starting each task
                 if self._is_cancelled(evaluation_id):
                     logger.warning(
                         "Abort requested before task '%s...', stopping.",
@@ -413,7 +461,7 @@ class EvaluationRunner:
                     )
                     return  # Caller will handle cleanup
 
-                # TaskAbortedError from execute_task propagates up naturally
+                # 3 attempts per task before giving up (clean record on each try)
                 max_attempts = 3
                 for attempt in range(1, max_attempts + 1):
                     try:
@@ -425,12 +473,12 @@ class EvaluationRunner:
                             controller=controller,
                             persona_context=persona_context,
                         )
-                        break  # success
+                        break  # success, move to next task
                     except TaskAbortedError:
                         logger.warning(
                             "Task '%s...' aborted mid-step.", task_def.description[:50]
                         )
-                        raise  # Re-raise so _run_clone → run() can handle cleanup
+                        raise  # re-raise so _run_clone_isolated can trigger cleanup
                     except TaskRunFailedError as exc:
                         if attempt < max_attempts:
                             logger.warning(
@@ -440,7 +488,7 @@ class EvaluationRunner:
                                 max_attempts,
                                 exc.cause,
                             )
-                            # Delete the failed record and its screenshots so they don't appear in the UI.
+                            # delete the failed record and screenshots before retrying
                             await TaskRunRepository(session).delete_by_id(
                                 exc.task_run_id
                             )
@@ -462,8 +510,9 @@ class EvaluationRunner:
                             )
                             if self.error_policy == "fail_fast":
                                 raise exc.cause from exc
+                            # otherwise continue to next task
 
-                # Check cancellation after each task completes
+                # check cancellation after each task completes
                 if self._is_cancelled(evaluation_id):
                     logger.warning(
                         "Abort requested after task '%s...', stopping.",
@@ -471,12 +520,14 @@ class EvaluationRunner:
                     )
                     return  # Caller will handle cleanup
 
-            # Only collect SUS if we completed all tasks without abort
+            # all tasks done, collect SUS score for this clone
             logger.debug("Collecting SUS for clone %s...", persona.name)
 
+            # reload task runs with their relations (actions, metrics, task_definition)
             await eval_repo.refresh_clone_task_runs(clone)
             task_summaries = []
 
+            # build a summary of each task run to pass to the SUS LLM call
             for task_run in clone.task_runs:
                 await eval_repo.refresh_task_run_relations(task_run)
 
@@ -506,6 +557,7 @@ class EvaluationRunner:
                     }
                 )
 
+            # SUS collection
             try:
                 sus_result = await self.self_report_collector.collect_sus(
                     persona_context=persona_context,
@@ -527,6 +579,7 @@ class EvaluationRunner:
                 logger.warning("SUS collection failed (non-fatal): %s", e)
 
         finally:
+            # close the browser
             await browser.close()
 
     async def _run_task(
@@ -538,21 +591,25 @@ class EvaluationRunner:
         controller: TwoAgentController,
         persona_context: str,
     ):
-        """Run a single task for a clone."""
+        """
+        Run a single task for a clone.
+        """
 
         logger.info("Task: %s...", task_def.description[:50])
 
         task_run_repo = TaskRunRepository(session)
 
+        # create the task run record in DB before executing
         task_run = await task_run_repo.create(
             task_definition_id=task_def.id,
             evaluation_clone_id=clone.id,
         )
 
         try:
+            # use task-level URL override if set, otherwise fall back to evaluation base URL
             start_url = task_def.base_url_override or task_def.evaluation.base_url
 
-            # TaskAbortedError will propagate from here if cancelled mid-step
+            # run the two-agent loop, TaskAbortedError propagates if cancelled mid-step
             result = await controller.execute_task(
                 task_description=task_def.description,
                 start_url=start_url,
@@ -563,12 +620,14 @@ class EvaluationRunner:
 
             task_run.agent_done = result.get("agent_done", False)
 
+            # default to FAILED
             status = TaskRunStatus.FAILED
             verification_result = None
             verification_details = None
 
             if result["status"] == "COMPLETED":
                 if task_def.verification_rules:
+                    # run verification of rules
                     try:
                         verification = await controller.browser.verify(
                             task_def.verification_rules
@@ -586,6 +645,7 @@ class EvaluationRunner:
                             status = TaskRunStatus.COMPLETED
 
                     except Exception as e:
+                        # verification crash is non-fatal, mark as COMPLETED with unknown result
                         logger.warning("Verification exception: %s", e)
                         status = TaskRunStatus.COMPLETED
                         verification_result = VR.UNKNOWN
@@ -595,13 +655,16 @@ class EvaluationRunner:
                             "evidence": f"Verification error: {str(e)}",
                         }
                 else:
+                    # no rules defined, agent DONE is taken as pass
                     status = TaskRunStatus.COMPLETED
 
             elif result["status"] == "TIMEOUT":
+                # no verification run on timeout
                 status = TaskRunStatus.TIMEOUT
 
             memory_state = result.get("memory_state", {})
 
+            # save the task run outcome and final memory state to DB
             await task_run_repo.save_result(
                 task_run=task_run,
                 status=status,
@@ -616,6 +679,7 @@ class EvaluationRunner:
             )
 
             action_records = result.get("action_records", [])
+            # calculate step count, failed actions, backtracking, outcome mismatches
             basic_metrics = self.metrics_calculator.calculate_basic_metrics(
                 result=result,
                 action_records=action_records,
@@ -629,6 +693,7 @@ class EvaluationRunner:
                 basic_metrics["backtracking_count"],
             )
 
+            # collect SEQ score using LLM call
             seq_result = None
             try:
                 seq_actions = [
@@ -658,6 +723,7 @@ class EvaluationRunner:
 
             visited_pages_total = result.get("visited_pages_total")
             visited_pages_unique = result.get("visited_pages_unique")
+            # lostness requires min_pages to be defined on the task
             lostness = None
             if task_def.min_pages and visited_pages_total and visited_pages_unique:
                 lostness = self.metrics_calculator.calculate_lostness(

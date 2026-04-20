@@ -8,16 +8,23 @@ from src.evaluation.models.api_models import TaskRunDetail, ActionRecordDetail
 
 
 class TaskRunService:
+    """
+    Read-only service to fetch task run from DB and shape it into API response object (TaskRunDetail)
+    """
+
     def __init__(self, session: AsyncSession):
         self.session = session
         self.task_run_repo = TaskRunRepository(session)
 
     async def get_task_run_detail(self, task_run_id: UUID) -> Optional[TaskRunDetail]:
+
+        # load the task_run from DB with all relations (actions, metrics, clone, persona, task def.)
         task_run = await self.task_run_repo.get_with_relations(task_run_id)
 
         if not task_run:
             return None
 
+        # Unpack metrics object into dict
         metrics_dict = None
         if task_run.metrics:
             metrics_dict = {
@@ -31,6 +38,7 @@ class TaskRunService:
                 "lostness": task_run.metrics.lostness,
             }
 
+        # Convert actions list into ActionRecordDetail object
         actions_data = []
         for action in sorted(task_run.actions, key=lambda a: a.step_number):
             actions_data.append(
