@@ -86,7 +86,13 @@ class EvaluationRunner:
 
     async def run(self, evaluation_id: UUID):
         """
-        Runs a complete evaluation
+        Runs a complete evaluation and streams status/progress events over WebSocket.
+
+        Args:
+            evaluation_id: UUID of the evaluation to run.
+
+        Returns:
+            None. Results are persisted to the database, progress is emitted using WebSocket.
         """
 
         # Create background asyncio task for progress broadcast

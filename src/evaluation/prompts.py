@@ -1,10 +1,6 @@
 from typing import Any, Dict, List
 
 
-# ============================================================================
-# SUS / SEQ CONSTANTS
-# ============================================================================
-
 SUS_ITEMS = [
     "I think that I would like to use this website frequently.",
     "I found the website unnecessarily complex.",
@@ -17,11 +13,6 @@ SUS_ITEMS = [
     "I felt very confident using the website.",
     "I needed to learn a lot of things before I could get going with this website.",
 ]
-
-
-# ============================================================================
-# STRUCTURED OUTPUT SCHEMAS (OpenAI JSON schema mode)
-# ============================================================================
 
 SEQ_SCHEMA: Dict[str, Any] = {
     "type": "object",
@@ -60,10 +51,6 @@ SUS_SCHEMA: Dict[str, Any] = {
     "additionalProperties": False,
 }
 
-
-# ============================================================================
-# SYSTEM PROMPT TEMPLATES
-# ============================================================================
 
 SEQ_SYSTEM_PROMPT_TEMPLATE = """{persona_context}
 
@@ -107,13 +94,16 @@ NARRATIVE_SYSTEM_PROMPT_TEMPLATE = """{persona_context}
 Describe your experience completing the task below. Write in first person."""
 
 
-# ============================================================================
-# ACTION PREPROCESSING
-# ============================================================================
-
-
 def merge_scrolls(actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Collapse consecutive same-direction scrolls into a single entry."""
+    """
+    Collapse consecutive same-direction scrolls into a single action entry.
+
+    Args:
+        actions: List of action records with action_type and reasoning fields.
+
+    Returns:
+        New list with consecutive same-direction scrolls merged into one entry.
+    """
     if not actions:
         return actions
 
@@ -142,13 +132,10 @@ def merge_scrolls(actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return merged
 
 
-# ============================================================================
-# PROMPT BUILDERS
-# ============================================================================
-
-
 def _mismatches_by_step(outcome_mismatches: List[Any]) -> Dict[int, str]:
-    """Index outcome mismatches by step number. Entries may be dicts {step, mismatch} or plain strings."""
+    """
+    Index outcome mismatches by step number.
+    """
     index: Dict[int, str] = {}
     for item in outcome_mismatches:
         if isinstance(item, dict) and "step" in item:
@@ -160,10 +147,8 @@ def _render_actions_with_mismatches(
     actions: List[Dict[str, Any]],
     outcome_mismatches: List[Any],
 ) -> List[str]:
-    """Render a numbered action list with outcome mismatches inlined after the step they occurred at.
-
-    Uses the original step_number from each action dict for mismatch matching,
-    so scroll-merging (which changes list indices) does not misalign mismatches.
+    """
+    Render numbered action list with outcome mismatches put after each step they happened at.
     """
     mismatch_index = _mismatches_by_step(outcome_mismatches)
     lines = []
@@ -181,7 +166,18 @@ def build_seq_user_prompt(
     outcome_mismatches: List[Any],
     task_outcome: str,
 ) -> str:
-    """Build user prompt for SEQ collection."""
+    """
+    Build user prompt for SEQ score collection.
+
+    Args:
+        task_description: The task description.
+        actions: List of action records.
+        outcome_mismatches: List of {step, mismatch} dicts from memory state.
+        task_outcome: Label describing how the task ended.
+
+    Returns:
+        Formatted prompt string.
+    """
     prompt_parts = []
     prompt_parts.append(f"# TASK YOU COMPLETED\n{task_description}")
     prompt_parts.append(f"\n# OUTCOME\n{task_outcome}")
@@ -211,7 +207,19 @@ def build_narrative_user_prompt(
     task_outcome: str,
     steps_taken: int,
 ) -> str:
-    """Build user prompt for per-task narrative generation (used in SUS)."""
+    """
+    Build user prompt for per-task narrative generation used in SUS context compression.
+
+    Args:
+        task_description: The task description.
+        actions: List of action records.
+        outcome_mismatches: List of mismatch strings from memory state.
+        task_outcome: Label describing how the task ended.
+        steps_taken: Total number of steps taken during the task.
+
+    Returns:
+        Formatted prompt string.
+    """
     prompt_parts = []
     prompt_parts.append(f"# TASK\n{task_description}")
     prompt_parts.append(f"\n# OUTCOME\n{task_outcome}")
@@ -236,16 +244,21 @@ def build_narrative_user_prompt(
 
 
 def build_sus_user_prompt(task_summaries: List[Dict[str, Any]]) -> str:
-    """Build user prompt for SUS collection.
+    """
+    Build user prompt for SUS score collection.
 
-    Each task summary must have:
-      - description: str
-      - task_outcome: str  (persona-voice outcome label)
-      - steps_taken: int
-      - seq_score: float | None
-      - outcome_mismatches: list[str]
-      - actions: list[dict] | None  (scroll-merged raw list, used when no narrative)
-      - narrative: str | None  (LLM-generated summary, used when actions list is too long)
+    Args:
+        task_summaries: List of task summary dicts. Each must contain:
+            - description: str
+            - task_outcome: str
+            - steps_taken: int
+            - seq_score: float | None
+            - outcome_mismatches: list[str]
+            - actions: list[dict] | None  (scroll-merged, used when no narrative)
+            - narrative: str | None  (LLM summary, used when actions list is too long)
+
+    Returns:
+        Formatted prompt string.
     """
     prompt_parts = []
     prompt_parts.append("# YOUR EXPERIENCE")
