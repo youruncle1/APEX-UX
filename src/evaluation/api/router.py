@@ -22,14 +22,14 @@ from src.log import get_logger
 
 logger = get_logger(__name__)
 
+# Router setup
+
 router = APIRouter(prefix="/api", tags=["evaluations"])
 
 screenshot_storage = create_screenshot_storage()
 
 
-# ============================================================================
-# DATABASE DEPENDENCY
-# ============================================================================
+# Database
 
 
 async def get_db() -> AsyncSession:
@@ -37,14 +37,15 @@ async def get_db() -> AsyncSession:
         yield session
 
 
-# ============================================================================
-# EVALUATION ROUTES
-# ============================================================================
+# Persona endpoints
 
 
 @router.get("/personas", response_model=List[PersonaResponse])
 async def list_personas(db: AsyncSession = Depends(get_db)):
     return await EvaluationService(db).list_personas()
+
+
+# Evaluation endpoints
 
 
 @router.get("/evaluations", response_model=List[EvaluationSummary])
@@ -71,6 +72,7 @@ async def copy_evaluation(
     return result
 
 
+# Runs EvaluationRunner as a background task, returns immediately
 @router.post("/evaluations/{evaluation_id}/start")
 async def start_evaluation(
     evaluation_id: UUID,
@@ -84,6 +86,7 @@ async def start_evaluation(
     return result
 
 
+# Sets cancellation flag, evaluation stops after the current steps complete
 @router.post("/evaluations/{evaluation_id}/abort")
 async def abort_evaluation(
     evaluation_id: UUID,
@@ -111,6 +114,7 @@ async def get_evaluation_report(
     return result
 
 
+# Returns evaluation config for the edit form, raises 400 if not PENDING
 @router.get("/evaluation/{evaluation_id}/editable")
 async def get_editable_evaluation(
     evaluation_id: UUID,
@@ -125,6 +129,7 @@ async def get_editable_evaluation(
     return result
 
 
+# Replaces evaluation config, raises 400 if not PENDING
 @router.put("/evaluations/{evaluation_id}")
 async def update_evaluation(
     evaluation_id: UUID,
@@ -151,9 +156,7 @@ async def delete_evaluation(
     return result
 
 
-# ============================================================================
-# TASK RUN ROUTES
-# ============================================================================
+# Task run endpoint
 
 
 @router.get("/task-run/{task_run_id}", response_model=TaskRunDetail)
@@ -167,11 +170,10 @@ async def get_task_run_detail(
     return result
 
 
-# ============================================================================
-# SCREENSHOT ROUTES
-# ============================================================================
+# Screenshot endpoint
 
 
+# Fetches screenshot by storage URL and returns it as base64, cached for 24h
 @router.get("/screenshot")
 async def get_screenshot(url: str):
     try:
@@ -191,11 +193,10 @@ async def get_screenshot(url: str):
         )
 
 
-# ============================================================================
-# WEBSOCKET
-# ============================================================================
+# WebSocket endpoint
 
 
+# Streams evaluation progress events to the client
 @router.websocket("/ws/evaluation/{evaluation_id}")
 async def evaluation_progress_websocket(
     websocket: WebSocket,
@@ -208,7 +209,7 @@ async def evaluation_progress_websocket(
         active_connections[evaluation_id] = []
     active_connections[evaluation_id].append(websocket)
 
-    # Send current progress immediately so the client doesn't wait for the next broadcast
+    # Push current progress immediately so the client doesn't wait for the next broadcast
     percentage = await EvaluationService.get_evaluation_progress(evaluation_id)
     await websocket.send_text(
         json.dumps({"type": "progress", "percentage": percentage})
