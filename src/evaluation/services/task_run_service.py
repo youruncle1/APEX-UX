@@ -9,7 +9,7 @@ from src.evaluation.models.api_models import TaskRunDetail, ActionRecordDetail
 
 class TaskRunService:
     """
-    Read-only service to fetch task run from DB and shape it into API response object (TaskRunDetail)
+    Business logic layer Read-only service to fetch task run from DB and shape it into API response object (TaskRunDetail)
     """
 
     def __init__(self, session: AsyncSession):

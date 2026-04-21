@@ -23,11 +23,21 @@ logger = get_logger(__name__)
 
 
 class EvaluationService:
+    """
+    Business logic layer for evaluation lifecycle. Called by API routes, delegates DB work to EvaluationRepository.
+    """
+
     def __init__(self, session: AsyncSession):
         self.session = session
         self.eval_repo = EvaluationRepository(session)
 
     async def list_evaluations(self) -> List[EvaluationSummary]:
+        """
+        Fetch all evaluations and return them as summary objects.
+
+        Returns:
+            List of EvaluationSummary objects ordered newest first.
+        """
         evaluations = await self.eval_repo.list_all()
 
         summaries = []
@@ -53,6 +63,15 @@ class EvaluationService:
         return summaries
 
     async def create_evaluation(self, data: EvaluationCreate) -> dict:
+        """
+        Create a new evaluation from the given config.
+
+        Args:
+            data: Evaluation config including base URL, personas, and tasks.
+
+        Returns:
+            Dict with evaluation_id, status, and a message.
+        """
         evaluation = await self.eval_repo.create(
             name=data.name,
             base_url=data.base_url,
@@ -69,6 +88,16 @@ class EvaluationService:
         }
 
     async def get_evaluation_report(self, evaluation_id: UUID) -> Optional[dict]:
+        """
+        Build and return the full evaluation report with clones, task runs, and aggregated metrics.
+
+        Args:
+            evaluation_id: UUID of the evaluation.
+
+        Returns:
+            Dict with evaluation summary, clones, task_runs, task_definitions, and metrics_summary.
+            None if the evaluation does not exist.
+        """
         evaluation = await self.eval_repo.get_with_clones_and_tasks(evaluation_id)
 
         if not evaluation:
@@ -92,6 +121,7 @@ class EvaluationService:
             duration_seconds=duration,
         )
 
+        # Build clone data with SUS scores and attrs
         clones_data = []
         for clone in evaluation.clones:
             clone_dict = {
@@ -105,6 +135,7 @@ class EvaluationService:
             }
 
             if clone.sus_score is not None and clone.sus_ratings:
+                # Pair stored rating with its SUS question text
                 clone_dict["sus_response"] = SUSResponse(
                     score=clone.sus_score,
                     responses=[
@@ -125,6 +156,7 @@ class EvaluationService:
         all_metrics = []
 
         for clone in evaluation.clones:
+            # Sort task runs by task position so report order matches task order
             sorted_task_runs = sorted(
                 clone.task_runs,
                 key=lambda tr: next(
@@ -142,6 +174,7 @@ class EvaluationService:
                     task_run.task_definition_id
                 )
 
+                # Unpack metrics with defaults in case any metrics row is missing
                 steps_taken = metrics.steps_taken if metrics else 0
                 seq_score = metrics.seq_score if metrics else None
                 seq_reasoning = metrics.seq_reasoning if metrics else None
@@ -182,6 +215,7 @@ class EvaluationService:
                     all_metrics.append(metrics)
 
         total_tasks = len(task_runs_data)
+        # VERIFIED = verification rule passed, COMPLETED + agent_done = agent said done with no verification rules
         successful_tasks = sum(
             1
             for tr in task_runs_data
@@ -211,6 +245,7 @@ class EvaluationService:
             if lostness_values:
                 avg_lostness = round(sum(lostness_values) / len(lostness_values), 4)
 
+        # SUS is per clone, not per task_run
         sus_scores = [c.sus_score for c in evaluation.clones if c.sus_score is not None]
         if sus_scores:
             avg_sus = sum(sus_scores) / len(sus_scores)
@@ -228,7 +263,7 @@ class EvaluationService:
             "avg_lostness": avg_lostness,
         }
 
-        # Include task definitions for PENDING evaluations (no runs yet)
+        # Include task definitions so PENDING evaluations still return (ui)
         task_definitions = []
         for task_def in evaluation.tasks:
             task_definitions.append(
@@ -251,6 +286,18 @@ class EvaluationService:
         }
 
     async def get_editable_evaluation(self, evaluation_id: UUID) -> Optional[dict]:
+        """
+        Return evaluation config in edit form.
+
+        Args:
+            evaluation_id: UUID of the evaluation.
+
+        Returns:
+            Dict with evaluation fields ready for the edit form. None if not found.
+
+        Raises:
+            ValueError: If the evaluation is not in PENDING status.
+        """
         evaluation = await self.eval_repo.get_with_tasks_and_clones(evaluation_id)
 
         if not evaluation:
@@ -283,6 +330,19 @@ class EvaluationService:
     async def update_evaluation(
         self, evaluation_id: UUID, data: EvaluationCreate
     ) -> Optional[dict]:
+        """
+        Replace evaluation config with new data.
+
+        Args:
+            evaluation_id: UUID of the evaluation.
+            data: New evaluation config.
+
+        Returns:
+            Dict with evaluation_id and status. None if not found.
+
+        Raises:
+            ValueError: If the evaluation is not in PENDING status.
+        """
         evaluation = await self.eval_repo.get_with_relations(evaluation_id)
 
         if not evaluation:
@@ -310,6 +370,15 @@ class EvaluationService:
         }
 
     async def delete_evaluation(self, evaluation_id: UUID) -> Optional[dict]:
+        """
+        Delete an evaluation and its screenshots.
+
+        Args:
+            evaluation_id: UUID of the evaluation.
+
+        Returns:
+            Dict with evaluation_id and status. None if not found.
+        """
         evaluation = await self.eval_repo.get_with_relations(evaluation_id)
 
         if not evaluation:
@@ -330,6 +399,19 @@ class EvaluationService:
     async def start_evaluation(
         self, evaluation_id: UUID, on_progress
     ) -> Optional[dict]:
+        """
+        Mark evaluation as RUNNING and run EvaluationRunner as a background asyncio task.
+
+        Args:
+            evaluation_id: UUID of the evaluation.
+            on_progress: Async callback used to emit progress events using WebSocket.
+
+        Returns:
+            Dict with evaluation_id and status. None if not found.
+
+        Raises:
+            ValueError: If the evaluation is not in PENDING status.
+        """
         evaluation = await self.eval_repo.get_with_relations(evaluation_id)
 
         if not evaluation:
@@ -338,8 +420,10 @@ class EvaluationService:
         if evaluation.status != EvaluationStatus.PENDING:
             raise ValueError(f"Evaluation already {evaluation.status.value}")
 
+        # Dirty import here to avoid circular imports at module load time :)
         from src.config import get_settings
 
+        # Init cancellation flag before the runner starts
         evaluation_cancellation[evaluation_id] = False
         await self.eval_repo.update_status(
             evaluation,
@@ -360,6 +444,12 @@ class EvaluationService:
         }
 
     async def list_personas(self) -> list[PersonaResponse]:
+        """
+        Fetch all personas and return them as response objects.
+
+        Returns:
+            List of PersonaResponse objects.
+        """
         personas = await PersonaRepository(self.session).list_all()
         return [
             PersonaResponse(id=p.id, name=p.name, description=p.description)
@@ -367,6 +457,15 @@ class EvaluationService:
         ]
 
     async def copy_evaluation(self, evaluation_id: UUID) -> Optional[dict]:
+        """
+        Create a copy of an existing evaluation.
+
+        Args:
+            evaluation_id: UUID of the evaluation to copy.
+
+        Returns:
+            Dict with the new evaluation_id and status. None if original not found.
+        """
         new_eval = await self.eval_repo.copy(evaluation_id)
         if not new_eval:
             return None
@@ -374,11 +473,33 @@ class EvaluationService:
 
     @staticmethod
     async def get_evaluation_progress(evaluation_id: UUID) -> float:
+        """
+        Return current progress percentage for a running evaluation.
+
+        Args:
+            evaluation_id: UUID of the evaluation to check.
+
+        Returns:
+            Float between 0 and 100.
+        """
         return await EvaluationRunner._calculate_progress(evaluation_id)
 
     async def abort_evaluation(
         self, evaluation_id: UUID, on_progress
     ) -> Optional[dict]:
+        """
+        Signal the runner to stop after the current task and mark evaluation as ABORTED.
+
+        Args:
+            evaluation_id: UUID of the evaluation to abort.
+            on_progress: Async callback used to push the ABORTING status event using WebSocket.
+
+        Returns:
+            Dict with evaluation_id and status. None if not found.
+
+        Raises:
+            ValueError: If the evaluation is not in RUNNING status.
+        """
         evaluation = await self.eval_repo.get_with_relations(evaluation_id)
 
         if not evaluation:
@@ -389,6 +510,7 @@ class EvaluationService:
                 f"Cannot abort evaluation with status {evaluation.status.value}"
             )
 
+        # Runner checks this flag between tasks and stops when True
         evaluation_cancellation[evaluation_id] = True
         await self.eval_repo.update_status(evaluation, EvaluationStatus.ABORTED)
 
