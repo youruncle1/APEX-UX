@@ -99,17 +99,26 @@ class BrowserConnector:
                     success=True, feedback=f"Clicked at ({action.x}, {action.y})"
                 )
 
+            # DOUBLE_CLICK Action
+            elif action.action_type == ActionType.DOUBLE_CLICK:
+                await self.page.mouse.dblclick(action.x, action.y)
+
+                await self._wait_for_stabilization()
+
+                return ExecutionResult(
+                    success=True, feedback=f"Double-clicked at ({action.x}, {action.y})"
+                )
+
             # TYPE Action
             elif action.action_type == ActionType.TYPE:
-                await self.page.mouse.click(action.x, action.y)  # Click on Input Field
-                await self.page.wait_for_timeout(100)  # Focus delay
+                await self.page.mouse.click(action.x, action.y)
+                await self.page.wait_for_timeout(100)
 
+                await self.page.keyboard.press("Control+a")
                 await self.page.keyboard.press(
-                    "Control+a"
-                )  # Highlight previous input text (if exists)
-                await self.page.keyboard.type(
-                    action.text
-                )  # Type input (overwriting previous text, if existed)
+                    "Backspace"
+                )  # clear even when selection is ignored
+                await self.page.keyboard.type(action.text, delay=30)
 
                 await self._wait_for_stabilization()
 

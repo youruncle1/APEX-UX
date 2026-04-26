@@ -482,7 +482,7 @@ class EvaluationService:
         Returns:
             Float between 0 and 100.
         """
-        return await EvaluationRunner._calculate_progress(evaluation_id)
+        return await EvaluationRunner.calculate_progress(evaluation_id)
 
     async def abort_evaluation(
         self, evaluation_id: UUID, on_progress

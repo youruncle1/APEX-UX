@@ -5,7 +5,9 @@ from enum import Enum
 
 class ActionType(str, Enum):
     CLICK = "CLICK"
+    DOUBLE_CLICK = "DOUBLE_CLICK"
     TYPE = "TYPE"
+    SELECT = "SELECT"
     SCROLL_UP = "SCROLL_UP"
     SCROLL_DOWN = "SCROLL_DOWN"
     HOVER = "HOVER"
@@ -39,6 +41,7 @@ class Action:
     key: Optional[str] = None
     x2: Optional[int] = None
     y2: Optional[int] = None
+    option: Optional[str] = None
 
 
 @dataclass

@@ -151,7 +151,7 @@ class EvaluationRunner:
                 del evaluation_cancellation[evaluation_id]
 
     @staticmethod
-    async def _calculate_progress(evaluation_id: UUID) -> float:
+    async def calculate_progress(evaluation_id: UUID) -> float:
         async with AsyncSessionLocal() as session:
             clone_count = (
                 await session.execute(
@@ -193,7 +193,7 @@ class EvaluationRunner:
         """Emit a progress percentage every 10 seconds until cancelled."""
         while True:
             try:
-                percentage = await EvaluationRunner._calculate_progress(evaluation_id)
+                percentage = await EvaluationRunner.calculate_progress(evaluation_id)
                 await self._emit(
                     evaluation_id,
                     {

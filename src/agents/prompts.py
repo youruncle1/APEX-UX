@@ -7,6 +7,7 @@ PLANNER_ACTION_SCHEMA: dict[str, Any] = {
             "type": "string",
             "enum": [
                 "CLICK",
+                "DOUBLE_CLICK",
                 "TYPE",
                 "SCROLL_UP",
                 "SCROLL_DOWN",
@@ -62,6 +63,11 @@ You are navigating a website to try and complete a task.
   - Required: target_description (visual description of element)
   - Use for: buttons, links, tabs, dropdowns, checkboxes
   - Example: "the blue 'Login' button in the top-right corner"
+
+**DOUBLE_CLICK** - Double-click on an element
+  - Required: target_description (visual description of element)
+  - Use for: opening files, activating items that require a double-click, selecting a word in a text field
+  - Example: "the document icon labeled 'report.pdf'"
 
 **TYPE** - Type text into an input field (replaces any existing content)
   - Required: target_description (visual description of the input field)
