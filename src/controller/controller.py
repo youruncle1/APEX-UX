@@ -31,20 +31,28 @@ class TwoAgentController:
     def __init__(
         self,
         persona_context: str,  # Persona narrative for planner
-        grounder: GroundingAgent,  # Grounding Agent instance
-        browser: BrowserConnector,  # Browser instance
-        compression_threshold: Optional[
-            int
-        ] = None,  # Memory compression (summarisation) threhsold
+        viewport_width: int = 1280,
+        viewport_height: int = 720,
+        headless: bool = True,
+        browser_type: str = "chromium",
+        stabilization_wait: float = 0.5,
+        compression_threshold: Optional[int] = None,  # Memory compression threshold
         planner_backend: Optional[str] = None,  # Planner backend type
         is_cancelled: Optional[Callable[[], bool]] = None,  # Cancellation (abort) flag
     ):
-        # Initialize Planner Agent with persona injection and backend selection
         self.planner = PlannerAgent(
             persona_context=persona_context, backend=planner_backend
         )
-        self.grounder = grounder
-        self.browser = browser
+        self.grounder = GroundingAgent(
+            viewport_width=viewport_width, viewport_height=viewport_height
+        )
+        self.browser = BrowserConnector(
+            headless=headless,
+            browser_type=browser_type,
+            viewport_width=viewport_width,
+            viewport_height=viewport_height,
+            stabilization_wait=stabilization_wait,
+        )
         self.compression_threshold = compression_threshold
         self.screenshot_storage = create_screenshot_storage()
         self._is_cancelled = is_cancelled or (lambda: False)

@@ -41,7 +41,6 @@ class Action:
     key: Optional[str] = None
     x2: Optional[int] = None
     y2: Optional[int] = None
-    option: Optional[str] = None
 
 
 @dataclass

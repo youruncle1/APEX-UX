@@ -20,8 +20,6 @@ from src.database.repositories import (
     TaskRunRepository,
     PersonaRepository,
 )
-from src.agents.logic.grounder import GroundingAgent
-from src.browser_connector.connector import BrowserConnector
 from src.controller.controller import TwoAgentController, TaskAbortedError
 from src.evaluation.logic.metrics import MetricsCalculator
 from src.evaluation.self_report import SelfReportCollector
@@ -436,22 +434,13 @@ class EvaluationRunner:
 
         # each clone gets its own browser instance and agent stack
         vp = evaluation.viewport or {"width": 1280, "height": 720}
-        grounder = GroundingAgent(
-            viewport_width=vp["width"], viewport_height=vp["height"]
-        )
-        browser = BrowserConnector(
-            headless=get_settings().headless,
-            browser_type=evaluation.browser or "chromium",
-            viewport_width=vp["width"],
-            viewport_height=vp["height"],
-            stabilization_wait=get_settings().stabilization_wait,
-        )
-
         controller = TwoAgentController(
             persona_context=persona_context,
-            grounder=grounder,
-            browser=browser,
-            # pass cancellation check so the agent loop can abort between steps
+            viewport_width=vp["width"],
+            viewport_height=vp["height"],
+            headless=get_settings().headless,
+            browser_type=evaluation.browser or "chromium",
+            stabilization_wait=get_settings().stabilization_wait,
             is_cancelled=lambda: self._is_cancelled(evaluation_id),
         )
 
@@ -586,7 +575,7 @@ class EvaluationRunner:
 
         finally:
             # close the browser
-            await browser.close()
+            await controller.browser.close()
 
     async def _run_task(
         self,
