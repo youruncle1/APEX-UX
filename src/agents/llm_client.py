@@ -28,6 +28,24 @@ def get_planner_client(
     )
 
 
+def get_grounding_client(
+    model: Optional[str] = None,  # overrides UTILITY_MODEL from .env
+) -> tuple[AsyncOpenAI, str]:
+    """Build client for the GroundingAgent"""
+    settings = get_settings()
+    grounding_model = model or settings.grounding_model
+    if not grounding_model:
+        raise ValueError(
+            "GROUNDING_MODEL must be set when using the grounding agent. "
+            "Add it to your .env file."
+        )
+    client = AsyncOpenAI(
+        base_url=f"{settings.grounding_service_url}/v1",
+        api_key=settings.grounding_api_key,
+    )
+    return client, grounding_model
+
+
 def get_utility_client(
     backend: Optional[str] = None,  # overrides UTILITY_BACKEND from .env
     model: Optional[str] = None,  # overrides UTILITY_MODEL from .env

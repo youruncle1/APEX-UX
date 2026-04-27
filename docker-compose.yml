@@ -57,6 +57,10 @@ services:
 
       # Grounding
       GROUNDING_SERVICE_URL: ${GROUNDING_SERVICE_URL:-http://host.docker.internal:8000}
+      GROUNDING_API_KEY: ${GROUNDING_API_KEY:-not-needed}
+      GROUNDING_MODEL: ${GROUNDING_MODEL:-inclusionAI/UI-Venus-Ground-7B}
+      GROUNDING_MIN_PIXELS: ${GROUNDING_MIN_PIXELS:-1500000}
+      GROUNDING_MAX_PIXELS: ${GROUNDING_MAX_PIXELS:-2400000}
 
       # Browser
       HEADLESS: ${HEADLESS:-true}

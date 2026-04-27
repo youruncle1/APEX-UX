@@ -72,6 +72,13 @@ class Settings(BaseSettings):
 
     # Grounding service
     grounding_service_url: str = "http://localhost:8000"
+    grounding_api_key: str = "not-needed"
+    # Grounding model name (as on Huggingface)
+    grounding_model: Optional[str] = "inclusionAI/UI-Venus-Ground-7B"
+    # Image pixel budget. Must match server config!
+    # Example for vLLM; --mm-processor-kwargs '{"min_pixels": 2000000, "max_pixels": 4800000}'
+    grounding_min_pixels: int = 2_000_000
+    grounding_max_pixels: int = 4_800_000
 
     # Memory compression threshold:
     # - prevents context overflow during the two-agent navigation loop.
