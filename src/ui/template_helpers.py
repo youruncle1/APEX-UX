@@ -4,8 +4,8 @@ from markupsafe import Markup, escape
 def render_verification_rules(item, depth=0, show_status=False) -> Markup:
     """Recursively render a verification rule tree as HTML.
 
-    show_status=True  — completed task run, shows pass/fail colors and labels
-    show_status=False — pending task definition, shows neutral gray indicators
+    show_status=True; completed task run, shows pass/fail colors and labels
+    show_status=False; pending task definition, shows neutral gray indicators
     """
     if not item:
         msg = (

@@ -20,7 +20,7 @@ def _smart_resize(
 ) -> tuple[int, int]:
     """
     Exact copy of qwen_vl_utils.vision_process.smart_resize.
-    Taken from https://github.com/ZBXallen/Qwen2.5-VL/blob/main/qwen-vl-utils/src/qwen_vl_utils/vision_process.py, as original repository does not exist anymore.
+    Taken from https://github.com/QwenLM/Qwen3-VL/blob/main/qwen-vl-utils/src/qwen_vl_utils/vision_process.py, as original repository does not exist anymore.
     Needed to compute the model's internal image dimensions for correct coordinate normalization.
     This is used as UI-Venus-ground-7B is based off Qwen2.5-VL.
     """

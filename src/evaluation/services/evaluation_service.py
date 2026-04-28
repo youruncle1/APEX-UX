@@ -7,7 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.models import EvaluationStatus
 from src.database.repositories import EvaluationRepository, PersonaRepository
-from src.evaluation.runner import EvaluationRunner, evaluation_cancellation
+from src.evaluation.runner import (
+    EvaluationRunner,
+    evaluation_cancellation,
+    evaluation_tasks,
+)
 from src.evaluation.models.api_models import (
     EvaluationCreate,
     EvaluationSummary,
@@ -510,8 +514,14 @@ class EvaluationService:
                 f"Cannot abort evaluation with status {evaluation.status.value}"
             )
 
-        # Runner checks this flag between tasks and stops when True
+        # Set flag (cooperative check points in the controller loop)
         evaluation_cancellation[evaluation_id] = True
+
+        # Cancel the asyncio Task directly so any in-progress LLM await is interrupted immediately
+        task = evaluation_tasks.get(evaluation_id)
+        if task and not task.done():
+            task.cancel()
+
         await self.eval_repo.update_status(evaluation, EvaluationStatus.ABORTED)
 
         await on_progress(
@@ -519,12 +529,12 @@ class EvaluationService:
             {
                 "type": "status",
                 "status": "ABORTING",
-                "message": "Aborting... (finishing current task)",
+                "message": "Aborting...",
             },
         )
 
         return {
             "evaluation_id": str(evaluation_id),
             "status": "aborting",
-            "message": "Abort requested. Evaluation will stop after the current task completes.",
+            "message": "Abort requested.",
         }

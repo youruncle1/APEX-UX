@@ -32,6 +32,9 @@ logger = get_logger(__name__)
 # Cancellation flags for in-progress evaluations. Written by EvaluationService, read by EvaluationRunner.
 evaluation_cancellation: dict[UUID, bool] = {}
 
+# asyncio Task references for in-progress evaluations — allows abort to cancel immediately.
+evaluation_tasks: dict[UUID, asyncio.Task] = {}
+
 
 class TaskRunFailedError(Exception):
     """Wraps a task-run failure, carrying the task_run_id so the retry loop can delete the record."""
@@ -93,6 +96,11 @@ class EvaluationRunner:
             None. Results are persisted to the database, progress is emitted using WebSocket.
         """
 
+        # Register this task so abort_evaluation can cancel it directly
+        current = asyncio.current_task()
+        if current:
+            evaluation_tasks[evaluation_id] = current
+
         # Create background asyncio task for progress broadcast
         progress_task = asyncio.create_task(
             self._broadcast_progress_loop(evaluation_id)
@@ -132,6 +140,15 @@ class EvaluationRunner:
                             "message": "Evaluation completed successfully",
                         },
                     )
+        except asyncio.CancelledError:
+            # Task was cancelled via abort_evaluation — run cleanup then swallow
+            logger.info(
+                "Evaluation %s task cancelled, running abort cleanup", evaluation_id
+            )
+            async with AsyncSessionLocal() as session:
+                await self._abort_and_cleanup(
+                    evaluation_id, session, EvaluationRepository(session)
+                )
         except Exception as e:
             # unexpected crash outside of clone error handling
             await self._emit(
@@ -144,9 +161,10 @@ class EvaluationRunner:
         finally:
             # always stop the background progress loop
             progress_task.cancel()
-            # clear the cancellation flag so a re-run starts clean
+            # clear state so a re-run starts clean
             if evaluation_id in evaluation_cancellation:
                 del evaluation_cancellation[evaluation_id]
+            evaluation_tasks.pop(evaluation_id, None)
 
     @staticmethod
     async def calculate_progress(evaluation_id: UUID) -> float:
@@ -240,9 +258,14 @@ class EvaluationRunner:
                 results = []
                 for clone_id in clone_ids:
                     if self._is_cancelled(evaluation_id):
+                        results.append(TaskAbortedError("Abort before clone"))
                         break
-                    result = await self._run_clone_isolated(evaluation_id, clone_id)
-                    results.append(result)
+                    try:
+                        result = await self._run_clone_isolated(evaluation_id, clone_id)
+                        results.append(result)
+                    except TaskAbortedError as e:
+                        results.append(e)
+                        break
 
             # if any clone was aborted, clean all data and reset to PENDING
             aborted = any(isinstance(r, TaskAbortedError) for r in results)
@@ -454,7 +477,7 @@ class EvaluationRunner:
                         "Abort requested before task '%s...', stopping.",
                         task_def.description[:40],
                     )
-                    return  # Caller will handle cleanup
+                    raise TaskAbortedError("Aborted before task start")
 
                 # 3 attempts per task before giving up (clean record on each try)
                 max_attempts = 3
@@ -513,7 +536,7 @@ class EvaluationRunner:
                         "Abort requested after task '%s...', stopping.",
                         task_def.description[:40],
                     )
-                    return  # Caller will handle cleanup
+                    raise TaskAbortedError("Aborted after task completion")
 
             # all tasks done, collect SUS score for this clone
             logger.debug("Collecting SUS for clone %s...", persona.name)

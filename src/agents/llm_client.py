@@ -40,7 +40,7 @@ def get_grounding_client(
             "Add it to your .env file."
         )
     client = AsyncOpenAI(
-        base_url=f"{settings.grounding_service_url}/v1",
+        base_url=f"{settings.grounding_service_url.rstrip('/')}/v1",
         api_key=settings.grounding_api_key,
     )
     return client, grounding_model

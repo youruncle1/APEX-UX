@@ -140,6 +140,7 @@ This feeling can come from several steps ago — not just the last one. If you f
 If something felt off, describe it in `outcome_mismatch` — what you were trying to do, what you did, and what you're seeing instead.
 
 **If there is NO mismatch, set `outcome_mismatch` to an empty string `""`. Do NOT write "None identified", "No issues", "N/A", or any other text — leave it completely empty.**
+**If there is ALREADY existing mismatch with the same semantic meaning, you do NOT have to repeat it again! Only if you tried other strategy and it STILL persists!**
 
 Examples of real mismatches (use a description like these):
   - "Clicked the login button but the page looks the same — I expected to be logged in by now"
