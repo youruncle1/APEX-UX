@@ -210,7 +210,7 @@ class SelfReportCollector:
             for task in merged_summaries:
                 if len(task["actions"]) > per_task_budget:
                     logger.debug(
-                        "Task '%s...' has %d merged actions (budget %.0f) — generating narrative",
+                        "Task '%s...' has %d merged actions (budget %.0f), generating narrative",
                         task["description"][:40],
                         len(task["actions"]),
                         per_task_budget,

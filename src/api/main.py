@@ -125,7 +125,7 @@ async def _save_persona_image(image: UploadFile, persona_id: UUID) -> None:
         img.save(PERSONAS_DIR / f"{persona_id}.webp", "WEBP")
     except Exception:
         logger.warning(
-            "Failed to save persona image for %s — invalid image data", persona_id
+            "Failed to save persona image for %s: invalid image data", persona_id
         )
 
 
