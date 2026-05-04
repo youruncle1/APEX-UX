@@ -19,7 +19,7 @@ class BrowserConnector:
         headless: bool = True,  # Headless browser settings (False requires XServer setup or similar!)
         viewport_width: int = 1280,  # Browser viewport width
         viewport_height: int = 720,  # Browser viewport height
-        timeout: int = 10000,  # timeout (ms) safety net for playwright executions
+        timeout: int = 30000,  # timeout (ms) safety net for playwright executions
         stabilization_wait: int = 2000,  # Stabilization wait time (ms) - used after some actions
         browser_type: str = "chromium",  # Browser environment
     ):
