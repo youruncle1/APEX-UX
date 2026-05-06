@@ -37,6 +37,7 @@ class BrowserConnector:
         """
         Launches browser and navigate to initial URL
         """
+        await self.close()  # close previous browser instance, if exists
         logger.debug(
             "Launching %s browser (headless=%s)", self.browser_type, self.headless
         )
