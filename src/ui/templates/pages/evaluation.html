@@ -349,7 +349,7 @@
         // ============================================================================
 
         function showSUSModal(btn) {
-            // clone data is pre-serialized into data-clone by the server — no extra request needed
+            // clone data is pre-serialized into data-clone by the server. no extra request needed
             const clone = JSON.parse(btn.dataset.clone);
             if (!clone.sus_score) { alert('SUS data not available'); return; }
             document.getElementById('sus-persona-name').textContent = clone.persona_name;
@@ -409,7 +409,7 @@
         }
 
         function showSEQModal(btn) {
-            // task data is pre-serialized into data-task by the server — no extra request needed
+            // task data is pre-serialized into data-task by the server. no extra request needed
             const task = JSON.parse(btn.dataset.task);
             if (!task.seq_score) { alert('SEQ data not available for this task'); return; }
             document.getElementById('seq-modal-task').textContent = task.task_description;

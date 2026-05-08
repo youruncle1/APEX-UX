@@ -19,7 +19,7 @@
     <div class="space-y-4">
         {% for persona in personas %}
 
-        {# namespace() wrapper required — Jinja2 for-loop scope blocks assignment to outer variables #}
+        {# namespace() wrapper required.. Jinja2 for-loop scope blocks assignment to outer variables #}
         {% set ns = namespace(total_steps=0, total_failed=0, total_backtracks=0, total_mismatches=0, seq_sum=0, seq_count=0, completed=0, time_sum=0, time_count=0, lostness_sum=0, lostness_count=0) %}
         {% for task in persona.tasks %}
             {% set ns.total_steps = ns.total_steps + (task.steps_taken or 0) %}

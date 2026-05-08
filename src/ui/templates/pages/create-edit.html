@@ -61,7 +61,7 @@
             {% endif %}
 
             <!-- ============================================================ -->
-            <!-- SECTION 1 — Evaluation Details                               -->
+            <!-- SECTION 1 - Evaluation Details                               -->
             <!-- ============================================================ -->
             <div id="section-details" class="bg-white border border-border-gray rounded-md p-6">
                 <h2 class="text-[11px] font-semibold uppercase tracking-[0.07em] text-brand-blue mb-5">Evaluation Details</h2>
@@ -96,10 +96,10 @@
                         <select id="eval-viewport"
                                 class="block w-full rounded border border-border-gray bg-white px-3 py-2 text-sm focus:outline-none focus:border-brand-blue"
                                 onchange="onViewportChange()">
-                            <option value="1280x720">720p HD — 1280×720 (default)</option>
-                            <option value="1920x1080">1080p Full HD — 1920×1080</option>
-                            <option value="2560x1664">MacBook Air — 2560×1664</option>
-                            <option value="2560x1440">QHD — 2560×1440</option>
+                            <option value="1280x720">720p HD - 1280×720 (default)</option>
+                            <option value="1920x1080">1080p Full HD - 1920×1080</option>
+                            <option value="2560x1664">MacBook Air - 2560×1664</option>
+                            <option value="2560x1440">QHD - 2560×1440</option>
                             <option value="custom">Custom</option>
                         </select>
                         <div id="viewport-warning" class="hidden mt-1 text-xs text-amber-600">
@@ -118,7 +118,7 @@
             </div>
 
             <!-- ============================================================ -->
-            <!-- SECTION 2 — Personas                                         -->
+            <!-- SECTION 2 - Personas                                         -->
             <!-- ============================================================ -->
             <div id="section-personas" class="{% if mode == 'create' %}hidden {% endif %}bg-white border border-border-gray rounded-md p-6">
                 <div class="flex justify-between items-center mb-4">
@@ -156,7 +156,7 @@
             </div>
 
             <!-- ============================================================ -->
-            <!-- SECTION 3 — Tasks                                            -->
+            <!-- SECTION 3 - Tasks                                            -->
             <!-- ============================================================ -->
             <div id="section-tasks" class="{% if mode == 'create' %}hidden {% endif %}bg-white border border-border-gray rounded-md p-6">
                 <div class="flex justify-between items-center mb-5">
@@ -557,7 +557,7 @@
                                 <span class="relative group cursor-help inline-flex items-center">
                                     <svg class="w-3.5 h-3.5 text-muted-gray" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                     <span class="absolute right-0 bottom-full mb-2 w-72 p-2.5 text-xs bg-brand-navy text-white rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 leading-relaxed">
-                                        Minimum number of pages needed to complete this task via the optimal path. If set, a <strong>Lostness</strong> score (Smith, 1996) will be calculated — a usability metric measuring navigation confusion. 0 = perfect navigation, higher = more disoriented.
+                                        Minimum number of pages needed to complete this task via the optimal path. If set, a <strong>Lostness</strong> score (Smith, 1996) will be calculated - a usability metric measuring navigation confusion. 0 = perfect navigation, higher = more disoriented.
                                     </span>
                                 </span>
                             </label>
@@ -593,7 +593,7 @@
                                             onclick="setVerifyLogic(${taskId}, 'all_of')"
                                             class="px-3 py-1 text-xs font-medium text-muted-gray bg-white">ALL</button>
                                 </div>
-                                <span id="verify-logic-hint-${taskId}" class="text-xs text-muted-gray">— any rule passes</span>
+                                <span id="verify-logic-hint-${taskId}" class="text-xs text-muted-gray">- any rule passes</span>
                             </div>
                             <div id="verify-rules-${taskId}" class="space-y-2"></div>
                             <div class="flex items-center gap-3 mt-2">
@@ -627,7 +627,7 @@
         }
 
         // ============================================================================
-        // VERIFICATION — TOGGLE & LOGIC
+        // VERIFICATION - TOGGLE & LOGIC
         // ============================================================================
 
         function isVerifyEnabled(taskId) {
@@ -668,18 +668,18 @@
             if (logic === 'any_of') {
                 anyBtn.className = activeClass;
                 allBtn.className = inactiveClass;
-                hint.textContent = '— any rule passes';
+                hint.textContent = '- any rule passes';
                 groupBtn.classList.add('hidden');
             } else {
                 anyBtn.className = inactiveClass;
                 allBtn.className = activeClass;
-                hint.textContent = '— all rules must pass';
+                hint.textContent = '- all rules must pass';
                 groupBtn.classList.remove('hidden');
             }
         }
 
         // ============================================================================
-        // VERIFICATION RULES — FLAT RULES
+        // VERIFICATION RULES - FLAT RULES
         // ============================================================================
 
         function addVerifyRule(taskId) {
@@ -708,7 +708,7 @@
         }
 
         // ============================================================================
-        // VERIFICATION RULES — OR GROUPS (only available in ALL mode)
+        // VERIFICATION RULES - OR GROUPS (only available in ALL mode)
         // ============================================================================
 
         function addVerifyORGroup(taskId) {
@@ -721,7 +721,7 @@
             groupDiv.className = 'border border-brand-blue rounded p-2.5 bg-brand-blue/5';
             groupDiv.innerHTML = `
                 <div class="flex justify-between items-center mb-2">
-                    <span class="text-xs font-medium text-brand-navy">OR group <span class="font-normal text-muted-gray">— any one passes</span></span>
+                    <span class="text-xs font-medium text-brand-navy">OR group <span class="font-normal text-muted-gray">- any one passes</span></span>
                     <button type="button" onclick="removeVerifyORGroup(${taskId}, ${groupId})"
                             class="text-xs text-error-red hover:opacity-70">Remove</button>
                 </div>
@@ -731,7 +731,7 @@
             `;
             container.appendChild(groupDiv);
             verifyGroupRuleCounter[`${taskId}-${groupId}`] = 0;
-            addVerifyGroupRule(taskId, groupId);  // OR groups need at least 2 rules — prefill both
+            addVerifyGroupRule(taskId, groupId);  // OR groups need at least 2 rules - prefill both
             addVerifyGroupRule(taskId, groupId);
         }
 

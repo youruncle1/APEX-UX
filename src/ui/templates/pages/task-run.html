@@ -437,7 +437,7 @@
 
         async function fetchScreenshot(url) {
             if (screenshotCache[url]) return screenshotCache[url];
-            // proxy through /api/screenshot — handles both local paths and signed S3 URLs uniformly
+            // proxy through /api/screenshot. handles both local paths and signed S3 URLs
             const res = await fetch(`/api/screenshot?url=${encodeURIComponent(url)}`);
             const data = await res.json();
             screenshotCache[url] = data.data;  // cache base64 to avoid re-fetching on timeline click
@@ -493,7 +493,7 @@
                         const angle = Math.atan2(y2 - y1, x2 - x1);
                         const arrowLen = 24;
 
-                        // Glow pass — line + arrowhead
+                        // line + arrowhead
                         ctx.strokeStyle = 'rgba(236, 72, 153, 0.6)';
                         ctx.lineWidth = 5;
                         ctx.shadowColor = 'rgba(236, 72, 153, 1)';
@@ -507,7 +507,7 @@
                         ctx.lineTo(x2 - arrowLen * Math.cos(angle + 0.4), y2 - arrowLen * Math.sin(angle + 0.4));
                         ctx.stroke();
 
-                        // Sharp pass — line + arrowhead
+                        // line + arrowhead
                         ctx.strokeStyle = 'rgba(236, 72, 153, 0.95)';
                         ctx.lineWidth = 3;
                         ctx.shadowBlur = 6;
@@ -671,7 +671,7 @@
         // ============================================================================
 
         function showSEQModal() {
-            // reads directly from taskRunData — single task run context, no data-* attribute needed
+            // reads directly from taskRunData... single task run context, no data-* attribute needed
             const m = taskRunData.metrics;
             if (!m || !m.seq_score) return;
             document.getElementById('seq-modal-task').textContent = taskRunData.task_description;
