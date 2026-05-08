@@ -8,3 +8,4 @@ tests
 storage/screenshots/*
 !storage/screenshots/.gitkeep
 tunnel.sh
+demo
