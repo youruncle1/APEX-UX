@@ -108,7 +108,7 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                 Summary Metrics
             </h2>
-            <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-4" id="summary-metrics">
                 <div class="text-center">
                     <div class="text-3xl font-bold text-brand-blue">{{ metrics.success_rate }}</div>
                     <div class="text-sm text-muted-gray">Task Success Rate</div>
@@ -315,25 +315,23 @@
         function handleProgressMessage(message) {
             if (message.type === 'progress') {
                 updateProgressBar(message.percentage);
-                htmx.trigger(document.getElementById('persona-results'), 'refresh');
+                htmx.ajax('GET', `/partials/evaluation/${evaluationId}/personas`, {
+                    target: '#persona-results',
+                    swap: 'outerHTML'
+                });
+                htmx.ajax('GET', `/partials/evaluation/${evaluationId}/metrics`, {
+                    target: '#summary-metrics',
+                    swap: 'innerHTML'
+                });
                 return;
             }
-
-            const container = document.getElementById('progress-messages');
-            const section   = document.getElementById('progress-section');
-            const title     = document.getElementById('progress-title');
-            const ts        = new Date().toLocaleTimeString();
-
             if (message.type === 'status' && message.status === 'ABORTING') {
-                title.textContent = 'Aborting... (finishing current task)';
-                title.style.color = C.warnAmberDark;
-                section.style.backgroundColor = C.warnAmberBg;
-                section.style.borderColor = C.warnAmberBorder;
                 const pill = document.getElementById('status-pill');
                 if (pill) {
                     pill.textContent = 'Aborting';
                     pill.className = 'inline-block px-[10px] py-[3px] text-[11px] font-semibold tracking-[0.04em] uppercase rounded-full bg-error-red text-white animate-pulse';
                 }
+                return;
             }
             if (message.type === 'status' && message.status === 'ABORTED_RESET') {
                 setTimeout(() => window.location.reload(), 1000); return;
@@ -344,13 +342,6 @@
             if (message.type === 'status' && message.status === 'FAILED') {
                 setTimeout(() => window.location.reload(), 2000); return;
             }
-
-            const icon = message.type === 'error' ? '✗' : '·';
-            const div = document.createElement('div');
-            div.className = 'flex items-start gap-2';
-            div.innerHTML = `<span class="text-xs whitespace-nowrap" style="color:${C.mutedGray}">[${ts}]</span><span>${icon}</span><span>${message.message || JSON.stringify(message)}</span>`;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
         }
 
         // ============================================================================
