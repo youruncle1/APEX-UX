@@ -82,7 +82,6 @@
     </div>
     {% endif %}
 
-    <!-- Main Content -->
     <main class="max-w-[1600px] mx-auto px-8 py-8 space-y-6">
 
         <!-- Progress Bar (RUNNING only) -->
@@ -334,6 +333,7 @@
                 return;
             }
             if (message.type === 'status' && message.status === 'ABORTED_RESET') {
+                // short delay lets the final WS event complete before reloading to PENDING state
                 setTimeout(() => window.location.reload(), 1000); return;
             }
             if (message.type === 'status' && message.status === 'COMPLETED') {

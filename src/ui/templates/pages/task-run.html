@@ -33,7 +33,6 @@
 
 {% block content %}
 
-    <!-- Main Content -->
     <main class="max-w-[1600px] mx-auto px-8 py-8">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -301,7 +300,7 @@
         let detailMetricsVisible = false;
         const screenshotCache = {};
 
-        // Build outcome mismatches map
+        // step number → mismatch description, used to annotate timeline and action details
         const outcomeMismatchesMap = {};
         if (taskRunData.outcome_mismatches) {
             taskRunData.outcome_mismatches.forEach(item => {
@@ -414,6 +413,10 @@
 
             document.getElementById('action-details').innerHTML = html;
         }
+
+        // ============================================================================
+        // SCREENSHOT
+        // ============================================================================
 
         async function loadScreenshot(screenshotUrl, boundingBox, clickCoordinates) {
             const loadingEl = document.getElementById('screenshot-loading');
@@ -566,7 +569,10 @@
             });
         }
 
-        // Cinema mode
+        // ============================================================================
+        // CINEMA MODE
+        // ============================================================================
+
         function openCinema() {
             cinemaOpen = true;
             document.getElementById('cinema-modal').classList.remove('hidden');
@@ -631,7 +637,10 @@
             document.getElementById('cinema-action-details').innerHTML = html;
         }
 
-        // Detailed metrics toggle
+        // ============================================================================
+        // DETAIL METRICS
+        // ============================================================================
+
         function toggleDetailMetrics() {
             detailMetricsVisible = !detailMetricsVisible;
             document.getElementById('detail-metrics').classList.toggle('hidden', !detailMetricsVisible);
@@ -655,6 +664,10 @@
                 </div>
             `;
         }
+
+        // ============================================================================
+        // MODALS
+        // ============================================================================
 
         function showSEQModal() {
             const m = taskRunData.metrics;

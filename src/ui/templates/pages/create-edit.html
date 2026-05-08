@@ -798,7 +798,7 @@
                 const container = document.getElementById(`verify-rules-${taskId}`);
                 const lastRule = container.lastElementChild;
                 if (!lastRule) return;
-                const ruleId = lastRule.id.split('-').pop();
+                const ruleId = lastRule.id.split('-').pop();  // id suffix is the counter-generated ruleId
                 _fillRuleFields(
                     document.getElementById(`verify-rule-type-${taskId}-${ruleId}`),
                     document.getElementById(`verify-rule-value-${taskId}-${ruleId}`),

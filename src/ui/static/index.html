@@ -85,7 +85,7 @@
     <script>
         function switchTab(tab) {
             const tabs = ['evaluations', 'personas'];
-            tabs.forEach(function(t) {
+            tabs.forEach(function(t) {  // personas panel is lazy-loaded on first switch
                 const btn = document.getElementById('tab-' + t);
                 const panel = document.getElementById('panel-' + t);
                 if (t === tab) {
@@ -115,6 +115,7 @@
             document.querySelectorAll('.dropdown').forEach(d => d.classList.add('hidden'));
             if (!isOpen) {
                 dropdown.classList.remove('hidden');
+                // fixed-position dropdown anchored to button rect so it escapes any overflow:hidden parent
                 const b = btn.getBoundingClientRect();
                 const d = dropdown.getBoundingClientRect();
                 dropdown.style.top  = (b.bottom + 4) + 'px';

@@ -26,6 +26,7 @@
 </div>
 {% endmacro %}
 
+{# drive hx-trigger polling rate: 3s during abort (fast), 10s while running (slow) #}
 {% set has_running = evaluations | selectattr('status', 'equalto', 'RUNNING') | list | length > 0 %}
 {% set has_aborting = evaluations | selectattr('status', 'equalto', 'ABORTED') | list | length > 0 %}
 {% set running_count = evaluations | selectattr('status', 'equalto', 'RUNNING') | list | length %}
