@@ -96,38 +96,43 @@ class GroundingAgent:
             }
         ]
 
-        try:
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                max_completion_tokens=64,
-                temperature=0.0,
-            )
-            text = (response.choices[0].message.content or "").strip()
+        def to_px(val: float, internal_dim: int, viewport_dim: int) -> int:
+            return max(0, min(int(val / internal_dim * viewport_dim), viewport_dim))
 
-            # Model outputs "[x1,y1,x2,y2]", parse first match
-            match = re.search(
-                r"\[\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)\s*\]",
-                text,
-            )
-            if not match:
-                logger.warning("Could not parse bounding box from: %s", text[:120])
-                return None
+        for attempt in range(1, 4):
+            try:
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    max_completion_tokens=64,
+                    temperature=0.0,
+                )
+                text = (response.choices[0].message.content or "").strip()
 
-            box = [float(match.group(i)) for i in range(1, 5)]
+                # Model outputs "[x1,y1,x2,y2]", parse first match
+                match = re.search(
+                    r"\[\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)\s*\]",
+                    text,
+                )
+                if not match:
+                    logger.warning(
+                        "Could not parse bounding box (attempt %d/3): %s",
+                        attempt,
+                        text[:120],
+                    )
+                    continue
 
-            # Convert from model's internal pixel space to normalized [0,1] to viewport pixels
-            def to_px(val: float, internal_dim: int, viewport_dim: int) -> int:
-                return max(0, min(int(val / internal_dim * viewport_dim), viewport_dim))
+                box = [float(match.group(i)) for i in range(1, 5)]
+                x1 = to_px(box[0], self._input_width, self.viewport_width)
+                y1 = to_px(box[1], self._input_height, self.viewport_height)
+                x2 = to_px(box[2], self._input_width, self.viewport_width)
+                y2 = to_px(box[3], self._input_height, self.viewport_height)
 
-            x1 = to_px(box[0], self._input_width, self.viewport_width)
-            y1 = to_px(box[1], self._input_height, self.viewport_height)
-            x2 = to_px(box[2], self._input_width, self.viewport_width)
-            y2 = to_px(box[3], self._input_height, self.viewport_height)
+                logger.debug("Located at (%d, %d, %d, %d)", x1, y1, x2, y2)
+                return BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2)
 
-            logger.debug("Located at (%d, %d, %d, %d)", x1, y1, x2, y2)
-            return BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2)
+            except Exception as e:
+                logger.warning("Grounding error (attempt %d/3): %s", attempt, e)
 
-        except Exception as e:
-            logger.error("Grounding error: %s", e)
-            return None
+        logger.error("Grounding failed after 3 attempts")
+        return None
