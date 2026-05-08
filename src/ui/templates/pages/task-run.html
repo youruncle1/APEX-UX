@@ -437,9 +437,10 @@
 
         async function fetchScreenshot(url) {
             if (screenshotCache[url]) return screenshotCache[url];
+            // proxy through /api/screenshot — handles both local paths and signed S3 URLs uniformly
             const res = await fetch(`/api/screenshot?url=${encodeURIComponent(url)}`);
             const data = await res.json();
-            screenshotCache[url] = data.data;
+            screenshotCache[url] = data.data;  // cache base64 to avoid re-fetching on timeline click
             return data.data;
         }
 
@@ -670,6 +671,7 @@
         // ============================================================================
 
         function showSEQModal() {
+            // reads directly from taskRunData — single task run context, no data-* attribute needed
             const m = taskRunData.metrics;
             if (!m || !m.seq_score) return;
             document.getElementById('seq-modal-task').textContent = taskRunData.task_description;

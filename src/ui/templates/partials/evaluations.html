@@ -1,3 +1,4 @@
+{# can_edit/can_delete are false for RUNNING/ABORTED, grayed out to prevent mid-run mutations #}
 {% macro action_dropdown(ev, can_edit, can_delete) %}
 <div class="dropdown-wrap">
     <button onclick="toggleMenu(this)" class="bg-transparent border border-[#7e7e7e] rounded text-[#7e7e7e] font-bold leading-none px-[9px] py-1 cursor-pointer tracking-widest hover:border-brand-navy hover:text-brand-navy transition-colors">···</button>

@@ -349,6 +349,7 @@
         // ============================================================================
 
         function showSUSModal(btn) {
+            // clone data is pre-serialized into data-clone by the server — no extra request needed
             const clone = JSON.parse(btn.dataset.clone);
             if (!clone.sus_score) { alert('SUS data not available'); return; }
             document.getElementById('sus-persona-name').textContent = clone.persona_name;
@@ -398,6 +399,7 @@
         function closeSUSModal() { document.getElementById('sus-modal').classList.add('hidden'); }
         function closePersonaModal() { document.getElementById('persona-modal').classList.add('hidden'); }
 
+        // thresholds from Bangor et al. (2009) adjective rating scale
         function getSUSInterpretation(score) {
             if (score >= 80) return { label: 'Excellent', color: C.successGreen };
             if (score >= 68) return { label: 'Good',      color: C.brandBlue };
@@ -407,6 +409,7 @@
         }
 
         function showSEQModal(btn) {
+            // task data is pre-serialized into data-task by the server — no extra request needed
             const task = JSON.parse(btn.dataset.task);
             if (!task.seq_score) { alert('SEQ data not available for this task'); return; }
             document.getElementById('seq-modal-task').textContent = task.task_description;

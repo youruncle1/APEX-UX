@@ -731,7 +731,7 @@
             `;
             container.appendChild(groupDiv);
             verifyGroupRuleCounter[`${taskId}-${groupId}`] = 0;
-            addVerifyGroupRule(taskId, groupId);
+            addVerifyGroupRule(taskId, groupId);  // OR groups need at least 2 rules — prefill both
             addVerifyGroupRule(taskId, groupId);
         }
 
@@ -765,7 +765,7 @@
 
         function removeVerifyGroupRule(taskId, groupId, ruleId) {
             const container = document.getElementById(`verify-group-rules-${taskId}-${groupId}`);
-            if (container && container.children.length <= 2) {
+            if (container && container.children.length <= 2) {  // minimum 2 rules in OR group
                 alert('OR groups need at least 2 rules. Remove the group instead.');
                 return;
             }
@@ -810,9 +810,9 @@
                 addVerifyORGroup(taskId);
                 const container = document.getElementById(`verify-rules-${taskId}`);
                 const groupEl = container.lastElementChild;
-                const groupId = groupEl.id.split('-').pop();
+                const groupId = groupEl.id.split('-').pop();  // id suffix is the counter-generated groupId
                 const groupRulesContainer = document.getElementById(`verify-group-rules-${taskId}-${groupId}`);
-                groupRulesContainer.innerHTML = '';
+                groupRulesContainer.innerHTML = '';  // clear prefilled rules before populating from saved data
                 verifyGroupRuleCounter[`${taskId}-${groupId}`] = 0;
                 (group.conditions || []).forEach(rule => {
                     addVerifyGroupRule(taskId, groupId);
@@ -854,6 +854,7 @@
             const conditions = [];
 
             for (let child of rulesContainer.children) {
+                // distinguish OR group divs from flat rule divs by id prefix
                 if (child.id.startsWith(`verify-group-${taskId}-`)) {
                     const groupId = child.id.split('-').pop();
                     const groupRulesContainer = document.getElementById(`verify-group-rules-${taskId}-${groupId}`);
