@@ -28,29 +28,6 @@ The database is initialized automatically on first run. The app is available at 
 
 ---
 
-## Demo: Pre-collected Evaluation Data
-
-A separate Compose file is provided to spin up the application pre-loaded with the evaluation data collected for the thesis. This requires no AI API keys or external model services. It is a read-only snapshot intended for inspecting results without running new evaluations.
-
-The demo dataset includes:
-
-- **3 completed evaluations** against 2 websites (`fit.vut.cz`, `datart.cz`)
-- **13 simulated user personas** across the evaluations
-- **4 tasks** per evaluation
-- **721 screenshots** captured during navigation
-
-To start the demo:
-
-```bash
-docker compose -f docker-compose.demo.yml up
-```
-
-The app will be available at **http://localhost:8002**. All evaluation results, task runs, and screenshots are pre-populated and immediately accessible through the UI.
-
-> **Note:** Running new evaluations from within the demo instance will fail, as no real AI backend is configured. The demo is strictly for viewing existing results.
-
----
-
 ## Model Services
 
 For evaluations to work, two model services must be reachable from the container.
